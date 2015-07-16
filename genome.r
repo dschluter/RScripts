@@ -1,18 +1,49 @@
 g<-list()
 
 # names(g)
- # [1] "recode"             "psd"                "blockstats"         "slidewin"          
- # [5] "plot.reads"         "peel"               "flag.readable"      "gtf2thirdpositions"
- # [9] "tstv"               "write.bedGraph"
+ # [1] "makeGenotypeGVCFspbs" "downloadSra"          "recode"              
+ # [4] "geno.diff"            "psd"                  "blockstats"          
+ # [7] "slidewin"             "plot.reads"           "peel"                
+# [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
+# [13] "write.bedGraph"       "wc.revised"          
  
-g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, GATK = "3.4.0", mem = 4, walltime = 24){
-	# Based on makeGenotypeGVCFspbs.Rscript but allows more flexibility in which files to analyze.
-	# Generates qsub file "genotypeGVCFs.pbs" to carry out GATK genotypeGVCFs to call snps from multiple gvcf files inputted
-	# Chromosome name is extracted from vcf file names and assuming fasta file is named "chr[A-z1]+.fa"
+g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", mem = 4, walltime = 24){
+	# Generates qsub file "genotypeGVCFs.pbs" to carry out GATK genotypeGVCFs to call snps
+	#	from multiple gvcf files inputted, one chromosome at a time
+	# If chromosome is specified ("chrXXI" or "XXI") then only gvcf files having that chr are permitted.
+	# If chromosome is not specified, it is extracted from gvcf file names.
+	# Method assumes fasta file is named "chromosome.fa"
 	# mem is in gb
 	# walltime is in hours
+	# Based on "makeGenotypeGVCFspbs.Rscript" but allows more flexibility in which files to analyze.
 	
-	pbsfile <- file("genotypeGVCFs.pbs", "w")
+	cat("\ngvcffiles inputted:\n")
+	for(i in 1:length(gvcffiles)){
+		cat(gvcffiles[i],"\n")
+		}
+
+	# Get the chromosome number
+	if(!is.null(chromosome)){
+		chromosome <- gsub("chr","", chromosome)
+		chromosome <- paste("chr", chromosome, sep = "")
+		testfiles <- gvcffiles[grep(chromosome, gvcffiles)]
+		if(length(testfiles) != length(gvcffiles)) stop("some filenames don't agree with chromosome name")
+		}
+	else{
+		# Extract chromosome names
+		z <- regexpr(text = gvcffiles, pattern = "[.]chr[A-z1]+[.]") # the "1" is for pitx1
+		if( any(z < 1) ) stop("chromosome name missing from some filenames")
+		chromosome <- substr(gvcffiles, z + 1, z + attr(z,"match.length") - 2)
+		chromosome <- unique( chromosome )	
+		# Check that there's only one chromosome included
+		if( length(chromosome) != 1 ){
+			stop("chr missing from some filenames, or more than one chromosome represented")
+			}
+		}
+	fname <- paste("genotypeGVCFs", chromosome, "pbs", sep = ".")
+	pbsfile <- file(fname, "w")
+	cat("\ninstructions being written to", fname, "\n")
+	
 	writeLines("#!/bin/bash", pbsfile)
 	writeLines("#PBS -S /bin/bash", pbsfile)
 #	writeLines("#PBS -l walltime=24:00:00", pbsfile)
@@ -29,31 +60,14 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, GATK = "3.4.0", mem = 
 
 	if( !all(grepl("[.]vcf$", gvcffiles)) ) stop("Provide only .vcf files as arguments")
 
-	cat("\ngvcffiles inputted:\n")
-	for(i in 1:length(gvcffiles)){
-		cat(gvcffiles[i],"\n")
-		}
-
-	# Extract chromosome names
-	# z <- gsub("[A-z0-9_-]*[.](chr[A-z1]+)[.]vcf", "\\1", gvcffiles) # this works but without the chr check
-	z <- regexpr(text = gvcffiles, pattern = "[.]chr[A-z1]+[.]") # the "1" is for pitx1
-	if( any(z < 1) ){
-		stop("'chr' missing from some filenames")
-		}
-	chromosomes <- substr(gvcffiles, z + 1, z + attr(z,"match.length") - 2)
-	chromosomes <- unique( chromosomes )	
-	# Check that there's only one chromosome included
-	if( length(chromosomes) != 1 ){
-		stop("'chr' missing from some filenames or more than one chromosome included")
-		}
-
 	# We assume that the fasta file for the reference chromosome is named chr[A-z1].fa	
-	fastafile <- paste(chromosomes, ".fa", sep = "")
+	fastafile <- paste(chromosome, ".fa", sep = "")
 	if( !file.exists(fastafile) ) stop("'chr.fa' fasta file missing")
 	
 #	writeLines("module load gatk/3.4.0", pbsfile)
 	writeLines(paste("module load gatk/", GATK, sep = ""), pbsfile)
-	writeLines(paste("# Using GATK v ", GATK, sep = ""), pbsfile)
+#	writeLines(paste("# Using GATK v ", GATK, sep = ""), pbsfile)
+	cat("\nUsing GATK v", GATK, "\n")
 	
 	writeLines("# the -jar GenomeAnalysisTK.jar argument is included in the java call in gatk.sh so superfluous here", pbsfile)
 
@@ -66,7 +80,7 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, GATK = "3.4.0", mem = 
 		writeLines(vcfarguments[i], pbsfile)
 		}
 	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles 3 -o", outvcfname), pbsfile)
-	cat("\nSetting max_alternate_alleles to 3\n")
+	cat("Setting max_alternate_alleles to 3\n")
 	
 	close(pbsfile)
 	}

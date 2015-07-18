@@ -92,7 +92,7 @@ g<-list()
 	# # load(file = processedInvariantsFile) # processedInvariants
 	# }
 
-g$makeChrMaskfile <-  function(chrname, windowsmaskername){
+g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	chr <- scan(paste(chrname, ".fa", sep = ""), what=character())  # get genome
 	chr <- chr[-1] # drops the line with ">chr??"
 	chr <- paste(chr, collapse="") # combined all the lines into a single word
@@ -132,9 +132,11 @@ g$makeChrMaskfile <-  function(chrname, windowsmaskername){
 	# 2464777 2130503 2128953 2521828 2471426 
 	
 	# Save to .rdd file in vcfdir
+	chrno <- gsub("^chr", "", chrname)
+	chrmaskfile <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
 	cat("\nSaving masked chrvec object to", chrmaskfile, "\n")
 	save(chrvec, file = chrmaskfile)
-	return(chrvec)
+	#return(chrvec)
 	}        
  
 g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", mem = 4, walltime = 24){

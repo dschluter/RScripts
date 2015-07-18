@@ -5,7 +5,137 @@ g<-list()
  # [4] "geno.diff"            "psd"                  "blockstats"          
  # [7] "slidewin"             "plot.reads"           "peel"                
 # [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
-# [13] "write.bedGraph"       "wc.revised"          
+# [13] "write.bedGraph"       "wc.revised"
+
+# g$processInvariants <- function(invariantsummaryname, groups){
+	# # Process invariants, include remove masked invariants
+	# # Make sure there are no instances of "0/0" that get into the .inv file
+	
+	# cat("\nReading ", invariantsummaryname, ", counting good GT in each group (DP >= ", DPmin, 
+		# "), and removing masked bases\n", sep = "")
+	# x <- read.table(invariantsummaryname, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
+	# names(x)[1] <- "POS"
+	
+	# cat("\nVariable names in .inv file\n")
+	# print(names(x))
+	
+	# # nrow(x)
+	# # [1] 11326246
+
+	# # Drop rows masked in the reference genome
+	# maskedPOS <- which(chrvec == "M")
+	# z <- x$POS %in% maskedPOS
+	# x <- x[!z,]
+
+	# # table(z)
+	  # # FALSE    TRUE 
+	# # 8912903 2413343 
+
+	# # nrow(x)
+	# # [1] 8912903
+	
+	# y <- lapply(x[, -c(1:2)], function(x){
+		# y <- as.integer(sub("[0-9]*[:/]([0-9]+)", "\\1", x))
+		# y <- (y >= DPmin) # TRUE if DP of a given genotype is bigger than DPmin
+		# })
+	# y <- data.frame(y)
+	# # y[5526679,] # so far so good
+		        # # paxb_04 paxb_05 paxb_06 paxb_07 paxb_08 paxb_09 paxl_01 paxl_05 paxl_09 paxl_10 paxl_13 paxl_14
+	# # 5526679    TRUE   FALSE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE
+
+	# # groups
+	# # [1] 1 1 1 1 1 1 2 2 2 2 2 2
+	 
+	# # Split the data frame by group and take the sum of each row to get the total number of individuals that 
+	# # meet the DP minimum depth of coverage criterion DPmin within each group.
+	# z <- split(names(y), groups)
+	# # $`1`
+	# # [1] "paxb_04" "paxb_05" "paxb_06" "paxb_07" "paxb_08" "paxb_09"	
+	# # $`2`
+	# # [1] "paxl_01" "paxl_05" "paxl_09" "paxl_10" "paxl_13" "paxl_14"
+	# z1 <- lapply(z, function(z){
+		# z1 <- apply(y[, z], 1, sum)
+		# })
+	# # table(z1[[1]])
+	      # # 0       1       2       3       4       5       6 
+	 # # 311457   74519   45747   50892   84189  169317 8303918 
+
+	# processedInvariants <- data.frame(x[, c(1:2)], z1)
+	# names(processedInvariants)[3:4] <- paste(rep(c("nGTgroup"), length(unique(groups))), seq(1:length(unique(groups))), sep = "")
+	# # names(processedInvariants)
+	# # "POS"       "REF"       "nGTgroup1" "nGTgroup2"
+	
+	# # To be consistent with the snps, drop all invariant bases that do not meet the minimum number of genotypes criterion
+	# z <- mapply(z1, as.list(nMin), FUN=function(z1, nMin){
+		# z <- z1 >= nMin
+		# })
+	# z <- data.frame(z)
+	# keep <- apply(z, 1, all)
+
+	# processedInvariants <- processedInvariants[keep, ]
+		     # # nGTgroup1 nGTgroup2
+	# # 254          6         5
+	# # 255          6         5
+	# # 1901         4         4
+	# # 1902         4         4
+	# # 1903         4         5
+	# # 1904         4         5
+
+	# # nrow(processedInvariants)
+	# # [1] 8428778
+	# rm(x, z, z1, y, keep)
+
+	# # Save to vcfdir
+	# cat("\nSaving processed invariants\n")
+	# save(processedInvariants, file = processedInvariantsFile)
+	# return(processedInvariants)
+	# # load(file = processedInvariantsFile) # processedInvariants
+	# }
+
+g$makeChrMaskfile <-  function(chrname, windowsmaskername){
+	chr <- scan(paste(chrname, ".fa", sep = ""), what=character())  # get genome
+	chr <- chr[-1] # drops the line with ">chr??"
+	chr <- paste(chr, collapse="") # combined all the lines into a single word
+	chrvec <- strsplit(chr, split="")[[1]] # break apart genome into individual bases
+	
+	#table(chrvec) # lower case refers to masked bases from the initial assembly (? maybe not in gasAcu1.fa?)
+	#      A       C       G       N       T 
+	#3133419 2580881 2578205  275208 3149774
+	
+	# Using repeatmasker output Felicity gave me on Oct 31, 2012
+	chrmaskinfo <- read.table(windowsmaskername, stringsAsFactors = FALSE) 
+	names(chrmaskinfo) <- c("chrno","from","to")
+	
+	#head(chrmaskinfo)
+	   # chrno from   to
+	# 1 chrXXI    0  423
+	# 2 chrXXI  435 3277
+	# 3 chrXXI 3285 6311
+	# 4 chrXXI 6319 7888
+	# 5 chrXXI 7976 8026
+	# 6 chrXXI 8082 8874
+	
+	# ---
+	# Get the positions of all the masked bases
+	# NOTE: windowmasker start position is 0-based, so add 1 (end position is 1-based!)
+	# Note: chrmaskinfo[ ,-1] used because otherwise each vector x is converted to all character and "seq" generates error
+	
+	z <- apply(chrmaskinfo[ ,-1], 1, function(x){seq(from=x[1] + 1, to=x[2])}) 
+	m <- unlist(z) 
+	
+	chrvec[m] <- "M" # convert all these bases to "M" to indicate masked regions 
+	
+	cat("Summary of masked chromosome:")
+	print(table(chrvec)) # Notice that "N" is not present anymore, so these were also masked in windowsmaskerSdust.chrXXI.txt
+	# chrvec
+	  # A       C       G       M       T 
+	# 2464777 2130503 2128953 2521828 2471426 
+	
+	# Save to .rdd file in vcfdir
+	cat("\nSaving masked chrvec object to", chrmaskfile, "\n")
+	save(chrvec, file = chrmaskfile)
+	return(chrvec)
+	}        
  
 g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", mem = 4, walltime = 24){
 	# Generates qsub file "genotypeGVCFs.pbs" to carry out GATK genotypeGVCFs to call snps

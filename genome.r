@@ -7,64 +7,107 @@ g<-list()
 # [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
 # [13] "write.bedGraph"       "wc.revised"
 
-# g$processInvariants <- function(invariantsummaryname, groups){
-	# # Process invariants, include remove masked invariants
-	# # Make sure there are no instances of "0/0" that get into the .inv file
+g$countGoodInvariantsByGroup <- function(invariantsummaryname, chrvec, DPmin, groupcodes){
+	# Removes masked invariants and for each remaining invariant 
+	#	counts the number of fish in each group whose DP > DPmin
+	# Watch out for instances of ".:" that get into the .inv file
 	
-	# cat("\nReading ", invariantsummaryname, ", counting good GT in each group (DP >= ", DPmin, 
-		# "), and removing masked bases\n", sep = "")
-	# x <- read.table(invariantsummaryname, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
-	# names(x)[1] <- "POS"
+	cat("\nReading ", invariantsummaryname, ", counting good GT in each group (DP >= ", DPmin, 
+		"), and removing masked bases\n", sep = "")
+	x <- read.table(invariantsummaryname, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
+	names(x)[1] <- "POS"
 	
-	# cat("\nVariable names in .inv file\n")
-	# print(names(x))
+	cat("\nVariable names in .inv file\n")
+	print(names(x))
 	
-	# # nrow(x)
-	# # [1] 11326246
+	# nrow(x)
+	# [1] 11326246
 
-	# # Drop rows masked in the reference genome
-	# maskedPOS <- which(chrvec == "M")
-	# z <- x$POS %in% maskedPOS
-	# x <- x[!z,]
+	# Drop rows masked in the reference genome
+	maskedPOS <- which(chrvec == "M")
+	z <- x$POS %in% maskedPOS
+	x <- x[!z,]
 
-	# # table(z)
-	  # # FALSE    TRUE 
-	# # 8912903 2413343 
+	# table(z)
+	  # FALSE    TRUE 
+	# 8912903 2413343 
 
-	# # nrow(x)
-	# # [1] 8912903
+	# nrow(x)
+	# [1] 8912903
 	
-	# y <- lapply(x[, -c(1:2)], function(x){
-		# y <- as.integer(sub("[0-9]*[:/]([0-9]+)", "\\1", x))
-		# y <- (y >= DPmin) # TRUE if DP of a given genotype is bigger than DPmin
-		# })
-	# y <- data.frame(y)
-	# # y[5526679,] # so far so good
-		        # # paxb_04 paxb_05 paxb_06 paxb_07 paxb_08 paxb_09 paxl_01 paxl_05 paxl_09 paxl_10 paxl_13 paxl_14
-	# # 5526679    TRUE   FALSE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE    TRUE
-
-	# # groups
-	# # [1] 1 1 1 1 1 1 2 2 2 2 2 2
-	 
-	# # Split the data frame by group and take the sum of each row to get the total number of individuals that 
-	# # meet the DP minimum depth of coverage criterion DPmin within each group.
-	# z <- split(names(y), groups)
-	# # $`1`
-	# # [1] "paxb_04" "paxb_05" "paxb_06" "paxb_07" "paxb_08" "paxb_09"	
-	# # $`2`
-	# # [1] "paxl_01" "paxl_05" "paxl_09" "paxl_10" "paxl_13" "paxl_14"
-	# z1 <- lapply(z, function(z){
-		# z1 <- apply(y[, z], 1, sum)
-		# })
-	# # table(z1[[1]])
-	      # # 0       1       2       3       4       5       6 
-	 # # 311457   74519   45747   50892   84189  169317 8303918 
-
-	# processedInvariants <- data.frame(x[, c(1:2)], z1)
-	# names(processedInvariants)[3:4] <- paste(rep(c("nGTgroup"), length(unique(groups))), seq(1:length(unique(groups))), sep = "")
-	# # names(processedInvariants)
-	# # "POS"       "REF"       "nGTgroup1" "nGTgroup2"
+	# Elements of invariantsummaryname should be "0" or liek "3:6" but some may be like ".:3"
+		y <- lapply(x[, -c(1:2)], function(x){
+#		y <- as.integer(sub("([0-9]*)[:/][0-9]+", "\\1", x))
+		y <- sub("([0-9.]*)[:][0-9.]+", "\\1", x)
+		y[y == "."] <- "0"
+		y <- ( as.integer(y) >= DPmin ) # TRUE if DP of a given genotype is bigger than DPmin
+		})
+	y <- data.frame(y)
 	
+	# y[5526679,] # so far so good
+	# y[5526679,]
+	        # Marine.Pac.BIGR.52_54_2008.02 Marine.Pac.Japan.01.Katie
+	# 5526679                          TRUE                      TRUE
+	        # Marine.Pac.LittleCampbell.LC1D Marine.Pac.MANC_X_X05
+	# 5526679                           TRUE                  TRUE
+	        # Marine.Pac.Oyster.06.Sara Marine.Pac.Seyward.01.Sara
+	# 5526679                      TRUE                       TRUE
+	        # Marine.Pac.WestCreek.01.Sara PaxBen.PxBmale5.GS11 PaxBen.PxBmale6.GS12
+	# 5526679                         TRUE                 TRUE                 TRUE
+	        # PaxBen.PxBmale8.GS10 PaxBen.PxCL09femaleBF6.GS13
+	# 5526679                 TRUE                        TRUE
+	        # PaxBen.RPxCL09maleBM2.GS9 PaxLim.PxCL09maleLM1.GS14
+	# 5526679                      TRUE                      TRUE
+	        # PaxLim.PxLfemale6.GS18 PaxLim.PxLmale102.GS16 PaxLim.PxLmale106.GS15
+	# 5526679                   TRUE                   TRUE                   TRUE
+	        # PaxLim.PxLmale107.GS17 paxb04 paxb05 paxb06 paxb07 paxb08 paxb09 paxl01
+	# 5526679                   TRUE   TRUE   TRUE   TRUE   TRUE   TRUE   TRUE   TRUE
+	        # paxl05 paxl09 paxl10 paxl13 paxl14
+	# 5526679   TRUE   TRUE   TRUE   TRUE   TRUE
+
+	# table(y[,1], useNA = "always")
+	
+	# groupcodes
+	# [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+	
+	# Split the data frame by group and take the sum of each row to get the total number of individuals that 
+	# meet the DP minimum depth of coverage criterion DPmin within each group.
+	z <- split(names(y), groupcodes)
+	# $`1`
+	 # [1] "PaxLim.PxCL09maleLM1.GS14" "PaxLim.PxLfemale6.GS18"   
+	 # [3] "PaxLim.PxLmale102.GS16"    "PaxLim.PxLmale106.GS15"   
+	 # [5] "PaxLim.PxLmale107.GS17"    "paxl01"                   
+	 # [7] "paxl05"                    "paxl09"                   
+	 # [9] "paxl10"                    "paxl13"                   
+	# [11] "paxl14"                   
+	
+	# $`2`
+	 # [1] "PaxBen.PxBmale5.GS11"        "PaxBen.PxBmale6.GS12"       
+	 # [3] "PaxBen.PxBmale8.GS10"        "PaxBen.PxCL09femaleBF6.GS13"
+	 # [5] "PaxBen.RPxCL09maleBM2.GS9"   "paxb04"                     
+	 # [7] "paxb05"                      "paxb06"                     
+	 # [9] "paxb07"                      "paxb08"                     
+	# [11] "paxb09"                     
+	
+	# $`3`
+	# [1] "Marine.Pac.BIGR.52_54_2008.02"  "Marine.Pac.Japan.01.Katie"     
+	# [3] "Marine.Pac.LittleCampbell.LC1D" "Marine.Pac.MANC_X_X05"         
+	# [5] "Marine.Pac.Oyster.06.Sara"      "Marine.Pac.Seyward.01.Sara"    
+	# [7] "Marine.Pac.WestCreek.01.Sara"  
+
+	z1 <- lapply(z, function(z){
+		z1 <- apply(y[, z], 1, sum) # summing logicals treats TRUE as 1's
+		})
+	# table(z1[[1]])
+	      # 0       1       2       3       4       5       6       7       8       9 
+	 # 142522   54504   57427   51788   51099   33495   28352   26048   35937   46807 
+	     # 10      11 
+	 # 138740 8246184 
+
+	goodInvariants <- data.frame(x[, c(1:2)], z1)
+	names(goodInvariants)[-c(1,2)] <- paste("group", names(z1), sep = "")
+
+	# This next bit was blanked out -- worry about this later, when we know which groups we are comparing and how
 	# # To be consistent with the snps, drop all invariant bases that do not meet the minimum number of genotypes criterion
 	# z <- mapply(z1, as.list(nMin), FUN=function(z1, nMin){
 		# z <- z1 >= nMin
@@ -72,7 +115,7 @@ g<-list()
 	# z <- data.frame(z)
 	# keep <- apply(z, 1, all)
 
-	# processedInvariants <- processedInvariants[keep, ]
+	# goodInvariants <- goodInvariants[keep, ]
 		     # # nGTgroup1 nGTgroup2
 	# # 254          6         5
 	# # 255          6         5
@@ -81,16 +124,12 @@ g<-list()
 	# # 1903         4         5
 	# # 1904         4         5
 
-	# # nrow(processedInvariants)
-	# # [1] 8428778
-	# rm(x, z, z1, y, keep)
+	# # nrow(goodInvariants)
+	# # [1] 8912903
+	rm(x, z, z1, y)
 
-	# # Save to vcfdir
-	# cat("\nSaving processed invariants\n")
-	# save(processedInvariants, file = processedInvariantsFile)
-	# return(processedInvariants)
-	# # load(file = processedInvariantsFile) # processedInvariants
-	# }
+	return(goodInvariants)
+	}
 
 g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	chr <- scan(paste(chrname, ".fa", sep = ""), what=character())  # get genome

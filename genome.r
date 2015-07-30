@@ -7,12 +7,18 @@ g<-list()
 # [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
 # [13] "write.bedGraph"       "wc.revised"
 
-g$makeRscriptTorque <- function(pbsfile = "tmp.pbs", Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24){
+g$submitRscriptPbs <- function(pbsfile = "Rscript.pbs", Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# The Rscript command executes a particular *.R file and provides any needed arguments
 	# Submit the .pbs file to the queue using qsub
 	
-	# Remove and repaste initial "Rscript" if present in case it is missing
+	if(Rscript == "") stop("No Rscript command provided")
+	
+	# Attach date and time to name of file to make unique
+	pbsfile <- gsub(".pbs$", "", pbsfile)
+	pbsfile <- paste(pbsfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
+	
+	# Remove and repaste initial "Rscript" command if present in case it is missing from the Rscript text submitted
 	Rscript <- sub("^[ ]*Rscript[ ]*|[ ]*", "", Rscript)
 	Rscript <- paste("Rscript", Rscript)
 	
@@ -36,12 +42,13 @@ g$makeRscriptTorque <- function(pbsfile = "tmp.pbs", Rscript = "", Rversion = "3
 	writeLines("\necho \"Job finished with exit code $? at: \`date\`\"", outfile)
 	
 	close(outfile)
+	if(run) system(paste("qsub", pbsfile))
 	}
 
 g$countGoodInvariantsByGroup <- function(invariantsummaryname, chrvec, DPmin, groupcodes){
 	# Reads entire invariants file into memory 
-	# Removes masked invariants and for each remaining invariant 
-	#	counts the number of fish in each group whose DP > DPmin
+	# Removes masked invariants and for each remaining invariant counts the number of fish in each group whose DP > DPmin.
+	# Deletes cases for which there is not at least 1 good genotype in at least 2 of the groups.
 	# Watch out for instances of ".:" that get into the .inv file
 	
 	cat("\nReading ", invariantsummaryname, ", counting good GT in each group (DP >= ", DPmin, 

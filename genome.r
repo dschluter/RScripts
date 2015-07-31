@@ -7,23 +7,25 @@ g<-list()
 # [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
 # [13] "write.bedGraph"       "wc.revised"
 
-g$qsubRscriptPbs <- function(pbsfile = "Rscript.pbs", Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
+g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# The Rscript command executes a particular *.R file and provides any needed arguments
 	# Submit the .pbs file to the queue using qsub
 	
-	if(Rscript == "") stop("No Rscript command provided")
+	# In this revision there's no need to include pbsfile, it will get it from the .R argument
+	
+	if(Rscript == "") stop("You need to provide an Rscript command")
 		
 	# Remove and repaste initial "Rscript" command if present in case it is missing from the Rscript text submitted
 	# Also grab the name of the .R file argument, store in dotRfile
 	Rscript <- sub("^[ ]*Rscript[ ]*|[ ]*", "", Rscript, ignore.case = TRUE)
-	#dotRfile <- strsplit(Rscript, split = " ")[[1]][1]
-	#dotRfile <- gsub("[.]R", "", dotRfile, ignore.case = TRUE)
+	dotRfile <- strsplit(Rscript, split = " ")[[1]][1]
+	dotRfile <- gsub("[.]R", "", dotRfile, ignore.case = TRUE)
 	Rscript <- paste("Rscript", Rscript)
 	
 	# Attach date and time to name of file to make unique
-	pbsfile <- gsub(".pbs$", "", pbsfile)
-	pbsfile <- paste(pbsfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
+	# pbsfile <- gsub(".pbs$", "", pbsfile)
+	pbsfile <- paste(dotfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
 	
 	outfile <- file(pbsfile, "w")
 	writeLines("#!/bin/bash", outfile)

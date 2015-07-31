@@ -13,6 +13,7 @@ g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime
 	# Submit the .pbs file to the queue using qsub
 	
 	# In this revision there's no need to include pbsfile, it will get it from the .R argument
+	# g$qsubRscriptPbs(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
 	
 	if(Rscript == "") stop("You need to provide an Rscript command")
 		
@@ -25,7 +26,7 @@ g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime
 	
 	# Attach date and time to name of file to make unique
 	# pbsfile <- gsub(".pbs$", "", pbsfile)
-	pbsfile <- paste(dotfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
+	pbsfile <- paste(dotRfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
 	
 	outfile <- file(pbsfile, "w")
 	writeLines("#!/bin/bash", outfile)

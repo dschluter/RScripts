@@ -26,7 +26,8 @@ g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime
 	
 	# Attach date and time to name of file to make unique
 	# pbsfile <- gsub(".pbs$", "", pbsfile)
-	pbsfile <- paste(dotRfile, gsub("[ ]","-",Sys.time()), ".pbs", sep = "")
+	hour <- gsub("[ :]","-",Sys.time())
+	pbsfile <- paste(dotRfile, "-", hour, ".pbs", sep = "")
 	
 	outfile <- file(pbsfile, "w")
 	writeLines("#!/bin/bash", outfile)

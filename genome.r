@@ -170,8 +170,10 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 		vcfarguments[i] <- paste("     --variant", vcfarguments[i], "\\")
 		writeLines(vcfarguments[i], pbsfile)
 		}
-	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles 3 -o", outvcfname), pbsfile)
-	cat("Setting max_alternate_alleles to 3\n")
+#	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles 3 -o", outvcfname), pbsfile)
+#	cat("Setting max_alternate_alleles to 3\n")
+	writeLines(paste("     --includeNonVariantSites -o", outvcfname), pbsfile)
+	cat("Not setting max_alternate_alleles to any limit\n")
 	
 	close(pbsfile)
 	}

@@ -99,8 +99,8 @@ g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	#return(chrvec)
 	}        
  
-g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", 
-	mem = 4, walltime = 24, max_alternate_alleles = 3){
+g$qsubGenotypeGVCFsPbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", 
+	mem = 4, walltime = 24, maxAltAlleles = 3, run = TRUE){
 	# Generates qsub file "genotypeGVCFs.pbs" to carry out GATK genotypeGVCFs to call snps
 	#	from multiple gvcf files inputted, one chromosome at a time
 	# If chromosome is specified ("chrXXI" or "XXI") then only gvcf files having that chr are permitted.
@@ -133,8 +133,8 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 			stop("chr missing from some filenames, or more than one chromosome represented")
 			}
 		}
-	fname <- paste("genotypeGVCFs", chromosome, "pbs", sep = ".")
-	pbsfile <- file(fname, "w")
+	pbsfilename <- paste("genotypeGVCFs", chromosome, "pbs", sep = ".")
+	pbsfile <- file(pbsfilename, "w")
 	cat("\ninstructions being written to", fname, "\n")
 	
 	writeLines("#!/bin/bash", pbsfile)
@@ -174,11 +174,12 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 		}
 #	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles 3 -o", outvcfname), pbsfile)
 #	cat("Setting max_alternate_alleles to 3\n")
-	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles", max_alternate_alleles, "-o", outvcfname), 
+	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles", maxAltAlleles, "-o", outvcfname), 
 		pbsfile)
-	cat("Uses --max_alternate_alleles", max_alternate_alleles, "\n")
+	cat("Uses --max_alternate_alleles", maxAltAlleles, "\n")
 	
 	close(pbsfile)
+	if(run) system(paste("qsub", pbsfilename))
 	}
  
 g$downloadSra <- function(SraSample, fishName){ # eg g$downloadSra("SRS639967", "KODK")

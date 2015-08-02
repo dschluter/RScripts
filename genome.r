@@ -99,7 +99,8 @@ g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	#return(chrvec)
 	}        
  
-g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", mem = 4, walltime = 24){
+g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK = "3.4.0", 
+	mem = 4, walltime = 24, max_alternate_alleles = 3){
 	# Generates qsub file "genotypeGVCFs.pbs" to carry out GATK genotypeGVCFs to call snps
 	#	from multiple gvcf files inputted, one chromosome at a time
 	# If chromosome is specified ("chrXXI" or "XXI") then only gvcf files having that chr are permitted.
@@ -173,8 +174,9 @@ g$makeGenotypeGVCFspbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 		}
 #	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles 3 -o", outvcfname), pbsfile)
 #	cat("Setting max_alternate_alleles to 3\n")
-	writeLines(paste("     --includeNonVariantSites -o", outvcfname), pbsfile)
-	cat("Uses default --max_alternate_alleles (6)\n")
+	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles", max_alternate_alleles, "-o", outvcfname), 
+		pbsfile)
+	cat("Uses --max_alternate_alleles", max_alternate_alleles, "\n")
 	
 	close(pbsfile)
 	}

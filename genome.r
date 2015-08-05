@@ -135,7 +135,7 @@ g$qsubGenotypeGVCFsPbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 		}
 	pbsfilename <- paste("genotypeGVCFs", chromosome, "pbs", sep = ".")
 	pbsfile <- file(pbsfilename, "w")
-	cat("\ninstructions being written to", fname, "\n")
+	cat("\ninstructions being written to", pbsfilename, "\n")
 	
 	writeLines("#!/bin/bash", pbsfile)
 	writeLines("#PBS -S /bin/bash", pbsfile)

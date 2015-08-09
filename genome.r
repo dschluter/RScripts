@@ -1225,7 +1225,7 @@ g$write.bedGraph <- function(filename, chrinfo = "chrXXI:1-11,717,487", from, to
 g$wc.revised <- function(ndat){
 	# modified "wc" from hierfstat version 0.04-14 to speed it up
 	library(hierfstat)
-	library(parallel)
+	# library(parallel)
 	# ndat <- cbind(xpop,geno[,1:10000]) # test
 
     diploid <- TRUE # no longer an argument
@@ -1251,10 +1251,19 @@ g$wc.revised <- function(ndat){
 		})
 	n <- do.call("cbind", z1)
 	# }) # system time is about 1 second
-    # ---
+	# (n[n[,1]==0 | n[,2]==0,])[1:100,] # many lines with one of the columns having a 0
+	        # 1 2
+	# V1      2 0
+	# V22     1 0
+	# V25     1 0
+	# V42     0 4
+	# V43     0 6
+# ---
     
     nt <- apply(n, 1, sum, na.rm = TRUE)
-    untyped.loc <- which(nt == 0)
+    z <- table(nt)
+    if(!is.na(z["0"])) warning("some markers have 0 individuals, which will affect length of output")
+    untyped.loc <- which(nt == 0) # integer(0)
     typed.loc <- which(nt != 0)
     if (length(untyped.loc) > 0) {
         dat <- dat[, -(untyped.loc + 1)]
@@ -1297,9 +1306,9 @@ g$wc.revised <- function(ndat){
     # system.time({
     popf <- factor(pop) 							# [1] 1 1 1 1 1 1 2 2 2 2 2 2
     popalleles <- rep(popf, rep(2, length(popf)))	# [1] 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2
-#    alleleFreqTable <- lapply(allAlleles, function(x){ 
-    alleleFreqTable <- mclapply(allAlleles, FUN=function(x){ # parallel lapply - does it work on hermes?
-    		x <- allAlleles[[175]]
+    alleleFreqTable <- lapply(allAlleles, function(x){ 
+#    alleleFreqTable <- mclapply(allAlleles, FUN=function(x){ # parallel lapply - does it work on hermes?
+    		# x <- allAlleles[[175]]
 		z1 <- table(x, popalleles)
 		})	
     p <- lapply(alleleFreqTable, function(x){

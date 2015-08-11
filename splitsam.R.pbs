@@ -1,0 +1,20 @@
+#!/bin/bash
+#PBS -S /bin/bash
+#PBS -l walltime=48:00:00
+#PBS -l mem=2gb
+
+# Script for running R script on hermes
+
+# Run as follows (no spaces in the -v list)
+# "qsub -v samfile=ensb_01.sam splitsam.R.pbs"
+
+#cd $PBS_O_WORKDIR
+#echo "Current working directory is `pwd`"
+
+echo "Starting run at: `date`"
+
+module load R/3.1.2
+
+Rscript splitsam.R $samfile
+
+echo "Job finished with exit code $? at: `date`"

@@ -21,6 +21,7 @@
 # R
 
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
+# args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb", "marine-pac")
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
 
 project <- args[1]
@@ -369,11 +370,11 @@ cat("\nCalculating allele frequencies by group at every snp\n")
 tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE)
 alleleFreqByGroup <- lapply(tGT, function(locus){  # columns of tGT are loci, so apply function locus by locus
 	# locus <- tGT[,1]
-	z1 <- split(locus, groupcodes)                      # the genotypes for each group at the locus
+	z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
 	z2 <- lapply(z1, function(x){ 
 		unlist(strsplit(x, split = "/"))
-		}) 												# the alleles for each group at the locus
-	z3 <- z2												# initialize
+		}) 		# the alleles for each group at the locus
+	z3 <- z2	# initialize
 	for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
 	table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
 	})

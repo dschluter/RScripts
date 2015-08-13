@@ -46,6 +46,23 @@ nMaxAlt			<- 3	# maximum number of ALT alleles
 
 library(VariantAnnotation, quietly = TRUE)
 
+# Memory stuff - data are from the analysis of chrUn
+# gc() 		# garbage collection -- current memory consumption
+           # used  (Mb) gc trigger  (Mb) max used  (Mb)
+# Ncells  2993001 159.9    3708127 198.1  3,493,455 186.6
+# Vcells 64923409 495.4   94377151 720.1 65,895,353 502.8
+
+# object.size(chrvec)
+# 500,401,968 bytes
+
+# gc(verbose=TRUE) # the previous command increased the max.used?
+# Garbage collection 138 = 80+26+32 (level 2) ... 
+# 159.9 Mbytes of cons cells used (68%)
+# 495.4 Mbytes of vectors used (38%)
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  2993298 159.9    4418719  236.0   3,493,455  186.6
+# Vcells 64923854 495.4  171717950 1310.2 163,310,281 1246.0
+
 # load(file = vcfresultsfile)
 # vcf <- vcfresults$vcf
 # GT <- vcfresults$GT
@@ -60,7 +77,18 @@ library(VariantAnnotation, quietly = TRUE)
 # one per ALT allele. This would be a straightforward way to get predictCoding for all alleles. 
 
 vcf <- readVcf(file = vcfname, genome = fastaname) 
+# Error: cannot allocate vector of size 721.6 Mb # what I got when I set "gcinfo(TRUE)"
+# gc()
+           # used (Mb) gc trigger   (Mb)   max used   (Mb)
+# Ncells  3012858  161  126389298 6750.0  114677627 6124.5
+# Vcells 66969397  511  879074116 6706.9 1046283426 7982.6
+
 cat("Successfully read vcf file\n")
+
+fl <- system.file(vcfname)
+tbx <- TabixFile(fl)
+
+
 # You can import data subsets or fields if desired, see manual
 
 # Useful accessor functions
@@ -108,6 +136,8 @@ z1 <- chrvec[start(ranges(vcf))]  # hopefully this works even though start has d
 keep <- z1 %in% c("A","C","G","T") # i.e., includes only the good bases: only upper case, no "M"
 vcf <- vcf[keep]
 cat("\nCompleted removal of snp corresponding to masked bases\n")
+rm(chrvec)
+rm(keep)
 
 # ---
 # Decided to skip this DPmin step for vcf, it just causes problems with the allele set.

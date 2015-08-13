@@ -27,6 +27,7 @@ includePfisher 	<- TRUE
 includeFst     	<- TRUE
 trueSnpOnly		<- FALSE
 getGenotypeFreq <- FALSE
+dropRareAlleles <- FALSE
 
 project <- args[1]
 chrname <- args[2]
@@ -46,6 +47,9 @@ load(file = vcfresultsfile)
 # [1] "groupcodes"        "vcf"               "GT"               
 # [4] "nCalledGenotypes"  "nAlt"              "altUsedList"      
 # [7] "nAltUsed"          "snpTypeList"       "alleleFreqByGroup"
+
+# object.size(vcfresults)
+# 919170360 bytes
 
 library(VariantAnnotation)
 # library(GenomicFeatures)
@@ -71,7 +75,25 @@ groups <- groupcodes[groupcodes > 0]
 genotypes <- vcfresults$GT[ , groupcodes > 0] 
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 
-# Delete rare alleles (< 5%) ? do this in "saveSnpsByGroup.R"
+if(dropRareAlleles){
+	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
+	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
+	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
+		names(x[x < .05])
+		})
+#	rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
+	library(stringr)
+	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
+	# head(rareAlleles)
+	 # chrXXI:6316_C/T chrXXI:10364_T/A chrXXI:10365_G/T chrXXI:16024_C/T 
+	          # "[23]"          "[023]"          "[023]"          "[123]" 
+	# chrXXI:16025_C/G chrXXI:16026_A/T 
+	         # "[123]"           "[23]"
+	z <- lapply(genotypes, function(x){
+		# x <- genotypes[,1]
+		grepl( rareAlleles, x))
+		})
+		}
 
 GTminFrac <- 2/3
 nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11  7

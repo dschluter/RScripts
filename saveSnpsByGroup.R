@@ -40,6 +40,7 @@ fastaname		<- paste(chrname, "fa", sep = ".")
 vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
+dropRareAlleles	<- FALSE
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3	# maximum number of ALT alleles
 
@@ -386,7 +387,7 @@ alleleFreqByGroup <- lapply(tGT, function(locus){  # columns of tGT are loci, so
   # paxl       1 3 0 0
 
 # --------------------------------------
-# Calculate the allele proportions -- use in gtStats if decide to drop minor alleles
+# Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
 
 alleleProportions <- lapply(alleleFreqByGroup, function(x){
 	z <- colSums(x)
@@ -396,6 +397,27 @@ alleleProportions <- lapply(alleleFreqByGroup, function(x){
 # alleleProportions[[1]]
   # 0   1   2   3 
 # 0.5 0.5 0.0 0.0
+
+if(dropRareAlleles){ # IN PROGRESS
+	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
+	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
+	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
+		names(x[x < .05])
+		})
+#	rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
+	library(stringr)
+	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
+	# head(rareAlleles)
+	 # chrXXI:6316_C/T chrXXI:10364_T/A chrXXI:10365_G/T chrXXI:16024_C/T 
+	          # "[23]"          "[023]"          "[023]"          "[123]" 
+	# chrXXI:16025_C/G chrXXI:16026_A/T 
+	         # "[123]"           "[23]"
+	z <- lapply(genotypes, function(x){
+		# x <- genotypes[,1]
+		grepl( rareAlleles, x))
+		})
+		}
+
 
 # --------------------------------------
 # Save everything to a list for analyses

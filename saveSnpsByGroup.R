@@ -48,12 +48,13 @@ library(VariantAnnotation, quietly = TRUE)
 load(chrmaskfile) 	# object is named "chrvec"
 which.M <- which(chrvec == "M")
 # object.size(chrvec)
-# 937,40,176 bytes # chrXXI
+#  93,740,176 bytes # chrXXI
+# 500,401,968 bytes # chrUn
 rm(chrvec)
 
 # Garbage collection -- current memory consumption
+gcinfo(TRUE) # sends messages about memory garbage collection
 gc()
-
 
 # ---------------------
 # Alternatives to reading whole vcf file
@@ -68,8 +69,6 @@ gc()
 # 2. Read a subset of fields
 # vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
 
-gcinfo(TRUE) # sends messages about memory garbage collection
-gc()
 # ---------------------
 # Read variant VCF file
 
@@ -86,7 +85,8 @@ gc()
 vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
 
 # object.size(vcf)
-# 50,514,280 bytes # chrXXI
+#  50,514,280 bytes # chrXXI
+# 210,524,096 bytes # chrUn
 
 cat("Successfully read vcf file\n")
 
@@ -135,7 +135,7 @@ keep <- !(start(ranges(vcf)) %in% which.M) # i.e., includes only the good bases:
 vcf <- vcf[keep]
 cat("\nCompleted removal of snp corresponding to masked bases\n")
 rm(keep)
-rm(which.M)
+# rm(which.M)
 # object.size(vcf)
 # 36,360,752 bytes # chrXXI
 gc()
@@ -143,7 +143,7 @@ gc()
 # ------
 # set missing genotypes to NA
 geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
-
+gc()
 
 # ---
 # Drop variants in which fewer than 2 groups have at least one genotype
@@ -185,11 +185,17 @@ rm(z2)
 rm(z3)
 rm(keep)
 
+gc()
+
 # --------------------------------------
 # Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
 
 if(dropRareAlleles){ # IN PROGRESS
 	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
+	# This means 5% across populations? What if analysis includes wheatlandi eg, just a single individual?
+	# Or should we just drop alleles with less than 5% within a group (but what if the allele is common in another group)
+	# Maybe this rule: drop alleles less than 5% within groups only if also less than 5% across groups
+	
 	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
 
 	alleleProportions <- lapply(alleleFreqByGroup, function(x){
@@ -203,7 +209,7 @@ if(dropRareAlleles){ # IN PROGRESS
 	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
 		names(x[x < .05])
 		})
-#	rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
+	# rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
 	library(stringr)
 	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
 	# head(rareAlleles)
@@ -215,7 +221,7 @@ if(dropRareAlleles){ # IN PROGRESS
 		# x <- genotypes[,1]
 		grepl( rareAlleles, x))
 		})
-		}
+	}
 
 
 # --------------------------
@@ -341,6 +347,7 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # --------------------------------------
 # Make a table of the allele frequencies
+# Not sure this is essential at this stage -- more useful when analyzing a subset of groups
 
 alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
 
@@ -358,6 +365,7 @@ alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcod
 # [1] 281607
 
 g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
+
 # Table of variant types used (<*:DEL> is NA)
 # snp
    # del    ins    snp   <NA> 
@@ -384,8 +392,10 @@ vcfresults <- list()
 vcfresults$groupcodes <- groupcodes
 vcfresults$vcf <- vcf
 rm(vcf)
+gc()
 vcfresults$altUsedList <- altUsedList
 rm(altUsedList)
+gc()
 vcfresults$nAltUsed <- nAltUsed
 rm(nAltUsed)
 vcfresults$snpTypeList <- snpTypeList # based on altUsedList
@@ -401,12 +411,17 @@ rm(vcfresults)
 if(plotQualMetrics{
 	# --------------------------------------
 	# Plots of quality metrics
-	
-	# cat("\nPlotting quality metrics\n")
-	# pdf(file = paste(project, ".", chrname, ".vcfPlots", ".pdf", sep=""))
+	# Current version drops only the rows corresponding to M in chrvec
 	
 	vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("QUAL"), geno=c("GT", "GQ", "DP"), 
 		info=c("FS", "QD", "DP")))	
+	gc()
+	keep <- !(start(ranges(vcf)) %in% which.M) # i.e., includes only the good bases: only upper case, no "M"
+	vcf <- vcf[keep]
+	rm(keep)
+
+	cat("\nPlotting quality metrics\n")
+	pdf(file = paste(project, ".", chrname, ".vcfPlots", ".pdf", sep=""))
 	
 	# QUAL ---
 	# QUAL is probability of a polymorphism at the site, not a measure of quality of genotypes
@@ -436,9 +451,10 @@ if(plotQualMetrics{
 	
 	# ---
 	# Relationship between GQ and DP for called genotypes
-	
-	plot(GQ[DP <= 10 & !is.na(GT)] ~ jitter(DP[DP <= 10 & !is.na(GT)]), pch = ".", col = "red",
-		main = "Relationship between GQ and DP for called genotypes,\n(note that GQ of called genotypes is often very low)")
+	# Commented out - requires a lot of memory
+
+	# plot(GQ[DP <= 10 & !is.na(GT)] ~ jitter(DP[DP <= 10 & !is.na(GT)]), pch = ".", col = "red",
+		# main = "Relationship between GQ and DP for called genotypes,\n(note that GQ of called genotypes is often very low)")
 	
 	rm(GT)
 	rm(DP)
@@ -470,5 +486,5 @@ if(plotQualMetrics{
 	hist(DPtot[DPtot <= length(groupcodes)*50], right = FALSE, col = "red", breaks = 200, 
 		main = "Total read depth") 
 	
-	# dev.off()
+	dev.off()
 	}

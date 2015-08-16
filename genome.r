@@ -7,6 +7,125 @@ g<-list()
 # [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
 # [13] "write.bedGraph"       "wc.revised"
 
+g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
+	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making
+	# use of the snp types already provided in snpTypeList
+	#
+	nAltUsed <- sapply(ALTlist, function(x){length(x[!is.na(x)])})
+	snp <- unlist(snpTypeList[nAltUsed > 0])
+	ref <- rep(as.vector(REF), nAltUsed)
+	alt <- unlist(ALTlist[nAltUsed > 0])
+	cat("Table of variant types used (<*:DEL> is NA)\n")
+	print(table(snp, useNA="always"))
+	
+	# Transition-transversion ratios - true snp only (not indels)
+	cat("\nTransition-transversion ratio - all true snp\n")
+	snp1 <- snp[!is.na(snp) & snp == "snp"]
+	ref1 <- ref[!is.na(snp) & snp == "snp"]
+	alt1 <- alt[!is.na(snp) & snp == "snp"]
+	
+	ref1 <- substr(ref1, 1, 1) # keep the first letter of REF
+	alt1 <- substr(alt1, 1, 1) # keep the first letter of ALT
+	
+	# c( length(ref1[ref1 != alt1]), length(alt1[ref1 != alt1]) )
+	# [1] 216418 216418
+	
+	print(g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1]))
+	}
+
+g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, nMaxAlt = 3, split = "/"){
+	# Generates a table of allele frequencies at each locus by group
+	# Group is specified by the integer groupcodes, eg 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+	# 
+	tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE) # annoying but apply won't return a list
+	alleleFreqByGroup <- lapply(tGT, function(locus){
+		# columns of tGT are loci, so apply function locus by locus
+		# locus <- geno(vcf)$GT[6, ]
+		z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
+		z2 <- lapply(z1, function(x){ 
+			unlist(strsplit(x, split = split))
+			}) 		# the alleles for each group at the locus
+		z3 <- z2	# initialize
+		for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
+		table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
+		})
+	}
+	
+	tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE)
+	alleleFreqByGroup <- lapply(tGT, function(locus){  # columns of tGT are loci, so apply function locus by locus
+		# locus <- tGT[,1]
+		z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
+		z2 <- lapply(z1, function(x){ 
+			unlist(strsplit(x, split = "/"))
+			}) 		# the alleles for each group at the locus
+		z3 <- z2	# initialize
+		for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
+		table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
+		})
+	rm(tGT)
+
+	}
+
+g$makeSnpTypeList <- function(REF = ref(vcf), ALTlist = altUsedList, AltDelSymbol = "<*:DEL>"){
+	# Creates a list indicating what snp type is each ALT alleles: snp, ins, or del
+	i <- nchar(REF) # length of the reference sequence
+	i <- split(i, 1:length(i)) # split REF allele size into a list
+	j <- lapply(ALTlist, function(x){
+		j <- nchar(x)            	# length of ALT alleles in altList; 
+									# is integer(0) if altUsedList[[i]] is character(0)
+									# but is 2 if altUsedList[[i]] is NA
+		j[x == AltDelSymbol] <- NA  # length of "<*:DEL>" set to NA
+		j[is.na(x)] <- NA
+		return(j)
+		})
+	snpTypeList <- mapply(i, j, FUN = function(i, j){ # i and j refer to nchar of ref and alt
+		snptype <- rep(NA, length(j)) # initialize with NAs
+		# snptype[i == 1 & j == 1] <- "snp" # first run
+		# snptype[i < j  & i == 1] <- "ins" # first run
+		# snptype[i > j  & j == 1] <- "del" # first run
+		#
+		# 2nd run below uses broader criteria to designate variant type
+		# Note: j is based on ALTlist, so snpTypeList is also
+		snptype[i == j] <- "snp" # 2nd run
+		snptype[i <  j] <- "ins" # 2nd run
+		snptype[i >  j] <- "del" # 2nd run
+		snptype[length(j) == 0] <- NA # snp type is NA if length of altUsedList is 0, ie no snp used
+		return(snptype)
+		})
+	names(snpTypeList) <- names(ALTlist)
+	return(snpTypeList)
+	}
+
+g$makeAltUsedList <- function(GT, ALT = alt(vcf)){
+	# Returns a list of the ALT alleles actually used in the genotypes in the sample
+	# The list is based on alt(vcf) but unused ALT alleles are set to NA 
+	# 	- NB they are NOT DELETED to preserve indices
+	# GT is geno(vcf)$GT or a subset with rows as loci and columns as individuals
+	#
+	if(nrow(GT) != length(ALT)) stop("Number of rows of GT must equal length of ALT")
+	z <- as.list(ALT) # mapply takes forever if use alt(vcf) instead of as.list(alt(vcf))
+	whichAltAllelesUsed <- g$whichAltAllelesUsed(GT)
+	altUsedList <- mapply(whichAltAllelesUsed, z, FUN = function(x, y){
+		# x <- whichAltAllelesUsed[[7]]; y <- alt(vcf)[[7]]
+		ialt <- 1:length(y)
+		y[!(ialt %in% x)] <- NA
+		return(y)
+		})
+	return(altUsedList)
+	}
+
+g$whichAltAllelesUsed <- function(GT, split = "/"){
+	# returns a list indicating which alleles are actually used in the genotypes 
+	# 	in the sample by their index (1, 2, ...
+	# GT is geno(vcf)$GT or a subset with rows as loci and columns as individuals
+	whichAltAllelesUsed <- apply(GT, 1, function(x){ 		# is a list
+			# x <- GT[1, ]
+			x1 <- strsplit(x[!is.na(x)], split = split)
+			x1 <- sort( as.integer(unique(unlist(x1))) )
+			whichAltAllelesUsed <- x1[x1 > 0] # drops the REF allele
+			})
+	}
+
 g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# The Rscript command executes a particular *.R file and provides any needed arguments

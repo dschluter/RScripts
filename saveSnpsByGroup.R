@@ -26,9 +26,10 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 
 project <- args[1]
 chrname <- args[2]
-# DPmin <- as.integer(args[3])
-# GTminFrac <- eval(parse(text=args[4]))
 groupnames <- args[3:length(args)]
+
+dropRareAlleles	<- FALSE
+plotQualMetrics <- TRUE
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -39,30 +40,20 @@ fastaname		<- paste(chrname, "fa", sep = ".")
 vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
-dropRareAlleles	<- FALSE
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3	# maximum number of ALT alleles
 
 library(VariantAnnotation, quietly = TRUE)
 
 load(chrmaskfile) 	# object is named "chrvec"
+which.M <- which(chrvec == "M")
 # object.size(chrvec)
 # 937,40,176 bytes # chrXXI
-which.M <- which(chrvec == "M")
 rm(chrvec)
 
 # Garbage collection -- current memory consumption
 gc()
-          # used  (Mb) gc trigger  (Mb) max used  (Mb)
-# Ncells 3051007 163.0    4679654 250.0  3493455 186.6
-# Vcells 3857065  29.5   19989212 152.6 36951325 282.0
 
-# load(file = vcfresultsfile)
-# vcf <- vcfresults$vcf
-# GT <- vcfresults$GT
-# altUsedList <- vcfresults$altUsedList
-# snpTypeList <- vcfresults$snpTypeList
-# nAltUsed <- sapply(altUsedList, length)
 
 # ---------------------
 # Alternatives to reading whole vcf file
@@ -91,7 +82,9 @@ gc()
 # 107,877,192 bytes # chrXXI
 
 # Reads only a part of the vcf. ref(), alt(), qual(), geno()$GT still work
+
 vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
+
 # object.size(vcf)
 # 50,514,280 bytes # chrXXI
 
@@ -133,10 +126,6 @@ cat("groupcodes:")
 print(groupcodes)
  # [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 
-# Not used here 
-# nInd <- as.vector(table(groupcodes)) # n individuals genotyped in each group eg 11 11  7
-# nMin <- floor(GTminFrac*nInd) # minimum number required in each group eg 7 7 4
-
 # Q: What does QUAL = NA imply?
 
 # ---
@@ -146,32 +135,21 @@ keep <- !(start(ranges(vcf)) %in% which.M) # i.e., includes only the good bases:
 vcf <- vcf[keep]
 cat("\nCompleted removal of snp corresponding to masked bases\n")
 rm(keep)
+rm(which.M)
 # object.size(vcf)
 # 36,360,752 bytes # chrXXI
 gc()
 
-# ---
-# Decided to skip this DPmin step for vcf, it just causes problems with the allele set.
-# Set SNP not meeting minimum DP criterion (DPmin = 1) to missing
-# Set SNP with missing DP (i.e., DP is NA) to missing
-# GT <- geno(vcf)$GT  # is a character matrix
-# DP <- geno(vcf)$DP  # is a numeric matrix
-# z <- mapply(GT, DP, FUN = function(gt, dp){
-	# gt[dp < DPmin] <- GTmissing
-	# gt[is.na(dp)] <- GTmissing
-	# return(gt)
-	# })
-# z[z == GTmissing] <- NA # set "." to NA
-# z <- matrix(z, nrow = nrow(GT))
-# dimnames(z) <- dimnames(GT)
-# GT <- z
-# rm(z, DP)
+# ------
+# set missing genotypes to NA
+geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
+
 
 # ---
 # Drop variants in which fewer than 2 groups have at least one genotype
 
 # Tally up the number of genotypes in each group
-z <- split(samples(header(vcf)), groupcodes) # Note that order of resulting groups is as in groupnames and groupcodes
+samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting groups is as in groupnames and groupcodes
 
 # $`1`
  # [1] "PaxLim-PxCL09maleLM1-GS14" "PaxLim-PxLfemale6-GS18"    "PaxLim-PxLmale102-GS16"   
@@ -190,10 +168,11 @@ z <- split(samples(header(vcf)), groupcodes) # Note that order of resulting grou
 # [4] "Marine-Pac-MANC_X_X05"          "Marine-Pac-Oyster-06-Sara"      "Marine-Pac-Seyward-01-Sara"    
 # [7] "Marine-Pac-WestCreek-01-Sara"  
 
-nCalledGenotypes <- lapply(z, function(z){
+nCalledGenotypes <- lapply(samplesByGroup, function(z){
 	z1 <- apply(geno(vcf)$GT[ , z], 1, function(z){sum(!is.na(z))})
 	})
 names(nCalledGenotypes) <- groupnames # don't sort groupnames! This is the order that determined codes
+
 z2 <- lapply(nCalledGenotypes, function(z1){z1 >= 1}) # indicates whether there's at least one genotype
 z2 <- data.frame(z2)
 z3 <- apply(z2, 1, sum)
@@ -206,18 +185,42 @@ rm(z2)
 rm(z3)
 rm(keep)
 
-# ------
-# set missing genotypes to NA
-geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
+# --------------------------------------
+# Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
+
+if(dropRareAlleles){ # IN PROGRESS
+	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
+	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
+
+	alleleProportions <- lapply(alleleFreqByGroup, function(x){
+		z <- colSums(x)
+		z1 <- z/sum(z)
+		})
+	# alleleProportions[[1]]
+	  # 0   1   2   3 
+	# 0.5 0.5 0.0 0.0
+
+	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
+		names(x[x < .05])
+		})
+#	rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
+	library(stringr)
+	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
+	# head(rareAlleles)
+	 # chrXXI:6316_C/T chrXXI:10364_T/A chrXXI:10365_G/T chrXXI:16024_C/T 
+	          # "[23]"          "[023]"          "[023]"          "[123]" 
+	# chrXXI:16025_C/G chrXXI:16026_A/T 
+	         # "[123]"           "[23]"
+	z <- lapply(genotypes, function(x){
+		# x <- genotypes[,1]
+		grepl( rareAlleles, x))
+		})
+		}
+
 
 # --------------------------
 # Determine alleles actually used in genotype calls
 # Max of 3 ALT alleles per locus was used.
-
-# table(sapply(alt(vcf), length), useNA = "always") # note there are no zeros
-# nAlt
-     # 1      2      3      4      5   <NA> 
-# 267591  13243    763      9      1      0 
 
 # Some ALT alleles are labeled as "<*:DEL>". 
 # Broad says: "This means there is a deletion in that sample that spans this position, 
@@ -228,24 +231,11 @@ geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
 
 # Enumerate the alt alleles used in actual genotype calls
 # whichAltAllelesUsed lists all the ALT alleles used in genotypes by their index (1, 2, ...)
-cat("Determining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
-whichAltAllelesUsed <- apply(geno(vcf)$GT, 1, function(x){ 		# is a list
-	# x <- geno(vcf)$GT[1,]
-	x1 <- strsplit(x[!is.na(x)], split = "/")
-	x1 <- sort( as.integer(unique(unlist(x1))) )
-	whichAltAllelesUsed <- x1[x1 > 0] # drops the REF allele
-	})
-nAltUsed <- sapply(whichAltAllelesUsed, length) # can be 0 if only REF alleles are in the genotypes
 
-z <- as.list(alt(vcf)) # next operation takes forever if use alt(vcf) instead of z in mapply
-altUsedList <- mapply(whichAltAllelesUsed, z, FUN = function(x, y){
-	# x <- whichAltAllelesUsed[[7]]; y <- alt(vcf)[[7]]
-	ialt <- 1:length(y)
-	y[!(ialt %in% x)] <- NA
-	return(y)
-	})
-altUsedList[nAltUsed == 0] <- NA 
-rm(z)
+cat("Determining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
+# unused ALT alleles are set to NA -- they are NOT DELETED to preserve indices
+altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
+nAltUsed <- sapply(altUsedList, function(x){length(x[!is.na(x)])})
 
 # Note, there are still "<*:DEL>" alleles. 
 
@@ -282,28 +272,8 @@ rm(z)
 #   ACGT     POS REF ALT 
 #   A-TT      1  ACG  AT
 
-cat("Determining variant types\n")
-i <- nchar(ref(vcf)) # length of the reference sequence
-i <- split(i, 1:length(i)) # split REF allele size into a list
-j <- lapply(altUsedList, function(x){
-	j <- nchar(x)            	# length of ALT alleles in altUsedList; 
-								# is integer(0) if altUsedList[[i]] is character(0)
-								# but is 2 if altUsedList[[i]] is NA
-	j[x == "<*:DEL>"] <- NA  	# length of "<*:DEL>" set to NA
-	j[is.na(x)] <- NA
-	return(j)
-	})
-
-# Inspect some results from the first run
-# Looking for cases where changes don't meet the simple criteria for snp, del, ins
-# From the results just below, it looks like even when i and/or j isn't 1, 
-#	i < j is always an "ins", i > j is always "del", and i = j is always "snp".
-#y <- mapply(snpTypeList, altUsedList,
-	#FUN = function(x, y){any(is.na(x)) & all(y[!is.na(y)] != "<*:DEL>") & any(nchar(y[!is.na(y)]) > 1) })
-#ref <- as.vector(ref(vcf))
-#z <- mapply(ref, snpTypeList, altUsedList, FUN = c)
-#head(z[y])
-# Here are some examples where snp type is NA
+# Examples from earlier analysis where snp type is NA
+#  ref          altUsedList
 # "TCC"     -> "TC" "T";        NA  "del"     # is del, ref begins with alt
 # "CGG"     -> "CG" "C";        NA  "del"     # is del, ref begins with alt
 # "GAAGCACGTACT" -> "GACGTACT" "G"; NA "del"  # is del, 1st letter of alt same as ref, 2nd-5th bases dropped
@@ -323,27 +293,14 @@ j <- lapply(altUsedList, function(x){
 # "CG"      -> "GG"  "C";       NA   "del"    # is snp, first letter different
 # "ACT"     -> "TCT" "A";       NA   "del"    # is snp, first letter different
 
-# 2nd run uses broader criteria to designate variant type
-# Note: j is based on altUsedList, so snpTypeList is also
-snpTypeList <- mapply(i, j, FUN = function(i, j){ # i and j refer to nchar of ref and alt
-	snptype <- rep(NA, length(j)) # initialize with NAs
-	# snptype[i == 1 & j == 1] <- "snp" # first run
-	# snptype[i < j  & i == 1] <- "ins" # first run
-	# snptype[i > j  & j == 1] <- "del" # first run
-	snptype[i == j] <- "snp" # 2nd run
-	snptype[i <  j] <- "ins" # 2nd run
-	snptype[i >  j] <- "del" # 2nd run
-	snptype[length(j) == 0] <- NA # snp type is NA if length of altUsedList is 0, ie no snp used
-	return(snptype)
-	})
-names(snpTypeList) <- names(altUsedList)
+snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # Check that all multi-based snp differ only by the first letter
 # Remember that altUsedList still contains "<*:DEL>"
 # snp check:
 # snp <- unlist(snpTypeList[nAltUsed > 0])
 # ref <- rep(as.vector(ref(vcf)), nAltUsed)
-# alt <- unlist(altUsedList)
+# alt <- unlist(altUsedList[nAltUsed > 0])
 # x <- data.frame(ref, alt, snp, stringsAsFactors = FALSE)
 # x <- x[x$alt != "<*:DEL>", ]
 # x <- x[nchar(x$ref) == nchar(x$alt) & nchar(x$ref) > 1, ] 
@@ -356,7 +313,7 @@ names(snpTypeList) <- names(altUsedList)
 # del check:
 # snp <- unlist(snpTypeList[nAltUsed > 0])
 # ref <- rep(as.vector(ref(vcf)), nAltUsed)
-# alt <- unlist(altUsedList)
+# alt <- unlist(altUsedList[nAltUsed > 0])
 # x <- data.frame(ref, alt, snp, stringsAsFactors = FALSE)
 # x <- x[x$alt != "<*:DEL>", ]
 # x <- x[x$snp == "del", ] # 
@@ -370,7 +327,7 @@ names(snpTypeList) <- names(altUsedList)
 # ins check:
 # snp <- unlist(snpTypeList[nAltUsed > 0])
 # ref <- rep(as.vector(ref(vcf)), nAltUsed)
-# alt <- unlist(altUsedList)
+# alt <- unlist(altUsedList[nAltUsed > 0])
 # x <- data.frame(ref, alt, snp, stringsAsFactors = FALSE)
 # x <- x[x$alt != "<*:DEL>", ]
 # x <- x[x$snp == "ins", ] # 
@@ -384,19 +341,8 @@ names(snpTypeList) <- names(altUsedList)
 
 # --------------------------------------
 # Make a table of the allele frequencies
-cat("\nCalculating allele frequencies by group at every snp\n")
-tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
-alleleFreqByGroup <- lapply(tGT, function(locus){  # columns of tGT are loci, so apply function locus by locus
-	# locus <- tGT[,1]
-	z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
-	z2 <- lapply(z1, function(x){ 
-		unlist(strsplit(x, split = "/"))
-		}) 		# the alleles for each group at the locus
-	z3 <- z2	# initialize
-	for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
-	table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
-	})
-rm(tGT)
+
+alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
 
 # alleleFreqByGroup[[1]]     
              # 0 1 2 3
@@ -404,37 +350,31 @@ rm(tGT)
   # paxb       0 0 0 0
   # paxl       1 3 0 0
 
+
 # --------------------------------------
-# Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
+# Transition-transversion ratio
 
-if(dropRareAlleles){ # IN PROGRESS
-	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
-	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
+# nrow(geno(vcfresults$vcf)$GT)
+# [1] 281607
 
-	alleleProportions <- lapply(alleleFreqByGroup, function(x){
-		z <- colSums(x)
-		z1 <- z/sum(z)
-		})
-	# alleleProportions[[1]]
-	  # 0   1   2   3 
-	# 0.5 0.5 0.0 0.0
+g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
+# Table of variant types used (<*:DEL> is NA)
+# snp
+   # del    ins    snp   <NA> 
+ # 24286  20909 216418   6674 
 
-	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
-		names(x[x < .05])
-		})
-#	rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
-	library(stringr)
-	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
-	# head(rareAlleles)
-	 # chrXXI:6316_C/T chrXXI:10364_T/A chrXXI:10365_G/T chrXXI:16024_C/T 
-	          # "[23]"          "[023]"          "[023]"          "[123]" 
-	# chrXXI:16025_C/G chrXXI:16026_A/T 
-	         # "[123]"           "[23]"
-	z <- lapply(genotypes, function(x){
-		# x <- genotypes[,1]
-		grepl( rareAlleles, x))
-		})
-		}
+# Transition-transversion ratio - all true snp
+# $R
+# [1] 1.258801
+
+# $tstv
+     # alt
+# ref     pur   pyr
+  # pur 60301 47947
+  # pyr 47864 60306
+
+# $tot
+# [1] 216418
 
 
 # --------------------------------------
@@ -456,142 +396,79 @@ rm(alleleFreqByGroup)
 # cat("\nSaving results\n")
 save(vcfresults, file = vcfresultsfile)
 # load(file = vcfresultsfile) # saved object is "vcfresults"
+rm(vcfresults)
+
+if(plotQualMetrics{
+	# --------------------------------------
+	# Plots of quality metrics
 	
-# --------------------------------------
-# Transition-transversion ratio
+	# cat("\nPlotting quality metrics\n")
+	# pdf(file = paste(project, ".", chrname, ".vcfPlots", ".pdf", sep=""))
+	
+	vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("QUAL"), geno=c("GT", "GQ", "DP"), 
+		info=c("FS", "QD", "DP")))	
+	
+	# QUAL ---
+	# QUAL is probability of a polymorphism at the site, not a measure of quality of genotypes
+	# It is "Phred scaled Probability that REF/ALT polymorphism exists at this site given sequencing data"
+	# A value of 10 indicates p = 0.99, i.e., 1 - 0.01
+	# It depends on the quality of genotypes, but is not itself a measure of genotype quality.
+	# GATK2 drops snp with QUAL <= 30
+	
+	hist(qual(vcf)[qual(vcf) <= 2000], breaks = 100, right = FALSE, col = "red", 
+		main = "QUAL (prob of polymorphism) for called variants")
+	
+	# ---
+	# Individual fish genotype quality scores GQ for called genotypes
+	# "if GT is 0/1, then GQ is really L(0/1) / (L(0/0) + L(0/1) + L(1/1))"
+	
+	GQ <- matrix(geno(vcf)$GQ, ncol=1)
+	GT <- matrix(geno(vcf)$GT, ncol=1)
+	hist(GQ[!is.na(GT)], right = FALSE, col = "red", breaks = 50, 
+		main = "Histogram of individual fish genotype quality score, GQ,\nfor called genotypes")
 
-# nrow(geno(vcfresults$vcf)$GT)
-# [1] 281607
+	# ---
+	# Individual fish read depth DP for called genotypes
+	
+	DP <- matrix(geno(vcf)$DP, ncol=1)
+	hist(DP[DP <= 50 & !is.na(GT)], right = FALSE, col = "red", breaks = 50,
+		main = "Histogram of individual fish read depth, DP,\nfor called genotypes")
+	
+	# ---
+	# Relationship between GQ and DP for called genotypes
+	
+	plot(GQ[DP <= 10 & !is.na(GT)] ~ jitter(DP[DP <= 10 & !is.na(GT)]), pch = ".", col = "red",
+		main = "Relationship between GQ and DP for called genotypes,\n(note that GQ of called genotypes is often very low)")
+	
+	rm(GT)
+	rm(DP)
+	rm(GQ)
 
-# Expand the lists of ALT alleles, repeat REF as many times
-snp <- unlist(vcfresults$snpTypeList[vcfresults$nAltUsed > 0])
-ref <- rep(as.vector(ref(vcfresults$vcf)), vcfresults$nAltUsed)
-alt <- unlist(vcfresults$altUsedList[vcfresults$nAltUsed > 0])
+	# ---
+	# Strand bias
+	# From the GATK pages: "Higher SB values denote more bias (and therefore are more likely to indicate false positive calls)."
+	# SB <- geno(vcf)$SB # all NA
+	
+	# Phred-scaled P-value for Fisher exact test of strand bias (higher is more biased)
+	
+	FS <- info(vcf)$FS
+	hist(FS[FS <= 40], col="red", breaks = 100, right=FALSE, xlab = "Phred-scaled P",
+		main = "Results of Fisher exact test of strand bias \n(higher P is more biased)") # peaks at 0
+		
+	# Strand bias vs Quality by Depth (see Fig 4a,b in de Pristo et al 2011)
+	
+	QD <- info(vcf)$QD
+	plot(FS ~ QD, pch = ".", col = "red", ylab = "FS (Fisher test of strand bias)", 
+		xlab = "QD (Quality by Depth)", main = "Strand Bias vs Quality by Depth (cf. Fig 4a,b in de Pristo et al 2011)")
 
-# c(length(snp), length(ref), length(alt))
-# [1] 268287 268287 268287
+	rm(FS)
+	rm(QD)	
 
-# head(table(alt))                                # <*:DEL> are still included in alt
-# table(snp[alt == "<*:DEL>"], useNA = "always")  # but they are not classified as snp, ins, or del, so ok
-
-# Tabulate all snp types
-cat("Table of variant types used in genotype calls (<*:DEL> is NA)\n")
-print(table(snp, useNA="always"))
-   # del    ins    snp   <NA> 
- # 24286  20909 216418   6674 
-
-# Transition-transversion ratios - true snp only (not indels)
-cat("\nTransition-transversion ratio - all true snp\n")
-snp1 <- snp[!is.na(snp) & snp == "snp"]
-ref1 <- ref[!is.na(snp) & snp == "snp"]
-alt1 <- alt[!is.na(snp) & snp == "snp"]
-rm(snp)
-rm(alt)
-rm(ref)
-# head(cbind(ref1,alt1))
-# head(cbind(ref1,alt1)[nchar(ref1) > 1,])
-# c(length(snp1), length(ref1), length(alt1))
-# [1] 216418 216418 216418
-
-ref1 <- substr(ref1, 1, 1) # keep the first letter of REF
-alt1 <- substr(alt1, 1, 1) # keep the first letter of ALT
-
-# c( length(ref1[ref1 != alt1]), length(alt1[ref1 != alt1]) )
-# [1] 216418 216418
-
-print(g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1]))
-# $R
-# [1] 1.258801
-# $tstv
-     # alt
-# ref     pur   pyr
-  # pur 60301 47947
-  # pyr 47864 60306
-# $tot
-# [1] 216418
-
-# --------------------------------------
-# Plots of quality metrics - comment out for now, since doesn't really show anything.
-# To filter on these quantities, need to read them selectively from vcf file using readVcf
-
-# cat("\nPlotting quality metrics\n")
-# pdf(file = paste(project, ".", chrname, ".vcfPlots", ".pdf", sep=""))
-
-# rowdata <- rowData(vcf)
-# head(rowdata)
-# GRanges object with 6 ranges and 5 metadata columns:
-                   # seqnames         ranges strand | paramRangeID            REF
-                      # <Rle>      <IRanges>  <Rle> |     <factor> <DNAStringSet>
-   # chrXXI:6316_C/T   chrXXI [ 6316,  6316]      * |         <NA>              C
-  # chrXXI:10364_T/A   chrXXI [10364, 10364]      * |         <NA>              T
-  # chrXXI:10365_G/T   chrXXI [10365, 10365]      * |         <NA>              G
-  # chrXXI:16024_C/T   chrXXI [16024, 16024]      * |         <NA>              C
-  # chrXXI:16025_C/G   chrXXI [16025, 16025]      * |         <NA>              C
-  # chrXXI:16026_A/T   chrXXI [16026, 16026]      * |         <NA>              A
-                               # ALT      QUAL      FILTER
-                   # <CharacterList> <numeric> <character>
-   # chrXXI:6316_C/T               T    253.35           .
-  # chrXXI:10364_T/A               A    517.44           .
-  # chrXXI:10365_G/T               T    517.44           .
-  # chrXXI:16024_C/T               T     77.92           .
-  # chrXXI:16025_C/G               G     58.52           .
-  # chrXXI:16026_A/T               T    748.99           .
-  
-# QUAL ---
-# QUAL is probability of a polymorphism at the site, not a measure of quality of genotypes
-# It is "Phred scaled Probability that REF/ALT polymorphism exists at this site given sequencing data"
-# A value of 10 indicates p = 0.99, i.e., 1 - 0.01
-# It depends on the quality of genotypes, but is not itself a measure of genotype quality.
-# GATK2 drops snp with QUAL <= 30
-
-# hist(rowdata$QUAL[rowdata$QUAL <= 10000], breaks = 100, right = FALSE, col = "red", 
-	# main = "QUAL (prob of polymorphism) for called variants")
-
-# ---
-# Individual fish genotype quality scores GQ for called genotypes
-# "if GT is 0/1, then GQ is really L(0/1) / (L(0/0) + L(0/1) + L(1/1))"
-
-# GQ <- matrix(geno(vcf)$GQ, ncol=1)
-# GTm <- matrix(GT, ncol=1)
-# hist(GQ[!is.na(GTm)], right = FALSE, col = "red", breaks = 50, 
-	# main = "Histogram of individual fish genotype quality score, GQ,\nfor called genotypes")
-
-# ---
-# Individual fish read depth DP for called genotypes
-
-# DP <- matrix(geno(vcf)$DP, ncol=1)
-# hist(DP[DP <= 50 & !is.na(GTm)], right = FALSE, col = "red", breaks = 50,
-	# main = "Histogram of individual fish read depth, DP,\nfor called genotypes")
-
-# ---
-# Relationship between GQ and DP for called genotypes
-# GTm <- matrix(vcfresults$GT, ncol=1)
-
-# plot(GQ[DP <= 10 & !is.na(GTm)] ~ jitter(DP[DP <= 10 & !is.na(GTm)]), pch = ".", col = "red",
-	# main = "Relationship between GQ and DP for called genotypes,\n(note that GQ of called genotypes is often very low)")
-
-# ---
-# Strand bias
-# From the GATK pages: "Higher SB values denote more bias (and therefore are more likely to indicate false positive calls)."
-# SB <- geno(vcf)$SB # all NA
-
-# Phred-scaled P-value for Fisher exact test of strand bias (higher is more biased)
-
-# FS <- info(vcf)$FS
-# hist(FS[FS <= 100], col="red", breaks = 100, right=FALSE, xlab = "Phred-scaled P",
-	# main = "Results of Fisher exact test of strand bias") # peaks at 0
-
-# Strand bias vs Quality by Depth (see Fig 4a,b in de Pristo et al 2011)
-
-# QD <- info(vcf)$QD
-# plot(FS ~ QD, pch = ".", col = "red", ylab = "FS (Fisher test of strand bias)", 
-	# xlab = "QD (Quality by Depth)", main = "Strand Bias vs Quality by Depth (cf. Fig 4a,b in de Pristo et al 2011)")
-
-# ---
-# Total read depth
-# DPtotal <- info(vcf)$DP
-# hist(DPtotal[DPtotal <= length(groupcodes)*50], right = FALSE, col = "red", breaks = 200, 
-	# main = "Total read depth") 
-
-# dev.off()
-
+	# ---
+	# Total read depth
+	DPtot <- info(vcf)$DP
+	hist(DPtot[DPtot <= length(groupcodes)*50], right = FALSE, col = "red", breaks = 200, 
+		main = "Total read depth") 
+	
+	# dev.off()
+	}

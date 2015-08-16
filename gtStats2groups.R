@@ -40,15 +40,18 @@ gtstats <- list()
 if(length(groupnames) > 2 ) stop("Provide names of only two groups")
 
 cat("\nLoading vcfresults file\n")
-load(file = vcfresultsfile)
+load(file = vcfresultsfile)   # object is "vcfresults"
+# lapply(vcfresults, object.size)
 
 # names(vcfresults)
-# [1] "groupcodes"        "vcf"               "GT"               
-# [4] "nCalledGenotypes"  "nAlt"              "altUsedList"      
-# [7] "nAltUsed"          "snpTypeList"       "alleleFreqByGroup"
+# [1] "groupcodes"        "vcf"               "altUsedList"       "nAltUsed"          "snpTypeList"      
+# [6] "alleleFreqByGroup"
 
-# object.size(vcfresults)
-# 919170360 bytes
+****
+*** Need to redo altUsedList, snpTypeList, for this pair of populations - make a function
+*** If use only true snp, redo alleleFreqByGroup also
+****
+
 
 library(VariantAnnotation)
 # library(GenomicFeatures)
@@ -73,10 +76,13 @@ groups <- groupcodes[groupcodes > 0]
 # ----------
 # Pull out the genotypes and allele frequencies for just the two groups being analyzed
 
-genotypes <- vcfresults$GT[ , groupcodes > 0] 
+genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0] 
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 # nrow(genotypes)
 # [1] 281607
+
+# This will save memory and not needed any more
+vcfresults$alleleFreqByGroup <- NULL
 
 # ----------
 # Drop loci that have too few individuals
@@ -99,7 +105,7 @@ snpTypeList <- vcfresults$snpTypeList[test.alleles.per.group] # not necessarily 
 # bring over coding annotations too
 
 rm(test.alleles.per.group)
-# rm(vcfresults) # if we have extracted all the useful bits
+rm(vcfresults) # if we have extracted all the useful bits
 
 # nrow(genotypes)
 # [1] 274912
@@ -107,7 +113,16 @@ rm(test.alleles.per.group)
 # -----------------
 # Drop everything but true snp if TRUE
 if(trueSnpOnly){
-	# IN PROGRESS
+	tGT <- as.data.frame(t(genotypes), stringsAsFactors = FALSE)
+	which.alt.not.snp <- lapply(snpTypeList, function(x){
+		which(x != "snp")
+		})
+	# which.alt.not.snp["chrXXI:75476_ACAACT/AT"]
+	# tGT[, "chrXXI:75476_ACAACT/AT"]
+	z <- mapply(tGT, which.alt.not.snp, FUN = function(x, i){
+		# x <- tGT[,"chrXXI:18599_AT/A"]; i <- 1
+		if(sum(i) > 0) x[grep(i, x)] <- NA
+		})
 	}  
 
 # ------------------

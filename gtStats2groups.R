@@ -23,11 +23,16 @@
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
 
+GTminFrac <- 2/3
+
 includePfisher 	<- TRUE
 includeFst     	<- TRUE
 includePsd		<- TRUE
-trueSnpOnly		<- FALSE
-# dropRareAlleles <- FALSE # Set in "saveSnpsByGroup.R"
+trueSnpOnly		<- TRUE 
+# note that an indel relative to reference genome, if shared between limnetic and benthic, 
+# is not an indel between the latter. It is a fixed difference. 
+# So maybe don't want to leave indels out, or at least count them differently (NOT DONE).
+# However, a polymorphic REF indel between limnetic and benthic is an indel, so want to remove these. 
 
 project <- args[1]
 chrname <- args[2]
@@ -65,81 +70,117 @@ groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 
+nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11  7
+nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7 4
+nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
+
 # ----------
 # Pull out the genotypes for just the two groups being analyzed
+# Bring over coding annotations too, if present
 
 genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
+geno(vcfresults$vcf)$GT <- NULL
+alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
+vcfresults$alleleFreqByGroup <- NULL
 
-# Need to re-determine alleles actually used in genotype calls for these two groups
-altUsedList <- g$makeAltUsedList(genotypes, alt(vcfresults$vcf))
-nAltUsed <- sapply(altUsedList, function(x){length(x[!is.na(x)])})
-snpTypeList <- g$makeSnpTypeList(REF = ref(vcfresults$vcf), ALTlist = altUsedList)
+# ----------
+# Drop the rows with insufficient numbers of alleles
 
-# Remember: there are still "<*:DEL>" alleles that are counted in altUsedList but have snpType = NA
-# e.g., altUsedList["chrXXI:68755_G/A"]
+# Identify loci with enough alleles in both groups (the minimum number of alleles is nMin*2)
+sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
+	z <- rowSums(x, na.rm = TRUE)
+	z[1] >= 2*nMin[1] & z[2] >= 2*nMin[2]
+	})
+	
+# length(sufficient.alleles.per.group)
+# [1] 281607
 
-vcfresults$altUsedList <- NULL  # this just saves memory
-vcfresults$snpTypeList <- NULL  # 
+# Drop the rows with insufficient numbers of alleles
+genotypes <- genotypes[sufficient.alleles.per.group, ]
+alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
+snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
+vcfresults$snpTypeList <- NULL
+gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group]
+
+# nrow(genotypes)
+# [1] 269349
+
+# ---------------------------------
+# Determine which loci are variable, ie have more than one allele across both groups.
+# Those that are not polymorphic we want to keep as a record of an invariant.
+# Note that even if an indel w.r.t. REF, an invariant between limnetic and benthic is not an indel.
+is.polymorphic <- sapply(alleleFreqByGroup, function(x){
+	z <- colSums(x, na.rm = TRUE)
+	sum( z > 0 ) >= 2
+	})
+
+# length(is.polymorphic)
+# [1] 269349
 
 # -----------------
-# Drop everything but true snp if TRUE
+# Drop everything except *true snp and invariants* if trueSnpOnly = TRUE
 if(trueSnpOnly){
-	test <- names(head(snpTypeList[nAltUsed > 1]))
-	# snpTypeList[test]
-	# genotypes[test, ]
 
-	tGT <- as.data.frame(t(genotypes), stringsAsFactors = FALSE)
+	# tGT is transposed genotypers but does NOT include invariant sites between the two groups
+	tGT <- as.data.frame(t(genotypes[is.polymorphic, ]), stringsAsFactors = FALSE)
+	# ncol(tGT)
+	# [1] 163572
 
-	which.alt.not.snp <- lapply(vcfresults$snpTypeList, function(x){
+	# Identify the ALT alleles that are indels (NAs are ignored)
+	which.alt.not.snp <- lapply(snpTypeList[is.polymorphic], function(x){
 		which(x != "snp")
 		})
+	# test <- c("chrXXI:75572_CACTG/C", "chrXXI:75793_CTTG/C", "chrXXI:76075_T/C")
+	# genotypes[test, ]
+	# snpTypeList[test]
 	# which.alt.not.snp[test]
-
+	
+	# Sets tGT to NA if not a true SNP.
 	z <- mapply(tGT, which.alt.not.snp, FUN = function(x, i){
-		# x <- tGT[,"chrXXI:63560_GCGC/G"]; i <- 1
-		# x <- tGT[,"chrXXI:55310_TCC/TC"]; i <- c(1,2)
 		if(sum(i) > 0) x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
 		# x
 		return(x)
 		})
 	z <- t(z) # is a matrix again, has the right rownames but colnames are absent
-	colnames(z) <- colnames(genotypes)
-	# z[test, ]
+	colnames(z) <- rownames(tGT)
+	z[test,]
 	
-	genotypes <- z
-	alleleFreqByGroup <- ****
-	altUsedList <- ***
+	genotypes[is.polymorphic, ] <- z
+	
+	# groupcodes
+	 # [1] 0 0 0 0 0 0 0 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+	# groups
+	 # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+
+	# redo allele frequencies by group - use groups as argument not groupcodes. is.polymorphic saves a little time
+	alleleFreqByGroup[is.polymorphic] <- g$tableAlleleFreqByGroup(genotypes[is.polymorphic, ], 
+		groupnames, groups) 
+
+	# Filter once more to drop rows having insufficient numbers of alleles after indels deleted
+	sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
+		z <- rowSums(x, na.rm = TRUE)
+		z[1] >= 2*nMin[1] & z[2] >= 2*nMin[2]
+		})
+	# table(sufficient.alleles.per.group)
+	# sufficient.alleles.per.group
+	 # FALSE   TRUE 
+	 # 12702 256647
+
+	genotypes <- genotypes[sufficient.alleles.per.group, ]
+	alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
+	snpTypeList <- snpTypeList[sufficient.alleles.per.group]
+	gtstats$vcf <- gtstats$vcf[sufficient.alleles.per.group]
+	
+	# nrow(genotypes)
+	# [1] 256647
+
 	}  
-else alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 
-# This will save memory and not needed any more
-vcfresults$alleleFreqByGroup <- NULL
+# Do I still need this? Calculate it here after we have the right "genotype" matrix, however filtered above
+altUsedList <- g$makeAltUsedList(genotypes, alt(gtstats$vcf))
 
-# ----------
-# Drop loci that have too few individuals
-GTminFrac <- 2/3
-nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11  7
-nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7 4
-nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
-
-# Identify and keep those loci with enough alleles in both groups
-# The minimum number of alleles is nMin*2
-test.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
-	z <- rowSums(x, na.rm = TRUE)
-	z[1] >= nMin[1] & z[2] >= nMin[2]
-	})
-
-genotypes <- genotypes[test.alleles.per.group, ]
-alleleFreqByGroup <- alleleFreqByGroup[test.alleles.per.group]
-altUsedList <- vcfresults$altUsedList[test.alleles.per.group] # not necessarily used by these two groups
-snpTypeList <- vcfresults$snpTypeList[test.alleles.per.group] # not necessarily used by these two groups
-# bring over coding annotations too
-
-rm(test.alleles.per.group)
-rm(vcfresults) # if we have extracted all the useful bits
-
-# nrow(genotypes)
-# [1] 274912
+rm(sufficient.alleles.per.group)
+rm(vcfresults) # assuming we have extracted all the useful bits
 
 
 # ------------------
@@ -176,21 +217,38 @@ rm(vcfresults) # if we have extracted all the useful bits
 # Start saving key results
 gtstats$groupnames <- groupnames 	# "paxl" "paxb"
 gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-gtstats$genotypes <- genotypes	# columns are loci
+
+gtstats$genotypes <- genotypes		# rows are loci
+rm(genotypes)
+
 gtstats$alleleFreqByGroup <- alleleFreqByGroup
+rm(alleleFreqByGroup)
+
 gtstats$altUsedList <- altUsedList # needed?
+rm(altUsedList)
+
 gtstats$snpTypeList <- snpTypeList # needed?
+rm (snpTypeList)
+
+is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
+	z <- colSums(x, na.rm = TRUE)
+	sum( z > 0 ) >= 2
+	})
 
 # -------------------------------------------------------------
 # Group differences in allele frequencies using Fisher exact test
-# Note that one can use logistic regression to get equivalent of odds ratio when there are more than 2x2 categories.
+# P = 1 if there are no differences or locus is monomorphic
 
 if(includePfisher){ 
-	# Fisher exact tests of allele and genotype frequencies using ALLELE frequencies
+	# Fisher exact tests of allele and genotype frequencies using ALLELE (not genotype) frequencies
+
+	# Set to NA non-polymorphic sites with sufficiently many genotypes
+	gtstats$pfisher <- rep(NA, length(gtstats$alleleFreqByGroup))
+	names(gtstats$pfisher) <- names(gtstats$alleleFreqByGroup)
 	
 	cat("\nCalculating Fisher exact test p-values for group allele freq differences (maximum of 3 ALT alleles assumed)\n")
-	# Loci that are not polymorphic will have a pfisher = 1
-	pfisher <- lapply(alleleFreqByGroup, function(x){
+	# Loci that are not divergent will have a pfisher = 1
+	gtstats$pfisher[is.polymorphic] <- sapply(gtstats$alleleFreqByGroup[is.polymorphic], function(x){
 		pfisher <- fisher.test(x)$p.value
 		})
 	
@@ -201,109 +259,35 @@ if(includePfisher){
 
 	# Plot where the significant SNPs reside
 	
-	# pdf(file = paste(vcfdir, project, ".", chrname, ".pfisherPlot", ".pdf", sep=""))	
-	# x <- start(vcfresults$rowdata)/(10^6)
-	# y <- (-log10(vcfresults$pfisher) + rnorm(length(x), mean=0, sd=.005))
-	# colour <- (round(-log10(vcfresults$pfisher)/1.2)+1)
+	# pdf(file = paste(project, ".", chrname, ".pfisherPlot", ".pdf", sep=""))	
+	# x <- start(rowData(gtstats$vcf))/(10^6)
+	# y <- (-log10(gtstats$pfisher) + rnorm(length(x), mean=0, sd=.005))
+	# colour <- (round(-log10(gtstats$pfisher)/1.2)+1)
 	# plot( y ~ x, pch = ".", ylab="-log10 Pfisher", col = colour, xlab = chrname,
 		# main = "Fisher exact test group allele freq differences (max 3 ALT alleles)") 
 	# dev.off()
 	
-	# cat("\nTransition-transversion ratio for pfisher < 0.01 (uses first ALT allele if more than one)\n")
-	# #snptype <- sapply(vcfresults$snptypeList, function(x){x[1]}) # first ALT allele: snp ins or del?
-
-	# snp <- unlist(vcfresults$snpTypeList[nAltUsed > 0])
-	# ref <- rep(as.vector(ref(vcfresults$vcf)), nAltUsed)
-	# alt <- unlist(vcfresults$altUsedList)
-
-	# snp <- snp[!is.na(snp) & snp == "snp"]
-	# ref <- ref[!is.na(snp) & snp == "snp"]
-	# alt <- alt[!is.na(snp) & snp == "snp"]
-	# ref <- substr(ref, 1, 1) # keep the first letter of REF
-	# alt <- substr(alt, 1, 1) # keep the first letter of ALT
-	# print(g$tstv(ref[ref != alt], alt[ref != alt]))
-
-	# REF <- as.character(vcfresults$rowdata$REF)
-	# ALT <- sapply(vcfresults$ALTlist, function(x){x[1]})
-	# print( g$tstv(REF[snptype == "snp" & vcfresults$pfisher <= 0.01], ALT[snptype == "snp" & vcfresults$pfisher <= 0.01]) )
-	# $R
-	# [1] 1.258801
-	# $tstv
-	     # alt
-	# ref     pur   pyr
-	  # pur 60301 47947
-	  # pyr 47864 60306
-	# $tot
-	# [1] 216418
+	# cat("\nTransition-transversion ratio for pfisher < 0.01\n")
 	}
-
-
-# -----------------
-# Prepare genotypes for Fst
-
-# Subset genotypes to include only polymorphic sites
-is.polymorphic <- sapply(alleleFreqByGroup, function(x){
-	z <- colSums(x, na.rm = TRUE)
-	sum( z > 0 ) >= 2
-	})
-	
-genotypes.poly <- genotypes[is.polymorphic, ]
-
-# Check that locus names are unique (for later matching)
-# length(rownames(genotypes))
-# [1] 274912
-# length(unique(rownames(genotypes)))
-# [1] 274912
-
-# Transpose genotype array - lapply on SNPs easier this way
-geno <- as.data.frame(t(genotypes.poly), stringsAsFactors = FALSE) 
-names(geno) <- rownames(genotypes.poly)
-
-#geno[1:22,1:5]
-
-# table(unlist(geno), useNA = "always")
-    # 0/0     0/1     0/2     0/3     1/1     1/2     1/3     2/2     2/3     3/3 
-# 2118477  694045   16864     475  720186    4791     140   19681     112     673 
-   # <NA> 
- # 100294 
-
-gtstats$is.polymorphic <- is.polymorphic
-
-# --------------
-
-# library(Geneland)
-# # Try Geneland method - this method below assumes that all genotypes are single-digit
-# # Note: It was very fast but only gave a total Fis and Fst, not variance components per locus.
-# #	so not as useful as hierfstat
-# It also required the installation of a gigantic code development app
-
-# genotypes <- as.data.frame(t(vcfresults$GT), stringsAsFactors = FALSE)
-# GTsplit <- lapply(genotypes, function(x){
-	# vcfresults <- substr(x, 1, 1)
-	# x2 <- substr(x, 3, 3)
-	# cbind(vcfresults, x2)
-	# })
-# GTsplit <- do.call("cbind", GTsplit)
-# z <- Fstat(GTsplit, 2, groups)
-# z
-# $Fis
-# [1] 0.02649774 0.05939996
-
-# $Fst
-          # [,1]      [,2]
-# [1,] 0.0000000 0.4434629
-# [2,] 0.4434629 0.0000000
 	
 # --------------
 
 if(includeFst){
+	
+	# Prepare genotypes for Fst
+
+	# Set to NA non-polymorphic sites with sufficiently many genotypes
+	gtstats$fst <- rep(NA, length(gtstats$alleleFreqByGroup))
+	names(gtstats$fst) <- names(gtstats$alleleFreqByGroup)
+
+
+	geno <- as.data.frame(t(gtstats$genotypes[is.polymorphic, ]), stringsAsFactors = FALSE) 
 
 	library(hierfstat)
 	
 	cat("\nCalculating Fst (slowly) between groups\n")
 	
 	# Per-locus Fst using Weir and Cockrham estimates
-	# Returns NA if there isn't at least 8 alleles for each pop
 	# Fst is calculated as tsiga/sum(c(tsiga, tsigb, tsigw)), where
 	# tsiga <- sum(lsiga)
 	# tsigb <- sum(lsigb)
@@ -312,29 +296,15 @@ if(includeFst){
 	#   among individuals within populations, and within individuals, respectively
 	# wc command does not like duplicate row names
 
-	# Uses alleleFreqTable as calculated earlier
-	# A snp needs at least 8 alleles for each pop to be analyzed
-	# A snp needs >= 2 different alleles across all individuals (ie ALT snp not fixed in L and B) or wc will protest
-
 	# groups
 	# [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-	
-	# pop <- as.character(groups)
+
+	pop <- as.character(groups)
 
 	# Convert genotypes to hierfstat format:
 	# Columns are genotypes indicated as 11 (0/0), 12 (0/1), 22 (1/1), or NA (NA)
-
-	# This next operation is redundant (did it already above) but can't use the duplicate names
-	# Redoing it here so that names remain as "V1" "V2" etc
-
-	# genotypes <- as.data.frame( t(vcfresults$GT), stringsAsFactors=FALSE) 
-
-	#genotypes[,1:25]
 	
-	# dim(geno)
-	# [1]     22 167079
-
-	temp <- unlist(geno) # geno is the transposed genotypes.poly
+	temp <- unlist(geno)
 	
 	temp[temp == "0/0"] <- "11"
 	temp[temp == "0/1"] <- "12"
@@ -347,23 +317,18 @@ if(includeFst){
 	temp[temp == "2/3"] <- "34"
 	temp[temp == "3/3"] <- "44"
 
-	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop)))
+	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop))) # original names lost
 	#names(temp) <- names(geno)
-
-	# dim(temp)
-	# [1]     22 167079
 
 	#head(names(temp)) 
 	#[1] "V1" "V2" "V3" "V4" "V5" "V6"
-	#tail(names(temp))
-	#[1] "V167074" "V167075" "V167076" "V167077" "V167078" "V167079"
 
 	#table(pop)
 	# pop
 	 # 1  2 
 	# 11 11 
-	# Must convert pop to a number -- using factor(pop) means that pops will be in alphabetical order
-	# xpop <- as.numeric(factor(pop))
+
+	# Must use groups instead of pop in wc command because must be a number
 
 	# Calculate Fst - # took about 40 min
 	# z <- wc(cbind(groups, temp))

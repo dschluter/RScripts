@@ -24,6 +24,7 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
 
 GTminFrac <- 2/3
+ancestor <- "marine-pac" # use to classify the most common ancestral allele for comparison
 
 includePfisher 	<- TRUE
 includeFst     	<- TRUE

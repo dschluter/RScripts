@@ -37,6 +37,7 @@ g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, 
 	# Generates a table of allele frequencies at each locus by group
 	# Group is specified by the integer groupcodes, eg 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 	# 
+	groupnames <- factor(groupnames, levels = groupnames)
 	tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE) # annoying but apply won't return a list
 	alleleFreqByGroup <- lapply(tGT, function(locus){
 		# columns of tGT are loci, so apply function locus by locus

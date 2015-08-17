@@ -16,6 +16,8 @@
 # Note: At most 3 ALT alleles permitted per snp in this version
 # NOTE: windowmaskerSdust start position is 0-based, so added 1 (end position is 1-based!)
 
+# setwd("~/Desktop")
+
 # qsub -I -l walltime=02:00:00 -l mem=4gb # work interactively; use "exit" to exit
 # module load R/3.1.2
 # R
@@ -30,7 +32,6 @@ groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
 plotQualMetrics <- TRUE
-tabulateAlleleFreqByGroup <- FALSE
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -126,6 +127,9 @@ for(i in 1:length(groupcodes)){
 cat("groupcodes:")
 print(groupcodes)
  # [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+ 
+nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
+# [1] 11 11  7
 
 # Q: What does QUAL = NA imply?
 
@@ -144,7 +148,7 @@ gc()
 # ------
 # set missing genotypes to NA
 geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
-gc()
+# gc()
 
 # ---
 # Drop variants in which fewer than 2 groups have at least one genotype
@@ -169,12 +173,23 @@ samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting g
 # [4] "Marine-Pac-MANC_X_X05"          "Marine-Pac-Oyster-06-Sara"      "Marine-Pac-Seyward-01-Sara"    
 # [7] "Marine-Pac-WestCreek-01-Sara"  
 
+# ----------
+# # Tabulate genotype frequencies by group
+# genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){
+	# table(groupcodes, x)
+	# # xtabs(~ groupcodes + x) # took twice as long!
+	# })
+
+# ----------
+# Indicate whether there's at least one genotype in at least two groups. 
+# No need for a more stringent criterion here because one will need to be applied in gtStats2groups anyway
+
 nCalledGenotypes <- lapply(samplesByGroup, function(z){
 	z1 <- apply(geno(vcf)$GT[ , z], 1, function(z){sum(!is.na(z))})
 	})
 names(nCalledGenotypes) <- groupnames # don't sort groupnames! This is the order that determined codes
 
-z2 <- lapply(nCalledGenotypes, function(z1){z1 >= 1}) # indicates whether there's at least one genotype
+z2 <- lapply(nCalledGenotypes, function(z1){z1 >= 1})
 z2 <- data.frame(z2)
 z3 <- apply(z2, 1, sum)
 keep <- z3 >= 2
@@ -189,39 +204,99 @@ rm(keep)
 gc()
 
 # --------------------------------------
+# Make a table of the allele frequencies
+
+alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
+	
+	# alleleFreqByGroup[[1]]     
+	             # 0 1 2 3
+	  # paxl       1 3 0 0
+	  # paxb       0 0 0 0
+	  # marine-pac 2 0 0 0
+
+# --------------------------------------
 # Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
 
-if(dropRareAlleles){ # IN PROGRESS
-	# Delete rare alleles (< 5%) based on vcfresults$alleleProportions
-	# This means 5% across populations? What if analysis includes wheatlandi eg, just a single individual?
-	# Or should we just drop alleles with less than 5% within a group (but what if the allele is common in another group)
-	# Maybe this rule: drop alleles less than 5% within groups only if also less than 5% across groups
+if(dropRareAlleles){
+	# Delete rare alleles (< 5% based on the total number of alleles)
+	# Try this RULE: drop alleles that are both less than 5% within all groups AND less than 5% across groups
+	# This protects cases in which we have just one individual from a population and has a unique allele
 	
-	# To do this, identify the allele and change the genotypes to missing that correspond to those rare alleles
+	# Note that afterward, some loci will become invariants
 
-	alleleProportions <- lapply(alleleFreqByGroup, function(x){
-		z <- colSums(x)
-		z1 <- z/sum(z)
+	# First test whether any alleles are rare globally
+	whichRareTot <- lapply(alleleFreqByGroup, function(x){
+		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
+		              # 0  1  2  3
+		  # paxl       20  0  0  0
+		  # paxb       18  0  0  0
+		  # marine-pac 11  1  0  0
+		p <- colSums(x)/sum(nInd)
+		         # 0          1          2          3 
+		# 1.68965517 0.03448276 0.00000000 0.00000000
+		rareTot <- names(p[p > 0 & p < 0.05])
+		# [1] "1"
 		})
-	# alleleProportions[[1]]
-	  # 0   1   2   3 
-	# 0.5 0.5 0.0 0.0
+	casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
+	
+	# Of those that are rare in total, figure out which are also rare (< 5%) in all groups
+	whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
+		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
+		prop <- sweep(x, 1, rowSums(x), FUN = "/")
+		                      # 0          1          2          3
+		  # paxl       1.00000000 0.00000000 0.00000000 0.00000000
+		  # paxb       1.00000000 0.00000000 0.00000000 0.00000000
+		  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
+		testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
+		rareAll <- names(testAll[testAll])
+		})
+	
+	whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
+	whichRareTot[casesRareTot] <- whichRareAll
+	
+	# head(whichRareTot[sapply(whichRareTot, length) > 0])
+		# $`chrXXI:68744_C/G`
+		# [1] "1"
+	# head(alleleFreqByGroup[sapply(whichRareTot, length) > 0])
+		# $`chrXXI:68744_C/G`
+		              # 0  1  2  3
+		  # paxl       22  0  0  0
+		  # paxb       21  1  0  0
+		  # marine-pac 14  0  0  0
+		  
+	# Some have 3 rare alleles!
+	# whichRareTot[sapply(whichRareTot, length) > 2]
+	# alleleFreqByGroup[sapply(whichRareTot, length) > 2]
+	
+	
+	needFixing <- sapply(whichRareTot, length) > 0
+	length(whichRareTot[needFixing])
+	# [1] 10295
 
-	rareAlleles <- lapply(vcfresults$alleleProportions, function(x){
-		names(x[x < .05])
+	tGT <- as.data.frame(t(geno(vcf)$GT[needFixing, ]), stringsAsFactors = FALSE)
+	# ncol(tGT)
+	# [1] 10295
+	
+	z <- mapply(tGT, whichRareTot[needFixing], FUN = function(x, i){
+		# x <- tGT[, "chrXXI:9878908_G/GTCGCCGGCCCT"]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+		# x
+		 # [1] "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1"
+		# [19] "1/1" "1/1" "1/2" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "0/3"
+		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
+		return(x)
 		})
-	# rareAlleles <- sapply(rareAlleles, function(x){paste(x, collapse = "")}) # very slow
-	library(stringr)
-	rareAlleles <- sapply(rareAlleles, function(x){str_c(c("[",x,"]"), collapse = "")}) # bit faster
-	# head(rareAlleles)
-	 # chrXXI:6316_C/T chrXXI:10364_T/A chrXXI:10365_G/T chrXXI:16024_C/T 
-	          # "[23]"          "[023]"          "[023]"          "[123]" 
-	# chrXXI:16025_C/G chrXXI:16026_A/T 
-	         # "[123]"           "[23]"
-	z <- lapply(genotypes, function(x){
-		# x <- genotypes[,1]
-		grepl( rareAlleles, x))
-		})
+	# z is a matrix with cols corresponding to tGT
+	# z[,"chrXXI:9878908_G/GTCGCCGGCCCT"]
+		 # [1] "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1"
+		# [19] "1/1" "1/1" NA    "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" NA
+	z <- t(z)
+	geno(vcf)$GT[needFixing, ] <- z
+	# geno(vcf)$GT["chrXXI:9878908_G/GTCGCCGGCCCT", ]
+	
+	# Need to recompute allele frequencies for cases needing fixing (rare alleles dropped)
+	alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(z, groupnames, groupcodes)
+	# alleleFreqByGroup["chrXXI:68744_C/G"]
+	# alleleFreqByGroup["chrXXI:9878908_G/GTCGCCGGCCCT"]
 	}
 
 
@@ -345,18 +420,6 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 # #      last n letters of ref              last n letters of alt
 # all( substr(x$ref, 2, nchar(x$ref)) == substr(x$alt, nchar(x$alt) - nchar(x$ref) + 2, nchar(x$alt)) ) # TRUE!
 
-
-# --------------------------------------
-# Make a table of the allele frequencies
-if(tabulateAlleleFreqByGroup){
-	alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
-	
-	# alleleFreqByGroup[[1]]     
-	             # 0 1 2 3
-	  # marine-pac 2 0 0 0
-	  # paxb       0 0 0 0
-	  # paxl       1 3 0 0
-	}
 
 # --------------------------------------
 # Transition-transversion ratio

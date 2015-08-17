@@ -25,6 +25,7 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 
 includePfisher 	<- TRUE
 includeFst     	<- TRUE
+includePsd		<- TRUE
 trueSnpOnly		<- FALSE
 # dropRareAlleles <- FALSE # Set in "saveSnpsByGroup.R"
 
@@ -44,19 +45,12 @@ load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
 # names(vcfresults)
-# [1] "groupcodes"        "vcf"               "altUsedList"       "nAltUsed"          "snpTypeList"      
-# [6] "alleleFreqByGroup"
-
-****
-*** Need to redo altUsedList, snpTypeList, for this pair of populations - make a function
-*** If use only true snp, redo alleleFreqByGroup also
-****
-
+# [1] "groupcodes"        "vcf"               "altUsedList"       "snpTypeList"       "alleleFreqByGroup"
 
 library(VariantAnnotation)
 # library(GenomicFeatures)
 
-# Group codes for thw two groups of interest here
+# Group codes for the two groups of interest here
 # 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
 fishnames <- samples(header(vcfresults$vcf)) # pulls fish names
 groupcodes <- rep(0, length(fishnames))		 # initialize
@@ -67,19 +61,56 @@ for(i in 1:length(groupcodes)){
 cat("\ngroupcodes:\n")
 print(groupcodes)
 # [1] 0 0 0 0 0 0 0 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-
-# Grab genotypes of the two groups of interest only
 groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 
 # ----------
-# Pull out the genotypes and allele frequencies for just the two groups being analyzed
+# Pull out the genotypes for just the two groups being analyzed
 
-genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0] 
-alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
-# nrow(genotypes)
-# [1] 281607
+genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
+
+# Need to re-determine alleles actually used in genotype calls for these two groups
+altUsedList <- g$makeAltUsedList(genotypes, alt(vcfresults$vcf))
+nAltUsed <- sapply(altUsedList, function(x){length(x[!is.na(x)])})
+snpTypeList <- g$makeSnpTypeList(REF = ref(vcfresults$vcf), ALTlist = altUsedList)
+
+# Remember: there are still "<*:DEL>" alleles that are counted in altUsedList but have snpType = NA
+# e.g., altUsedList["chrXXI:68755_G/A"]
+
+vcfresults$altUsedList <- NULL  # this just saves memory
+vcfresults$snpTypeList <- NULL  # 
+
+# -----------------
+# Drop everything but true snp if TRUE
+if(trueSnpOnly){
+	test <- names(head(snpTypeList[nAltUsed > 1]))
+	# snpTypeList[test]
+	# genotypes[test, ]
+
+	tGT <- as.data.frame(t(genotypes), stringsAsFactors = FALSE)
+
+	which.alt.not.snp <- lapply(vcfresults$snpTypeList, function(x){
+		which(x != "snp")
+		})
+	# which.alt.not.snp[test]
+
+	z <- mapply(tGT, which.alt.not.snp, FUN = function(x, i){
+		# x <- tGT[,"chrXXI:63560_GCGC/G"]; i <- 1
+		# x <- tGT[,"chrXXI:55310_TCC/TC"]; i <- c(1,2)
+		if(sum(i) > 0) x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
+		# x
+		return(x)
+		})
+	z <- t(z) # is a matrix again, has the right rownames but colnames are absent
+	colnames(z) <- colnames(genotypes)
+	# z[test, ]
+	
+	genotypes <- z
+	alleleFreqByGroup <- ****
+	altUsedList <- ***
+	}  
+else alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 
 # This will save memory and not needed any more
 vcfresults$alleleFreqByGroup <- NULL
@@ -110,20 +141,6 @@ rm(vcfresults) # if we have extracted all the useful bits
 # nrow(genotypes)
 # [1] 274912
 
-# -----------------
-# Drop everything but true snp if TRUE
-if(trueSnpOnly){
-	tGT <- as.data.frame(t(genotypes), stringsAsFactors = FALSE)
-	which.alt.not.snp <- lapply(snpTypeList, function(x){
-		which(x != "snp")
-		})
-	# which.alt.not.snp["chrXXI:75476_ACAACT/AT"]
-	# tGT[, "chrXXI:75476_ACAACT/AT"]
-	z <- mapply(tGT, which.alt.not.snp, FUN = function(x, i){
-		# x <- tGT[,"chrXXI:18599_AT/A"]; i <- 1
-		if(sum(i) > 0) x[grep(i, x)] <- NA
-		})
-	}  
 
 # ------------------
 # Genotype frequencies

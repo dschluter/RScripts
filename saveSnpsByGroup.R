@@ -30,6 +30,7 @@ groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
 plotQualMetrics <- TRUE
+tabulateAlleleFreqByGroup <- FALSE
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -347,16 +348,15 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # --------------------------------------
 # Make a table of the allele frequencies
-# Not sure this is essential at this stage -- more useful when analyzing a subset of groups
-
-alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
-
-# alleleFreqByGroup[[1]]     
-             # 0 1 2 3
-  # marine-pac 2 0 0 0
-  # paxb       0 0 0 0
-  # paxl       1 3 0 0
-
+if(tabulateAlleleFreqByGroup){
+	alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcodes)
+	
+	# alleleFreqByGroup[[1]]     
+	             # 0 1 2 3
+	  # marine-pac 2 0 0 0
+	  # paxb       0 0 0 0
+	  # paxl       1 3 0 0
+	}
 
 # --------------------------------------
 # Transition-transversion ratio
@@ -396,12 +396,14 @@ gc()
 vcfresults$altUsedList <- altUsedList
 rm(altUsedList)
 gc()
-vcfresults$nAltUsed <- nAltUsed
+# vcfresults$nAltUsed <- nAltUsed
 rm(nAltUsed)
 vcfresults$snpTypeList <- snpTypeList # based on altUsedList
 rm(snpTypeList)
-vcfresults$alleleFreqByGroup <- alleleFreqByGroup
-rm(alleleFreqByGroup)
+if(tabulateAlleleFreqByGroup){
+	vcfresults$alleleFreqByGroup <- alleleFreqByGroup
+	rm(alleleFreqByGroup)
+	}
 
 # cat("\nSaving results\n")
 save(vcfresults, file = vcfresultsfile)

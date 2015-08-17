@@ -1,11 +1,11 @@
 g<-list()
 
-# names(g)
- # [1] "makeGenotypeGVCFspbs" "downloadSra"          "recode"              
- # [4] "geno.diff"            "psd"                  "blockstats"          
- # [7] "slidewin"             "plot.reads"           "peel"                
-# [10] "flag.readable"        "gtf2thirdpositions"   "tstv"                
-# [13] "write.bedGraph"       "wc.revised"
+ # [1] "makeAltUsedList"        "whichAltAllelesUsed"    "qsubRscriptPbs"         "makeChrvecMasked"      
+ # [5] "qsubGenotypeGVCFsPbs"   "downloadSra"            "recode"                 "geno.diff"             
+ # [9] "psd"                    "blockstats"             "slidewin"               "plot.reads"            
+# [13] "peel"                   "flag.readable"          "gtf2thirdpositions"     "tstv"                  
+# [17] "write.bedGraph"         "wc.revised"             "makeSnpTypeList"        "tableAlleleFreqByGroup"
+# [21] "vcfTsTv"               
 
 g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
 	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making
@@ -114,10 +114,11 @@ g$whichAltAllelesUsed <- function(GT, split = "/"){
 g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# The Rscript command executes a particular *.R file and provides any needed arguments
-	# Submit the .pbs file to the queue using qsub
-	
-	# In this revision there's no need to include pbsfile, it will get it from the .R argument
-	# g$qsubRscriptPbs(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
+	# This version also downloads the .R file from github so that the latest version is available
+	# This version does not include pbsfile as an argument, it will make from the .R root
+	# This version automatically submits the pbs file to the queue
+	# Example: (note that all the arguments to .R script are included in a single quotation
+	# 	g$qsubRscriptPbs(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
 	
 	if(Rscript == "") stop("You need to provide an Rscript command")
 		

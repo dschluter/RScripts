@@ -11,11 +11,14 @@ g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
 	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making
 	# use of the snp types already provided in snpTypeList
 	#
-	nAltUsed <- sapply(ALTlist, function(x){length(x[!is.na(x)])})
-	snp <- unlist(snpTypeList[nAltUsed > 0])
-	ref <- rep(as.vector(REF), nAltUsed)
-	alt <- unlist(ALTlist[nAltUsed > 0])
-	cat("Table of variant types used (<*:DEL> is NA)\n")
+	n1 <- sapply(ALTlist, length) # length including NAs
+	n2 <- sapply(snpTypeList, length)
+	if( !all(n1 == n2) ) stop("ALTlist and snpTypeList have unequal element numbers")
+	snp <- unlist(snpTypeList)
+	ref <- rep(as.vector(ref(vcf)), n1)
+	alt <- unlist(ALTlist)
+
+	cat("Table of variant types used (<*:DEL> and unused are NA)\n")
 	print(table(snp, useNA="always"))
 	
 	# Transition-transversion ratios - true snp only (not indels)

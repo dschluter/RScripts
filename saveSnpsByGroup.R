@@ -497,7 +497,7 @@ save(vcfresults, file = vcfresultsfile)
 # load(file = vcfresultsfile) # saved object is "vcfresults"
 rm(vcfresults)
 
-if(plotQualMetrics{
+if(plotQualMetrics){
 	# --------------------------------------
 	# Plots of quality metrics
 	# Current version drops only the rows corresponding to M in chrvec

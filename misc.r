@@ -69,3 +69,8 @@ integer2binary <- function(x){
         }
         if(N ==1) Base2[1, ] else Base2
 } 
+
+logit<-function(x){
+	log(x/(1. - x))
+}
+

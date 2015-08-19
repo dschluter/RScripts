@@ -92,7 +92,6 @@ gc()
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 vcfresults$alleleFreqByGroup <- NULL
 
-gc()
 
 # ----------
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
@@ -305,7 +304,9 @@ if(includePfisher){
 	
 	# cat("\nTransition-transversion ratio for pfisher < 0.01\n")
 	}
-	
+
+gc()
+
 # --------------
 
 if(includeFst){
@@ -447,7 +448,9 @@ if(includeFst){
 	} # end if(includeFst}
 
 # load(file = gtstatsfile) # object is "gtstats"
-	
+
+gc()
+
 # --------------
 
 if(includePsd){
@@ -468,6 +471,8 @@ if(includePsd){
 	} # end if(includePsd)
 	
 # -------------
+
+gc()
 
 cat("\nSaving results\n")
 save(gtstats, file = gtstatsfile)

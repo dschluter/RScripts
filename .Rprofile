@@ -6,5 +6,7 @@ git <- function(githubfile){
 	}
 .First <- function(){
 	git("genome.r")
+	
 	git("misc.r")
+	
 	}

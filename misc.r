@@ -98,30 +98,7 @@ recode<-function (..., ret = c("numeric", "factor"), none = if (ret == "numeric"
     result
 }
 
-ls2<-function(type=NULL,envir=.GlobalEnv){
-	# Selectively lists objects of specified type
-	# To remove all of any type, use "rm(list=ls2(type="character"))"
-	if(is.null(type)){
-		type<-select.list(c("character","data.frame","function","list",
-			"matrix","numeric","vector"))
-		}
-	if(type=="character")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.character(get(x)))])
-	if(type=="data.frame")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.data.frame(get(x)))])
-	else if(type=="function")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.function(get(x)))])
-	else if(type=="list")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.list(get(x)))])
-	else if(type=="matrix")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.matrix(get(x)))])
-	else if(type=="numeric")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.numeric(get(x)))])
-	else if(type=="vector")
-		return(ls(envir=envir)[sapply(ls(envir=envir), function(x) is.vector(get(x)))])
-}
-
-logit<-function(x)	{
+logit<-function(x){
 	log(x/(1. - x))
 }
 

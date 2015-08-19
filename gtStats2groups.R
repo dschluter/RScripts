@@ -24,12 +24,13 @@
 # They are used in a "grep" to divide the fish uniquely into groups
 
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
+# args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb")
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
 
 GTminFrac <- 2/3
 ancestor <- "marine-pac" # use to classify the most common ancestral allele for comparison
 
-includePfisher 	<- TRUE
+includePfisher 	<- FALSE
 includeFst     	<- TRUE
 includePsd		<- TRUE
 trueSnpOnly		<- FALSE 
@@ -85,8 +86,13 @@ nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or 
 genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
 geno(vcfresults$vcf)$GT <- NULL
 
+gcinfo(TRUE)
+gc()
+
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 vcfresults$alleleFreqByGroup <- NULL
+
+gc()
 
 # ----------
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
@@ -114,11 +120,16 @@ gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group] # contains rowData b
 rm(sufficient.alleles.per.group)
 rm(vcfresults) # assuming we have extracted all the useful bits
 
-gcinfo(TRUE)
 gc()
+# chrXXI
            # used  (Mb) gc trigger  (Mb) max used  (Mb)
 # Ncells  6037587 322.5   10049327 536.7 10049327 536.7
 # Vcells 17640420 134.6   39455907 301.1 39417064 300.8
+# hermes chrUn
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells 12407797 662.7   25310187 1351.8  25310187 1351.8
+# Vcells 50531600 385.6  128513897  980.5 128347380  979.3
+
 
 # nrow(genotypes)
 # [1] 269349
@@ -252,6 +263,7 @@ rm(genotypes)
 gtstats$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
 
+# We're running this again because... (might be needed only if removed indels above)
 is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
 	z <- colSums(x, na.rm = TRUE)
 	sum( z > 0 ) >= 2
@@ -430,7 +442,7 @@ if(includeFst){
 	# dev.off()
 
 	# Interim save
-	save(gtstats, file = gtstatsfile)
+	# save(gtstats, file = gtstatsfile)
 	
 	} # end if(includeFst}
 

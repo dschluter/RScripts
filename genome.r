@@ -152,8 +152,8 @@ g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime
 	
 	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
 
-	writeLines(paste("curl -o " , dotRfile, ".R", 
-		" https://raw.githubusercontent.com/dschluter/RScripts/master/", dotRfile, ".R", sep = ""), outfile)
+	# writeLines(paste("curl -o " , dotRfile, ".R", 
+		# " https://raw.githubusercontent.com/dschluter/RScripts/master/", dotRfile, ".R", sep = ""), outfile)
 
 	writeLines(paste("module load R/", Rversion, sep = ""), outfile)
 	writeLines(Rscript, outfile)

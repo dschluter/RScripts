@@ -259,6 +259,8 @@ gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 gtstats$genotypes <- genotypes		# rows are loci
 rm(genotypes)
 
+gtstats$trueSnpOnly <- trueSnpOnly
+
 gtstats$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
 

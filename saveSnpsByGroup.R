@@ -375,7 +375,9 @@ rm(nAltUsed)
 #   ACGT     POS REF ALT 
 #   A-TT      1  ACG  AT
 
-# Examples from earlier analysis where snp type is NA
+# Examples from earlier analysis where snp type incomplete. 
+# ** The way I'm typing them, snp and del at same POS are just alternative alleles, does this make sense????
+# 	 It implies that both can't occur, yet they can in principle.
 #  ref          altUsedList
 # "TCC"     -> "TC" "T";        NA  "del"     # is del, ref begins with alt
 # "CGG"     -> "CG" "C";        NA  "del"     # is del, ref begins with alt
@@ -385,7 +387,7 @@ rm(nAltUsed)
 # "TAA"     -> "TTAAA" "T";     NA  "del"     # is ins, 1st letter of alt same as ref, inserted 2 bases, then rest is same
 # "CTCCCA"  -> "C" "CGTGTCCCA"; "del" NA      # is ins, 1st letter of alt same as ref, inserted 3 bases, then rest is same
 # "TCTCA"   -> "T" "TGCTCA";   "del"  NA      # is ins, 1st letter of alt same as ref, inserted 1 base, then rest is same
-# "CGG"     -> "C"  "TGG";   "  del" NA       # is snp, first letter different
+# "CGG"     -> "C"  "TGG";   "  del" NA       # is snp, first letter different 
 # "GGCCGGT" -> "CGCCGGT" "G";   NA  "del"     # is snp, first letter different
 # "TC"      -> "CC"  "GC" "T";  NA   NA "del" # is snp, first letter different
 # "GC"      -> "CC"  "G";       NA  "del"     # is snp, first letter different

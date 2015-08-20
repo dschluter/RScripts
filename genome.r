@@ -455,14 +455,14 @@ g$psd <- function(genotypes, groups){
 	}
 
 
-g$blockstats <- function(vcfresults, stepsize = 500, invariants, 
-		chrvec, CSStrueSnps = TRUE, FSTtrueSnps = FALSE, psdMissingAction = "none"){
+g$blockstats <- function(x1, stepsize, goodInvariants, 
+		chrvecfile, trueSnpOnly = FALSE, psdMissingAction = NA){
 	
 	# This function calculates preliminary results for sliding window analyses on a (repeat-masked) chromosome
 	# It breaks the chromosome into blocks or bins of size stepsize and calculates a value of interest in each bin
 
 	# vcfresults is the VCF list containing all variables of interest for a single chromosome
-	# Function assumes that vcfresults$fst and/or vcfresults$psd exist
+	# Function assumes that x1$fst and/or x1$psd exist
 	# Function assumes that the stats corresponding to masked nucleotides have already been dropped from vcfresults
 
 	# yes it can handle multiple snps at the same value of POS
@@ -488,16 +488,13 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
 	# invariants contains numbers indicating chromosome positions meeting the minimum-number-of genotypes criterion
 	#		Probably in file "processedInvariants"
 
-	# If FSTtrueSnps = TRUE, only true snps (not indels) are used here to calculate variance components.
-	# If CSStrueSnps = TRUE, only true snps (not indels) are used here to calculate psd within blocks.
-
-	# table(chrvec)
-	      # A       C       G       M       T 
-	# 2464777 2130503 2128953 2521828 2471426 
+	# trueSnpOnly = TRUE, only true snps (not indels) were used.
 	
-	x1 <- vcfresults
-	stepsize <- as.integer(stepsize)	
-	k <- stepsize # this is the size of the block
+	k <- as.integer(stepsize) # this is the size of the block
+	
+	library(VariantAnnotation)
+	
+	load(chrvecfile) # object is chrvec
 	nbases <- length(chrvec)
 
 	# Establish the break points of the bins into which nucleotides will be grouped (e.g., k = 500 bases per bin)
@@ -505,10 +502,8 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
 	# This last bin might be small.
 	
 	ibase <- c( seq(1, nbases, k), nbases + 1) # bases marking breaks between steps of size k
-	
-	# If want something to indicate midpoint of blocks instead:
-	midbase <- ibase + (stepsize)/2
-	#[1]  251  751 1251 1751 2251 2751
+	midbase <- ibase + (stepsize)/2 # If want something to indicate midpoint of blocks instead:
+	# [1]  251  751 1251 1751 2251 2751
 
 	# head(ibase)
 	# [1]    1  501 1001 1501 2001 2501
@@ -525,23 +520,31 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
 	# [1] 1 1 2 2 2 2 2
 	
 	# count up the number of unmasked nucleotides in each bin - These are the ones coded as ACGT
-	nUnmasked <- tapply(chrvec, chrbins, function(x){length(x[x %in% c("A","C","G","T")])})
 
+	nUnmasked <- tapply(chrvec, chrbins, function(x){length(x[x %in% c("A","C","G","T")])})
 	# head(nUnmasked)
 	#  1  2  3  4  5  6 
 	# 12  0  0  0  0  0 
 
+	rm(chrvec)
+
+
   # 2) Count up the number of snp and number of invariants in each bin
 	# Need to split SNP counts into same bins of stepsize k and then sum up
 
-	# Warning: some values for POS (or start(x1$rowdata)) are listed more than once
-	# head(start(x1$rowdata)) # start positions of snp
-	# [1] 18389 18389 54855 54866 54879 54979
+	# head(start(rowData(x1$vcf)))
+	# [1] 16024 16025 16026 18389 18511 18549
+	
+	
+	# ALl start positions are unique 
+	#	- it means I'm saying that snps and indels at the same start POS are just different alleles!!
+	# length(start(rowData(x1$vcf)))
+	# [1] 269349
+	# length(unique(start(rowData(x1$vcf))))
+	# [1] 269349
 		
 	# Count up the number of good snp in each bin (cut works because ibase intervals are made as factors)
-	library(GenomicRanges)
-	library(Biostrings)
-	snpBins <- cut(start(x1$rowdata), breaks = ibase, right = FALSE)
+	snpBins <- cut(start(rowData(x1$vcf)), breaks = ibase, right = FALSE)
 	nSnp <- table( snpBins )
 
 	# head(nSnp)
@@ -549,63 +552,91 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
     #       0           0           0           0           0           0 
 
 	# Count up the number of good invariants in each bin
-	# invariants is a large vector of numbers indicating bases that are ACGT not M
-	#old nInvariants <- table( cut(invariants, breaks = ibase, right = FALSE) )
-	nInvariants <- table( cut(invariants$POS, breaks = ibase, right = FALSE) )
+
+	nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) )
 	
 	# head(nInvariants)
     # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001)  
     #       0           0           0           0           0           0 
+    
+# gc()
 
-	# all the following items have the same length (23435)
+	# all the following items have the same length
 
 	results <- data.frame(ibase = ibase[-length(ibase)], midbase = midbase[-length(midbase)], nUnmasked = nUnmasked, 
 					nSnp = as.vector(nSnp), nInvariants = as.vector(nInvariants))
 
+	# *** note that nSnp contains multiple non-polymorphic sites, those with NA in fst, so fix later
+
 	#results[105:125,]
 	    # ibase midbase nUnmasked nSnp nInvariants
 	# 105 52001   52251         0    0           0
-	# 106 52501   52751        25    0           0
-	# 107 53001   53251       159    0           0
-	# 108 53501   53751       372    0           0
-	# 109 54001   54251       302    0           0
-	# 110 54501   54751       480    4         128
-	# 111 55001   55251       399    2          90
-	# 112 55501   55751       500    0           0
-	# 113 56001   56251       376    0           0
-	# 114 56501   56751       500    0           0
-	# 115 57001   57251       409    0           0
+	# 106 52501   52751        25    0          14
+	# 107 53001   53251       159    8         151
+	# 108 53501   53751       372    1          12
+	# 109 54001   54251       302    4          57
+	# 110 54501   54751       480   21         446
+	# 111 55001   55251       399   13         329
+	# 112 55501   55751       500    0          40
+	# 113 56001   56251       376    0          77
+	# 114 56501   56751       500   11         292
+	# 115 57001   57251       409    2         110
 	# 116 57501   57751       257    0           0
 	# 117 58001   58251       108    0           0
-	# 118 58501   58751       440    1         157
-	# 119 59001   59251       487    4         189
+	# 118 58501   58751       440    9         369
+	# 119 59001   59251       487   16         455
 	# 120 59501   59751       443    0           0
 	# 121 60001   60251       162    0           0
 	# 122 60501   60751         0    0           0
 	# 123 61001   61251       108    0           0
-	# 124 61501   61751       203    0           0
-	# 125 62001   62251       474    0           0
+	# 124 61501   61751       203    4          96
+	# 125 62001   62251       474   20         359
 	
 	
   # 3) Calculate Fst summary stats
-	if( "fst" %in% names(vcfresults) ){
-		
-		fst <- as.data.frame(x1$fst, stringsAsFactors = FALSE)
-		
-		if(FSTtrueSnps){
-			FstBins <- split(fst[x1$is.trueSnp, ], snpBins[x1$is.trueSnp])
-			#
-			# I haven't tested the following yet:
-			results$nTrueSnp <- sapply(FstBins, nrow) 
-			}
-		else 
-			FstBins <- split(fst, snpBins) # this works because snpBins is a factor created above
-										   # by snpBins <- cut(start(x1$rowdata), breaks = ibase, right = FALSE)
+	if( "fst" %in% names(x1) ){
+				
+		fstBinned <- split(x1$fst, snpBins) # this works because snpBins is a factor created above
+										  # by snpBins <- cut(start(x1$rowdata), breaks = ibase, right = FALSE)
+										  
+		# First count up the snps that are actually all NA (weren't polymorphic)
+		nMonomorphic <- sapply(fstBinned, function(x){
+			# x <- fstBinned[[10000]]
+			nrow(x[is.na(x["lsiga"]), ])
+			})
+			
+		# Adjust the numbers of snp and invariants in results
+		results$nSnp <- results$nSnp - nMonomorphic
+		results$nInvariants <- results$nInvariants + nMonomorphic
+		# results[105:125,]
+				    # ibase midbase nUnmasked nSnp nInvariants
+		# 105 52001   52251         0    0           0
+		# 106 52501   52751        25    0          14
+		# 107 53001   53251       159    3         156
+		# 108 53501   53751       372    1          12
+		# 109 54001   54251       302    2          59
+		# 110 54501   54751       480   13         454
+		# 111 55001   55251       399    8         334
+		# 112 55501   55751       500    0          40
+		# 113 56001   56251       376    0          77
+		# 114 56501   56751       500    7         296
+		# 115 57001   57251       409    0         112
+		# 116 57501   57751       257    0           0
+		# 117 58001   58251       108    0           0
+		# 118 58501   58751       440    5         373
+		# 119 59001   59251       487    8         463
+		# 120 59501   59751       443    0           0
+		# 121 60001   60251       162    0           0
+		# 122 60501   60751         0    0           0
+		# 123 61001   61251       108    0           0
+		# 124 61501   61751       203    2          98
+		# 125 62001   62251       474   10         369
 
-		z <- lapply(FstBins, function(z){
-				VARa <- sum(z$lsiga) # among populations
-				VARb <- sum(z$lsigb) # among individuals within populations
-				VARw <- sum(z$lsigw) # within individuals
+		# Get Fst components for each bin
+		z <- lapply(fstBinned, function(z){
+				VARa <- sum(z$lsiga, na.rm = TRUE) # among populations
+				VARb <- sum(z$lsigb, na.rm = TRUE) # among individuals within populations
+				VARw <- sum(z$lsigw, na.rm = TRUE) # within individuals
 				FST <- VARa/(VARa + VARb + VARw)
 				return(c(VARa = VARa, VARb = VARb, VARw = VARw, fst = FST))
 				})
@@ -614,67 +645,65 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
 		# VARa VARb VARw  fst 
 		   # 0    0    0  NaN 
 		   
-		# z[110]
-		# $`[54501,55001)`
+		# z[10000]
+		# $`[4.9995e+06,5e+06)`
 		      # VARa       VARb       VARw        fst 
-		# -0.3241358  1.3303872  0.7373737 -0.1858976
+		 # 2.1719008 -0.2090909  2.1818182  0.5240279 
 
-		z <- do.call("rbind", z)
+		z <- as.data.frame(do.call("rbind", z))
+		
+		# Drop the NaN's
+		z$fst[ is.nan(z$fst) ] <- NA
 		
 		# Put results into the results data frame. 
 		results <- cbind.data.frame(results, z)
-		results$fst[is.nan(results$fst) & results$nSnp + results$nInvariants > 0] <- 0
-		
-		# head(results)
-		  # ibase nUnmasked nSnp nInvariants VARa VARb VARw fst
-		# 1     1        12    0           0    0    0    0 NaN
-		# 2   501         0    0           0    0    0    0 NaN
-		# 3  1001         0    0           0    0    0    0 NaN
-		# 4  1501         0    0           0    0    0    0 NaN
-		# 5  2001         0    0           0    0    0    0 NaN
-		# 6  2501         0    0           0    0    0    0 NaN
-		
+		rm(z)
+		rm(fstBinned)
+				
 		# results[105:115,]
-		    # ibase midbase nUnmasked nSnp nInvariants       VARa     VARb      VARw        fst
-		# 105 52001   52251         0    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 106 52501   52751        25    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 107 53001   53251       159    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 108 53501   53751       372    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 109 54001   54251       302    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 110 54501   54751       480    4         128 -0.3241358 1.330387 0.7373737 -0.1858976
-		# 111 55001   55251       399    2          90 -0.0800000 0.300000 0.3250000 -0.1467890
-		# 112 55501   55751       500    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 113 56001   56251       376    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 114 56501   56751       500    0           0  0.0000000 0.000000 0.0000000        NaN
-		# 115 57001   57251       409    0           0  0.0000000 0.000000 0.0000000        NaN
+		# results[105:115,]
+		    # ibase midbase nUnmasked nSnp nInvariants         VARa        VARb       VARw          fst
+		# 105 52001   52251         0    0           0  0.000000000  0.00000000 0.00000000           NA
+		# 106 52501   52751        25    0          14  0.000000000  0.00000000 0.00000000           NA
+		# 107 53001   53251       159    3         156  0.003312310 -0.00645986 0.27142857  0.012346420
+		# 108 53501   53751       372    1          12  0.026851852  0.14898990 0.09090909  0.100662670
+		# 109 54001   54251       302    2          59  0.005788854  0.17820513 0.28095238  0.012450585
+		# 110 54501   54751       480   13         454 -0.223594034  1.92135843 1.15960551 -0.078251693
+		# 111 55001   55251       399    8         334 -0.045139015  0.65066268 0.61020734 -0.037129114
+		# 112 55501   55751       500    0          40  0.000000000  0.00000000 0.00000000           NA
+		# 113 56001   56251       376    0          77  0.000000000  0.00000000 0.00000000           NA
+		# 114 56501   56751       500    7         296 -0.016474119  1.56464314 0.82750825 -0.006934494
+		# 115 57001   57251       409    0         112  0.000000000  0.00000000 0.00000000           NA
 		
 		}
 
   			
   # 4) Calculate CSS quantities of interest within bins
   
-  	# Note: include only true snps if CSStrueSnps = TRUE
-  	
-  	if( "psd" %in% names(vcfresults) ){
+  	if( "psd" %in% names(x1) ){
   		
-  		# use "as.data.frame" not "data.frame", which puts an "X" at start of each colname
-		psd <- as.data.frame(x1$psd, stringsAsFactors = FALSE)
-		
-		gtpairs <- names(psd)
+		gtpairs <- names(x1$psd)
 		# gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
 
 		# Eliminate missing pairwise differences by replacing with averages
 			
 		# 1. Save record of which pairwise psd values are NOT missing to array 'psdNonMissing'
-		psdNonMissing <- as.data.frame(!is.na(psd))
+		psdNonMissing <- as.data.frame(!is.na(x1$psd))
 
 		# 2. Figure out categories for "psdMissingAction" behavior
 		wbPairs <- rep("w", length(gtpairs))
 		wbPairs[sapply(strsplit(gtpairs, split=","), function(x){length(unique(x))}) == 2] <- "b"
 		# wbPairs
-		 # [1] "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w"
-		# [25] "b" "b" "b" "b" "b" "b" "w" "w" "b" "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "b" "b" "b" "b"
-		# [49] "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w"
+		  # [1] "w" "w" "w" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "b"
+		 # [26] "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "b" "b" "b" "b" "b" "w" "w"
+		 # [51] "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b"
+		 # [76] "b" "b" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "b"
+		# [101] "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w"
+		# [126] "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w"
+		# [151] "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b"
+		# [176] "b" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "b" "b" "b"
+		# [201] "b" "b" "b" "w" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w"
+		# [226] "w" "w" "w" "w" "w" "w"
 	
 		if(psdMissingAction == "meanBW") psdGroups <- wbPairs else 
 			if(psdMissingAction == "meanAll") psdGroups <- rep(1, length(wbPairs)) else 
@@ -693,34 +722,20 @@ g$blockstats <- function(vcfresults, stepsize = 500, invariants,
 		    x
 			}
 
-		z1 <- apply(psd, 1, function(x){
+		z1 <- apply(x1$psd, 1, function(x){
 			z1 <- ave.rm(x, psdGroups) 
 			x[is.na(x)] <- z1[is.na(x)]     # assign averages to missing pairs
 			x
 			})
 		psd <- as.data.frame(t(z1))
-		names(psd) <- gtpairs	
+		names(psd) <- gtpairs
+		rm(z1)
 				
+		psdBins <- split(psd, snpBins)
+		psdNonMissing <- split(psdNonMissing, snpBins)
+		}
 				
-		if(CSStrueSnps){
-			psdBins <- split(psd[x1$is.trueSnp, ], snpBins[x1$is.trueSnp])
-			psdNonMissing <- split(psdNonMissing[x1$is.trueSnp, ], snpBins[x1$is.trueSnp])
-			if(is.null(results$nTrueSnp)) results$nTrueSnp <- sapply(psdBins, nrow)
-			}
-		else{
-			# genotypeBins <- split(GT, snpBins)
-			psdBins <- split(psd, snpBins)
-			psdNonMissing <- split(psdNonMissing, snpBins)
-			}
-		
-		# psdNonMissing[1]
-		# $`[1,501)`
-		 # [1] 1,1 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1
-		# [25] 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2
-		# [49] 1,2 1,2 1,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2
-		# <0 rows> (or 0-length row.names)
-		
-		# psdNonMissing[110]
+		# psdNonMissing[10000]
 		# $`[54501,55001)`
 		               # 1,1   1,1   1,1   1,1   1,1   1,2   1,2   1,2   1,2   1,2   1,2  1,1   1,1  1,1   1,1
 		# chrXXI:54855 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE TRUE FALSE TRUE  TRUE

@@ -28,16 +28,18 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
 
 GTminFrac <- 2/3
-ancestor <- "marine-pac" # use to classify the most common ancestral allele for comparison
 
 includePfisher 	<- FALSE
 includeFst     	<- TRUE
 includePsd		<- TRUE
-trueSnpOnly		<- FALSE 
-# note that an indel relative to reference genome, if shared between limnetic and benthic, 
-# is not an indel between the latter. It is a fixed difference. 
-# So maybe don't want to leave indels out, or at least count them differently (NOT DONE).
-# However, a polymorphic REF indel between limnetic and benthic is an indel, so want to remove these. 
+
+trueSnpOnly		<- FALSE
+# note: An indel relative to REF genome, if fixed and shared between limnetic and benthic, 
+# is not an indel between limnetic and benthic, but a fixed difference. 
+# However, REF indel that is polymorphic within or between limnetics and benthics is an indel.
+# So handle indels carefully.
+# Q: What if two alt alleles that are indels relative to REF are the same width. 
+#	 Might they be true snps between benthic and limnetic? I have not investigated.
 
 project <- args[1]
 chrname <- args[2]
@@ -105,16 +107,12 @@ sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
 # length(sufficient.alleles.per.group)
 # [1] 281607
 
-# Drop
+# Drop cases with insufficient numbers of individuals
+# We still need snpTypeList if want to remove non-polymorphic indels later
 genotypes <- genotypes[sufficient.alleles.per.group, ]
-
 alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
-
-# Still need this here if want to remove non-polymorphic indels
-snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
-vcfresults$snpTypeList <- NULL
-
 gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group] # contains rowData but not genotypes (GT empty)
+snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
 
 rm(sufficient.alleles.per.group)
 rm(vcfresults) # assuming we have extracted all the useful bits
@@ -136,20 +134,22 @@ gc()
 # ---------------------------------
 # Determine which loci are variable, ie have more than one allele across both groups.
 # Those that are not polymorphic we want to keep as a record of an invariant.
-# Note that even if an indel w.r.t. REF, an invariant between limnetic and benthic is not an indel.
+# Note that even if an allele is an indel w.r.t. REF, if fixed between limnetic and benthic it is not an indel.
 is.polymorphic <- sapply(alleleFreqByGroup, function(x){
 	z <- colSums(x, na.rm = TRUE)
 	sum( z > 0 ) >= 2
 	})
 
-# length(alleleFreqByGroup[is.polymorphic])
-# [1] 153997
+# table(is.polymorphic)
+# is.polymorphic
+ # FALSE   TRUE 
+# 115352 153997 
 
-# Don't drop the non-polymorphic sites - these need to be counted with the invariants!
+# Don't drop the non-polymorphic sites - these need to be counted later with the invariants!
 
 # -----------------
-# Drop everything except *true snp and invariants* if trueSnpOnly = TRUE
-# Remember: an indel w.r.t. REF might be invariant between limnetic and benthic, so is not an indel here.
+# If trueSnpOnly = TRUE, drop everything except *true snp and invariants* 
+# Remember: if an indel w.r.t. REF is fixed for the same allele in both limnetic and benthic, it is not an indel.
 # 	so we drop only the polymorphic loci that are classified as indels
 if(trueSnpOnly){
 
@@ -203,17 +203,26 @@ if(trueSnpOnly){
 	 # 12629 256720
 
 	genotypes <- genotypes[sufficient.alleles.per.group, ]
-	
 	alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
-	
 	gtstats$vcf <- gtstats$vcf[sufficient.alleles.per.group] # tossing the indels for good
 	
 	# snpTypeList <- snpTypeList[sufficient.alleles.per.group] # don't really need this anymore
 	
 	# nrow(genotypes)
 	# [1] 256720
+	
+	# redo this on the modified data set
+	is.polymorphic <- sapply(alleleFreqByGroup, function(x){
+		z <- colSums(x, na.rm = TRUE)
+		sum( z > 0 ) >= 2
+		})
 
-	}  
+	# table(is.polymorphic)
+	# is.polymorphic
+	 # FALSE   TRUE 
+	# 126841 129879 
+
+	} # end if(trueSnpOnly)
 
 gc() # if trueSnpOnly = TRUE
            # used  (Mb) gc trigger  (Mb) max used  (Mb)
@@ -255,20 +264,11 @@ gc() # if trueSnpOnly = TRUE
 # Start saving key results
 gtstats$groupnames <- groupnames 	# "paxl" "paxb"
 gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-
+gtstats$trueSnpOnly <- trueSnpOnly
 gtstats$genotypes <- genotypes		# rows are loci
 rm(genotypes)
-
-gtstats$trueSnpOnly <- trueSnpOnly
-
 gtstats$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
-
-# We're running this again because... (might be needed only if removed indels above)
-is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
-	z <- colSums(x, na.rm = TRUE)
-	sum( z > 0 ) >= 2
-	})
 
 # -------------------------------------------------------------
 # Group differences in allele frequencies using Fisher exact test

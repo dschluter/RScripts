@@ -455,17 +455,15 @@ g$psd <- function(genotypes, groups){
 	}
 
 
-g$blockstats <- function(x1, stepsize, goodInvariants, 
-		chrvecfile, trueSnpOnly = FALSE, psdMissingAction = NA){
+g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissingAction = NA){
 	
 	# This function calculates preliminary results for sliding window analyses on a (repeat-masked) chromosome
 	# It breaks the chromosome into blocks or bins of size stepsize and calculates a value of interest in each bin
 
-	# vcfresults is the VCF list containing all variables of interest for a single chromosome
-	# Function assumes that x1$fst and/or x1$psd exist
-	# Function assumes that the stats corresponding to masked nucleotides have already been dropped from vcfresults
+	# gtstats is the gtstats list containing the variables of interest for a single chromosome
+	# Function asks whether gtstats$fst and gtstats$psd exist and computed blockstats accordingly.
 
-	# yes it can handle multiple snps at the same value of POS
+	# GATK no longer gives multiple rows of snps at the same value of POS
 
 	if( !is.element(psdMissingAction, c("meanAll", "meanBW", "meanGroup")) )
 		stop("psdMissingAction must be one of meanAll, meanBW, or meanGroup")
@@ -532,27 +530,34 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
   # 2) Count up the number of snp and number of invariants in each bin
 	# Need to split SNP counts into same bins of stepsize k and then sum up
 
-	# head(start(rowData(x1$vcf)))
+	# head(start(rowData(gtstats$vcf)))
 	# [1] 16024 16025 16026 18389 18511 18549
 	
 	
 	# ALl start positions are unique 
 	#	- it means I'm saying that snps and indels at the same start POS are just different alleles!!
-	# length(start(rowData(x1$vcf)))
+	# length(start(rowData(gtstats$vcf)))
 	# [1] 269349
-	# length(unique(start(rowData(x1$vcf))))
+	# length(unique(start(rowData(gtstats$vcf))))
 	# [1] 269349
 		
 	# Count up the number of good snp in each bin (cut works because ibase intervals are made as factors)
-	snpBins <- cut(start(rowData(x1$vcf)), breaks = ibase, right = FALSE)
+	snpBins <- cut(start(rowData(gtstats$vcf)), breaks = ibase, right = FALSE)
 	nSnp <- table( snpBins )
 
 	# head(nSnp)
     # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001) 
     #       0           0           0           0           0           0 
+    
+    # This still includes some invariants, sites not polymorphic in these two populations
+    is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
+		z <- colSums(x, na.rm = TRUE)
+		sum( z > 0 ) >= 2
+		})
+	is.monomorphic <- split(!is.polymorphic, snpBins)
+	nMonomorphic <- sapply(is.monomorphic, sum)
 
 	# Count up the number of good invariants in each bin
-
 	nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) )
 	
 	# head(nInvariants)
@@ -564,75 +569,40 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
 	# all the following items have the same length
 
 	results <- data.frame(ibase = ibase[-length(ibase)], midbase = midbase[-length(midbase)], nUnmasked = nUnmasked, 
-					nSnp = as.vector(nSnp), nInvariants = as.vector(nInvariants))
-
-	# *** note that nSnp contains multiple non-polymorphic sites, those with NA in fst, so fix later
+					nSnp = as.vector(nSnp) - nMonomorphic, nInvariants = as.vector(nInvariants) + nMonomorphic)
 
 	#results[105:125,]
 	    # ibase midbase nUnmasked nSnp nInvariants
 	# 105 52001   52251         0    0           0
 	# 106 52501   52751        25    0          14
-	# 107 53001   53251       159    8         151
+	# 107 53001   53251       159    3         156
 	# 108 53501   53751       372    1          12
-	# 109 54001   54251       302    4          57
-	# 110 54501   54751       480   21         446
-	# 111 55001   55251       399   13         329
+	# 109 54001   54251       302    2          59
+	# 110 54501   54751       480   13         454
+	# 111 55001   55251       399    8         334
 	# 112 55501   55751       500    0          40
 	# 113 56001   56251       376    0          77
-	# 114 56501   56751       500   11         292
-	# 115 57001   57251       409    2         110
+	# 114 56501   56751       500    7         296
+	# 115 57001   57251       409    0         112
 	# 116 57501   57751       257    0           0
 	# 117 58001   58251       108    0           0
-	# 118 58501   58751       440    9         369
-	# 119 59001   59251       487   16         455
+	# 118 58501   58751       440    5         373
+	# 119 59001   59251       487    8         463
 	# 120 59501   59751       443    0           0
 	# 121 60001   60251       162    0           0
 	# 122 60501   60751         0    0           0
 	# 123 61001   61251       108    0           0
-	# 124 61501   61751       203    4          96
-	# 125 62001   62251       474   20         359
-	
+	# 124 61501   61751       203    2          98
+	# 125 62001   62251       474   10         369
+		
 	
   # 3) Calculate Fst summary stats
-	if( "fst" %in% names(x1) ){
-				
-		fstBinned <- split(x1$fst, snpBins) # this works because snpBins is a factor created above
-										  # by snpBins <- cut(start(x1$rowdata), breaks = ibase, right = FALSE)
-										  
-		# First count up the snps that are actually all NA (weren't polymorphic)
-		nMonomorphic <- sapply(fstBinned, function(x){
-			# x <- fstBinned[[10000]]
-			nrow(x[is.na(x["lsiga"]), ])
-			})
-			
-		# Adjust the numbers of snp and invariants in results
-		results$nSnp <- results$nSnp - nMonomorphic
-		results$nInvariants <- results$nInvariants + nMonomorphic
-		# results[105:125,]
-				    # ibase midbase nUnmasked nSnp nInvariants
-		# 105 52001   52251         0    0           0
-		# 106 52501   52751        25    0          14
-		# 107 53001   53251       159    3         156
-		# 108 53501   53751       372    1          12
-		# 109 54001   54251       302    2          59
-		# 110 54501   54751       480   13         454
-		# 111 55001   55251       399    8         334
-		# 112 55501   55751       500    0          40
-		# 113 56001   56251       376    0          77
-		# 114 56501   56751       500    7         296
-		# 115 57001   57251       409    0         112
-		# 116 57501   57751       257    0           0
-		# 117 58001   58251       108    0           0
-		# 118 58501   58751       440    5         373
-		# 119 59001   59251       487    8         463
-		# 120 59501   59751       443    0           0
-		# 121 60001   60251       162    0           0
-		# 122 60501   60751         0    0           0
-		# 123 61001   61251       108    0           0
-		# 124 61501   61751       203    2          98
-		# 125 62001   62251       474   10         369
-
-		# Get Fst components for each bin
+	if( "fst" %in% names(gtstats) ){
+		
+		# break the data frame into the bins
+		fstBinned <- split(gtstats$fst, snpBins) 
+		
+		# Sum Fst components for each bin
 		z <- lapply(fstBinned, function(z){
 				VARa <- sum(z$lsiga, na.rm = TRUE) # among populations
 				VARb <- sum(z$lsigb, na.rm = TRUE) # among individuals within populations
@@ -661,7 +631,6 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
 		rm(fstBinned)
 				
 		# results[105:115,]
-		# results[105:115,]
 		    # ibase midbase nUnmasked nSnp nInvariants         VARa        VARb       VARw          fst
 		# 105 52001   52251         0    0           0  0.000000000  0.00000000 0.00000000           NA
 		# 106 52501   52751        25    0          14  0.000000000  0.00000000 0.00000000           NA
@@ -680,17 +649,14 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
   			
   # 4) Calculate CSS quantities of interest within bins
   
-  	if( "psd" %in% names(x1) ){
+  	if( "psd" %in% names(gtstats) ){
   		
-		gtpairs <- names(x1$psd)
+		gtpairs <- names(gtstats$psd)
 		# gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
-
+		
 		# Eliminate missing pairwise differences by replacing with averages
 			
-		# 1. Save record of which pairwise psd values are NOT missing to array 'psdNonMissing'
-		psdNonMissing <- as.data.frame(!is.na(x1$psd))
-
-		# 2. Figure out categories for "psdMissingAction" behavior
+		# 1. Figure out categories for "psdMissingAction" behavior
 		wbPairs <- rep("w", length(gtpairs))
 		wbPairs[sapply(strsplit(gtpairs, split=","), function(x){length(unique(x))}) == 2] <- "b"
 		# wbPairs
@@ -710,8 +676,8 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
 				if(psdMissingAction == "meanGroup") psdGroups <- gtpairs else 
 					stop("Unrecognizeable value for 'psdMissingAction'")
 		
-		# 3. Assign average pairwise distance to missing pairwise distance values at every marker separately
-			# Function "ave" modified to allow missing values
+		# 2. Assign average pairwise distance to missing pairwise distance values at every marker separately
+		# Function "ave" modified to allow missing values
 		ave.rm <- function(x, ..., FUN = mean){
 		    if(missing(...)) 
 		        x[] <- FUN(x)
@@ -722,7 +688,8 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
 		    x
 			}
 
-		z1 <- apply(x1$psd, 1, function(x){
+		# This is slightly wasteful because it still includes monomorphic sites
+		z1 <- apply(gtstats$psd, 1, function(x){
 			z1 <- ave.rm(x, psdGroups) 
 			x[is.na(x)] <- z1[is.na(x)]     # assign averages to missing pairs
 			x
@@ -730,79 +697,52 @@ g$blockstats <- function(x1, stepsize, goodInvariants,
 		psd <- as.data.frame(t(z1))
 		names(psd) <- gtpairs
 		rm(z1)
-				
-		psdBins <- split(psd, snpBins)
-		psdNonMissing <- split(psdNonMissing, snpBins)
-		}
-				
-		# psdNonMissing[10000]
-		# $`[54501,55001)`
-		               # 1,1   1,1   1,1   1,1   1,1   1,2   1,2   1,2   1,2   1,2   1,2  1,1   1,1  1,1   1,1
-		# chrXXI:54855 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE TRUE FALSE TRUE  TRUE
-		# chrXXI:54866 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE TRUE  TRUE TRUE  TRUE
-		# chrXXI:54879  TRUE  TRUE  TRUE  TRUE  TRUE  TRUE FALSE  TRUE  TRUE  TRUE  TRUE TRUE  TRUE TRUE  TRUE
-		# chrXXI:54979  TRUE  TRUE  TRUE  TRUE FALSE  TRUE  TRUE  TRUE FALSE  TRUE  TRUE TRUE  TRUE TRUE FALSE
-		# chrXXI:54981  TRUE  TRUE  TRUE  TRUE FALSE  TRUE  TRUE  TRUE FALSE  TRUE  TRUE TRUE  TRUE TRUE FALSE
-		# ...etc
-		
-		#colSums(psdNonMissing[[1]])
-		# 1,1 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1 1,2 
-		  # 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 
-		# 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 
-		  # 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 
-		# 1,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 
-		  # 0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-		
-  		#colSums(psdNonMissing[[110]])
-				# 1,1 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,1 1,2 
-		  # 3   3   3   3   1   3   2   3   1   3   3   5   4   5   3   5   2   5   3   5   5   4   5   3   5 
-		# 1,2 1,2 1,2 1,2 1,2 1,1 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,1 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 1,2 
-		  # 2   5   3   5   5   4   2   4   2   4   2   4   4   3   5   2   5   3   5   5   3   0   3   3   3 
-		# 1,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 2,2 
-		  # 3   2   5   3   5   5   2   0   2   2   3   5   5   3   3   5 
 
-		# Count up the number of non-missing psd values for each pair of fish in each bin
-	
-		psdCountByPair <- lapply(psdNonMissing, colSums)
-		psdCountByPair <- as.data.frame( do.call("rbind", psdCountByPair) )
-		names(psdCountByPair) <- paste("np", names(psdCountByPair), sep = ".")
+		psdBins <- split(psd, snpBins)
+		rm(psd)
+		
+		3. Drop the monomorphic sites to minimize confusion
+		# Can't get this mapply to work, no reason
+		# z <- mapply(is.monomorphic, psdBins, FUN = function(i, x){
+			# # x <- psdBins[[10000]]; i <- is.monomorphic[[10000]]
+			# z <- x#[!i,]
+			# return(z)
+			# }, SIMPLIFY = FALSE)
+		# This worked instead
+		z <- list()
+		for(i in 1:length(psdBins)){
+			z[[i]] <- psdBins[[i]][!is.monomorphic[[i]],]
+			}
+		psdBins <- z
+		rm(z)
+		#}		
 
 		# Sum the psd's within bins or blocks
-
+		# colSum yields a value of 0 if there's no data! Fix? Or just pay attention to nSnp in results
 		psdSum <- lapply(psdBins, colSums)
 		psdSum <- as.data.frame( do.call("rbind", psdSum), stringsAsFactors = FALSE )
 
 		# psdSum[109:112,]
-		                 # 1,1    1,1    1,1    1,1    1,1  1,2      1,2  1,2  1,2  1,2  1,2 1,1    1,1    1,1
-		# [54001,54501) 0.0000 0.0000 0.0000 0.0000 0.0000 0.00 0.000000 0.00 0.00 0.00 0.00   0 0.0000 0.0000
-		# [54501,55001) 1.6125 1.6125 1.6125 2.1125 1.7625 1.96 2.176667 1.96 1.56 1.46 1.46   3 2.5625 2.5000
-		# [55001,55501) 1.0000 0.0000 0.0000 1.1875 0.5000 1.00 0.700000 0.25 0.00 0.50 1.00   1 1.0000 0.1875
-		# [55501,56001) 0.0000 0.0000 0.0000 0.0000 0.0000 0.00 0.000000 0.00 0.00 0.00 0.00   0 0.0000 0.0000
-		               # 1,1 1,2      1,2  1,2 1,2 1,2 1,2    1,1    1,1  1,1 1,2      1,2  1,2 1,2 1,2 1,2
-		# [54001,54501) 0.00 0.0 0.000000 0.00 0.0 0.0 0.0 0.0000 0.0000 0.00 0.0 0.000000 0.00 0.0 0.0 0.0
-		# [54501,55001) 1.65 1.5 2.676667 3.50 2.6 1.0 0.5 0.5625 1.5000 1.65 2.5 1.676667 0.50 0.6 3.0 2.5
-		# [55001,55501) 0.50 2.0 0.700000 1.25 1.0 0.5 0.0 0.0000 1.1875 0.50 1.0 0.700000 0.25 0.0 0.5 1.0
-		# [55501,56001) 0.00 0.0 0.000000 0.00 0.0 0.0 0.0 0.0000 0.0000 0.00 0.0 0.000000 0.00 0.0 0.0 0.0
-		                 # 1,1    1,1 1,2      1,2  1,2 1,2 1,2 1,2    1,1  1,2      1,2  1,2  1,2  1,2  1,2 1,2
-		# [54001,54501) 0.0000 0.0000   0 0.000000 0.00 0.0 0.0   0 0.0000 0.00 0.000000 0.00 0.00 0.00 0.00 0.0
-		# [54501,55001) 1.5625 1.7125   2 1.676667 1.00 1.1 2.5   2 1.1500 1.00 1.676667 2.00 2.10 1.50 2.00 2.1
-		# [55001,55501) 1.1875 0.5000   1 0.700000 0.25 0.0 0.5   1 0.6875 1.25 0.700000 1.25 1.25 0.75 0.25 1.5
-		# [55501,56001) 0.0000 0.0000   0 0.000000 0.00 0.0 0.0   0 0.0000 0.00 0.000000 0.00 0.00 0.00 0.00 0.0
-		                   # 1,2  1,2 1,2 1,2 1,2    2,2    2,2  2,2 2,2 2,2    2,2    2,2    2,2    2,2    2,2
-		# [54001,54501) 0.000000 0.00 0.0 0.0 0.0 0.0000 0.0000 0.00 0.0   0 0.0000 0.0000 0.0000 0.0000 0.0000
-		# [54501,55001) 1.776667 1.60 1.6 2.1 1.1 1.8325 3.0000 3.15 0.5   2 1.3325 1.9825 2.3325 2.8325 0.6500
-		# [55001,55501) 0.700000 0.75 0.5 0.0 0.5 0.7275 0.1875 1.00 1.5   2 0.7275 0.7275 0.7275 0.7275 0.1875
-		# [55501,56001) 0.000000 0.00 0.0 0.0 0.0 0.0000 0.0000 0.00 0.0   0 0.0000 0.0000 0.0000 0.0000 0.0000
-		                 # 2,2    2,2  2,2  2,2 2,2
-		# [54001,54501) 0.0000 0.0000 0.00 0.00 0.0
-		# [54501,55001) 3.5000 3.0000 3.15 2.15 1.5
-		# [55001,55501) 0.6875 1.1875 0.50 1.00 0.5
-		# [55501,56001) 0.0000 0.0000 0.00 0.00 0.0
+		         # 2,2      2,2       2,2       2,2      2,1    2,1      2,1      2,1       2,1       2,2      2,2
+		# 109 1.500000 0.500000 0.4421769 0.3809524 0.500000 0.0000 0.000000 0.377551 0.4489796 0.4421769 1.061224
+		# 110 1.959184 2.910714 2.4107143 2.2934605 3.979167 1.8750 2.656863 3.185317 2.3750000 2.0702948 2.963346
+		# 111 2.283834 3.193878 2.3101566 2.3101566 2.270833 3.1875 1.137500 3.145833 3.3541667 2.4738776 1.590157
+		# 112 0.000000 0.000000 0.0000000 0.0000000 0.000000 0.0000 0.000000 0.000000 0.0000000 0.0000000 0.000000
+		          # 2,2      2,2      2,2      2,2      2,1      2,1      2,1       2,1       2,1      2,1       2,2
+		# 109 0.4421769 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.4489796 0.4489796 0.500000 1.0000000
+		# 110 2.0904018 2.484805 3.641428 1.973214 3.363889 2.678959 1.863889 1.9677579 2.4659091 2.935317 1.5484694
+		# 111 2.4738776 2.310157 2.174343 1.973878 3.770833 2.054167 2.545833 1.6708333 1.9208333 2.420833 0.7838338
+		# 112 0.0000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.0000000 0.0000000 0.000000 0.0000000
+		# ...
+		          # 1,1       1,1       1,1
+		# 109 0.4421769 0.4421769 0.4421769
+		# 110 2.2377723 2.7349810 1.6950109
+		# 111 1.1391762 1.6391762 0.7800000
+		# 112 0.0000000 0.0000000 0.0000000
 
 		names(psdSum) <- paste("psd", names(psdSum), sep = ".")
 
-		# nTrueSnp has already been added to "results"
-		results <- cbind.data.frame(results, psdSum, psdCountByPair, stringsAsFactors = FALSE)
+		results <- cbind.data.frame(results, psdSum, stringsAsFactors = FALSE)
 		results
 		}
 }
@@ -1000,7 +940,7 @@ g$slidewin <- function(blockstats, method = "FST", stepsize, nsteps.per.window, 
 	# if("OR" %in% method){
 		# # Note that the value of meanOR is already averaged over all sites within a block
 		# # with nbases = N - (nsnp - n)
-		# meanOR <- g$blockstats(x1, pop = substr(names(x1$GT),1,4), method = "OR", 
+		# meanOR <- g$blockstats(gtstats, pop = substr(names(gtstats$GT),1,4), method = "OR", 
 						# zeros = TRUE, stepsize = 500, chrvec = chrvec)
 		
 		# OR <- rollapply(meanOR, width=wink, by.column=FALSE, fill = NA, 

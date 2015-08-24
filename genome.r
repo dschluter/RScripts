@@ -749,15 +749,14 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 }
 
 
-g$slidewin <- function(blockstats, method = "FST", stepsize, nsteps.per.window, windowNmin){
+g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin){
 
 	# Combines results of g$blockstats across nsteps.per.window of bins at a time in sliding window.
-	# Averages and other stats are computed based only on the number of bases in the window regardless
-	#		of whether CSStrueSnps and FSTtrueSnps were TRUE or FALSE.
-	# "ibase" in blockstats is the centre of the sliding window of 5 blocks (e.g.).
+
+	# "ibase" in blockstats is the start of the sliding window of 5 blocks (e.g.).
 	# rollapply adds padding to the left of the data range near the start of the data set and
-	# 	to the right of the data range near the end; 
-	#	padding is determined by "fill" option (NA is the default).
+	# 	to the right of the data range near the end; padding is determined by "fill" option (NA is the default).
+
 	# In all cases, windowNmin is the smallest number of good bases needed in each full sliding window to yield result, 
 	# 	otherwise window's value is set to NA. 
 
@@ -783,28 +782,25 @@ g$slidewin <- function(blockstats, method = "FST", stepsize, nsteps.per.window, 
 	#		that 100 good bases (out of 2500 bases in the window, ie 4 %) was tossed and replaced with the
 	#		matrix average of the remaining pairwise comparisons. If more than 50% of the pairwise distances
 	#		had to be tossed, the whole result for the window was set to NA.		
-	# 		My value for the minimum number of validated positions is blocksize * nblocks.per.window * windowFracMin
+	# 		My value for the minimum number of validated positions is windowNmin
 	# 		Note: I have already replaced NA's with the mean psd (separately for each locus.
 	# 		So there should be no missing psd's within an informative locus by this point
 
 	#		I handled missing values differently from Felicity et al. 
 	#		1. For a given pair of fish I calculated psd (perc seq div) at every nucleotide (snp and non-snp).
 	#		2. If a psd value was NA at a nucleotide, I used an average psd from the remaining pairs of fish
-	#			(according to the rule specified by psdMissingAction)
+	#			(according to the rule specified by psdMissingAction -- see blockstats)
 	#		3. For the given pair of fish, I took the average psd across all nucleotides in the block of 500 (eg),
 	#			(averaging over both the real and substituted "missing" psd values. 
 	# 		4. Good bases already use a criterion for a minimum number of genotypes per group, for variant and invariant
 	#			sites. This ensures that most pairwise divergence values are present for every good base.
 	#		5. I also employ a minimum number of good bases per window to generate a result, otherwise the result
 	#			from a window is set to NA.
-	#		4. If needed, for every pair of fish, the corresponding "np" value in blockstats remembers the number of 
-	#			real (non-missing) psd's used in the calculation of the average psd. This would allow me to set a 
-	#			minimum number of non-missing psd's per pair of fish to yield a result. Meantime, previous criteria
-	#			should suffice.
 
   	# Calculate sliding window values, weighting by n and N.
 	library(zoo)
 	
+	stepsize <- blockstats$ibase[2] - blockstats$ibase[1]
 	k <- stepsize # this is the size of the block
 	wink <- nsteps.per.window # number of blocks per sliding window
 	
@@ -938,7 +934,7 @@ g$slidewin <- function(blockstats, method = "FST", stepsize, nsteps.per.window, 
 		detach(2) # to avoid conflicts among libraries
 		}
 		
-	# if("OR" %in% method){
+	# if("OR" %in% method){ # odds ratio
 		# # Note that the value of meanOR is already averaged over all sites within a block
 		# # with nbases = N - (nsnp - n)
 		# meanOR <- g$blockstats(gtstats, pop = substr(names(gtstats$GT),1,4), method = "OR", 

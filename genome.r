@@ -488,6 +488,7 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 
 	# trueSnpOnly = TRUE, only true snps (not indels) were used.
 	
+	pop <- as.character(gtstats$groups)
 	k <- as.integer(stepsize) # this is the size of the block
 	
 	library(VariantAnnotation)

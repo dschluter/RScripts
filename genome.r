@@ -846,17 +846,18 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 		
 		# This next bit assumes just two populations types
 		#poptype <- unique(pop)
-		poptype <- unique(unlist(strsplit(gtpairs, split = ",")))
+		poptype <- sort( unique(unlist(strsplit(gtpairs, split = ","))) )
 		if(length(poptype) != 2) stop("CSS only works for two population types")
 		
 		ii <- gtpairs == paste(poptype[1], poptype[1], sep = ",") # cases of "1,1"
 		jj <- gtpairs == paste(poptype[2], poptype[2], sep = ",") # cases of "2,2"
-		ij <- gtpairs == paste(poptype[1], poptype[2], sep = ",") # cases of "1,2" (there are no "2,1")
+		ij <- gtpairs == paste(poptype[1], poptype[2], sep = ",") # cases of "1,2"
+		ji <- gtpairs == paste(poptype[2], poptype[1], sep = ",") # cases of "2,1"
 		m <- ceiling(sqrt(2 * length(gtpairs[ii])))
 		n <- ceiling(sqrt(2 * length(gtpairs[jj])))
 		
 		# check
-		if( length(gtpairs[ij]) != m*n ) stop("Number of pairs of individuals doesn't match up")
+		if( length(c(gtpairs[ij], gtpairs[ji])) != m*n ) stop("Number of pairs of individuals doesn't match up")
 			
 		# A <- grep(poptype[1],colnames(euclid)) # e.g., benthics
 		# B <- grep(poptype[2],colnames(euclid)) # e.g., limnetics
@@ -885,7 +886,7 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 					names(sumdist) <- gtpairs
 					
 					# total number of bases in window, assume that CSStrueSnps = TRUE
-					nbases <- sum(x[, "nTrueSnp"] + x[, "nInvariants"], na.rm = TRUE) 
+					nbases <- sum(x[, "nSnp"] + x[, "nInvariants"], na.rm = TRUE) 
 										
 					if(nbases < windowNmin) CSS <- NA
 					else{
@@ -895,12 +896,23 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 						# Put sumdist into matrix
 						# first get [i,j] of the pairs for the matrix d
 												
-						d <- matrix(NA, nrow = npop, ncol = npop)
-						# lowerTriangle(d) <- gtpairs # a test
+						d <- matrix(0, nrow = npop, ncol = npop)
+						# Test that this will work. 
+						# groups <- c(2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,2,1,1,1,1,1,1) # from "paxl" "paxb" analysis
+						# lowerTriangle(d) <- gtpairs; d <- t(d); lowerTriangle(d) <- gtpairs
+						# rownames(d) <- groups
+						# colnames(d) <- groups
+						# d 
+						# This shows that lowerTriangle() puts the gtpairs into the matrix down the columns, ie
+						#	it fills up the first column, then continues on the second, and so on. So the gtpair "2,1"
+						#   refers to "column,row". This is why we use lowerTriangle() to fill the matrix, so that
+						#	the results match gtpairs.
+
 						lowerTriangle(d) <- sumdist
 						d <- t(d)
 						lowerTriangle(d) <- sumdist
-						diag(d) <- rep(0, nrow(d)) # the diagonal should all be zeros
+						# rownames(d) <- groups
+						# colnames(d) <- groups
 						
 						# Following the formula in Jones et al 2012 Supplement Eq. 1
 						# Assume that she used metric multidimensional scaling
@@ -908,13 +920,11 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 						#  "1: In cmdscale(d, k = 2, add = TRUE) : only 0 of the first 2 eigenvalues are > 0"
 						# 	so I have suppresed them in case they halt execution.
 						suppressWarnings(
-						z <- cmdscale(d, k = 2, add = TRUE)$points  # it crashed if add=FALSE used
+							z <- cmdscale(d, k = 2, add = TRUE)$points  # it crashed if add=FALSE used
 						)
-						
-						# rownames(z) <- pop
-						
+												
 						# calculate pairwise distance between observations on the cmdscale axes
-						euclid <- as.matrix(dist(z, method = "euclidean")) 	# matrix of distances; pop is row and col names
+						euclid <- as.matrix(dist(z, method = "euclidean")) 	# matrix of distances;
 						euclid.lower <- euclid[lower.tri(euclid)] 			# pairwise distances, order matches gtpairs
 						
 						# sij <- sum(euclid[A,B])    # is the same as when use euclid[B,A] instead
@@ -923,7 +933,7 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 						
 						sii <- sum(euclid.lower[ii])
 						sjj <- sum(euclid.lower[jj])
-						sij <- sum(euclid.lower[ij])
+						sij <- sum( sum(euclid.lower[ij]), sum(euclid.lower[ji]), na.rm=TRUE )
 						
 						CSS <- ( sij/(m*n) ) - (1/(m+n))*( sii/((m-1)/2) + sjj/((n-1)/2) ) 
 						}

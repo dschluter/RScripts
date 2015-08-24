@@ -2,10 +2,15 @@
 
 # Combines variant and invariant information in genome blocks of size 500 (default) nucleotides
 
-# Defaults - can be changed by including an alternative value as an argument IN THE RIGHT PLACE
+# qsub -I -l walltime=02:00:00 -l mem=4gb 
+# module load R/3.1.2
+# R
 
-blocksize <- 500     # Number of nucleotides in a genome block
-psdMissingAction <- "meanAll"   
+# setwd("~/Desktop")
+# git("genome.r")
+
+stepsize <- 500     # Number of nucleotides in a genome block
+psdMissingAction <- "meanBW" 
 	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
 	# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
 	# 	"meanBW", then psd = NA replaced by mean psd, calculated separately for Between-group and Within-group pairs.
@@ -15,16 +20,27 @@ psdMissingAction <- "meanAll"
 	#		"1,1" and "2,2" as the same (i.e., both are within-group).
 
 # ---
-args <- commandArgs(TRUE)
-# args <- c("chrXXI", "Paxton12fish", 500)
 
-chrno <- as.character(as.roman(args[1]))
-chrname <- paste("chr", chrno, sep="")
-project <- args[2]
-if(!is.na(args[3])) blocksize <- as.integer(args[3])
-if(!is.na(args[4])) psdMissingAction <- args[4]
-if(!is.na(args[5])) FSTtrueSnps <- as.logical(args[5])
-if(!is.na(args[6])) CSStrueSnps <- as.logical(args[6])
+# groupnames must uniquely be substrings of the fishnames (ignoring case)
+# They are used in a "grep" to divide the fish uniquely into groups
+
+args <- commandArgs(TRUE) # project chrname groupnames[vector]
+# args <- c("BenlimPax22pacMar7", "chrUn")
+# args <- c("BenlimPax22pacMar7", "chrXXI")
+
+project <- args[1]
+chrname <- args[2]
+
+# open object containing genotype statistics
+gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "-"), 
+							"rdd", sep = ".") 								# object gtstats
+goodInvariantsFile 	<- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object goodInvariants
+blockstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "-"), 
+							"blockstats", stepsize, "rdd", sep = ".")
+
+load(gtstatsfile) # object is gtstats
+load(goodInvariantsFile) # object is goodInvariants
+groupnames <- gtstats$groupnames
 
 # Load masked "chrvec" object from .rdd file in vcfdir
 load(file = paste(vcfdir, "chrvec.", chrno, ".masked.rdd", sep = "")) # chrvec

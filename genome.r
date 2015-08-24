@@ -701,7 +701,7 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		psdBins <- split(psd, snpBins)
 		rm(psd)
 		
-		3. Drop the monomorphic sites to minimize confusion
+		# 3. Drop the monomorphic sites to minimize confusion
 		# Can't get this mapply to work, no reason
 		# z <- mapply(is.monomorphic, psdBins, FUN = function(i, x){
 			# # x <- psdBins[[10000]]; i <- is.monomorphic[[10000]]

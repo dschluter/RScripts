@@ -342,20 +342,10 @@ if(includeFst){
 	# Columns are genotypes indicated as 11 (0/0), 12 (0/1), 22 (1/1), or NA (NA)
 	
 	temp <- unlist(geno)
-	
-	temp[temp == "0/0"] <- "11"
-	temp[temp == "0/1"] <- "12"
-	temp[temp == "1/1"] <- "22"
-	temp[temp == "0/2"] <- "13"
-	temp[temp == "1/2"] <- "23"
-	temp[temp == "2/2"] <- "33"
-	temp[temp == "0/3"] <- "14"
-	temp[temp == "1/3"] <- "24"
-	temp[temp == "2/3"] <- "34"
-	temp[temp == "3/3"] <- "44"
-
+	temp <- g$recode(temp, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
+							c("11","12", "22", "13", "23", "33", "14", "24", "34", "44"))
 	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop))) # original names lost
-	names(temp) <- names(geno)
+	colnames(temp) <- colnames(geno)
 
 	# head(names(temp)) # if not set names above
 	#[1] "V1" "V2" "V3" "V4" "V5" "V6"

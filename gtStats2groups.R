@@ -305,6 +305,8 @@ gc() # if trueSnpOnly = TRUE
 # Start saving key results
 gtstats$groupnames <- groupnames 	# "paxl" "paxb"
 gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+gtstats$nInd <- nInd
+gtstats$nMin <- nMin
 gtstats$control <- control
 gtstats$genotypes <- genotypes		# rows are loci
 rm(genotypes)

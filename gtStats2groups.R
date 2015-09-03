@@ -32,7 +32,7 @@ GTminFrac <- 2/3
 includePfisher 	<- FALSE
 includeFst     	<- TRUE
 includePsd		<- TRUE
-trueSnpOnly		<- TRUE
+trueSnpOnly		<- FALSE
 # note: An indel relative to REF genome, if fixed and shared between limnetic and benthic, 
 # is not an indel between limnetic and benthic, but a fixed difference. 
 # However, REF indel that is polymorphic within or between limnetics and benthics is an indel.
@@ -56,7 +56,16 @@ load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
 # names(vcfresults)
-# [1] "groupcodes"        "vcf"               "altUsedList"       "snpTypeList"       "alleleFreqByGroup"
+# [1] "groupnames"        "groupcodes"        "control"           "vcf"               "altUsedList"      
+# [6] "snpTypeList"       "alleleFreqByGroup"
+
+control <- vcfresults$control
+control["GTminFrac"] <- GTminFrac
+control["trueSnpOnly"] <- trueSnpOnly
+control["includePfisher"] <- includePfisher
+control["includeFst"] <- includeFst
+control["includePsd"] <- includePsd
+
 
 library(VariantAnnotation)
 # library(GenomicFeatures)
@@ -81,7 +90,7 @@ nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7 4
 nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
 
 cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
-data.frame(groupnames=groupnames, nInd, nMin)
+print( data.frame(groupnames=groupnames, nInd, nMin) )
 
 # ----------
 # Pull out the genotypes for just the two groups being analyzed
@@ -111,9 +120,13 @@ sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
 
 # Drop cases with insufficient numbers of individuals
 # Keep snpTypeList too, need it if want to remove non-polymorphic indels later
+
 genotypes <- genotypes[sufficient.alleles.per.group, ]
+
 alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
+
 gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group] # contains rowData but not genotypes (GT empty)
+
 snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
 
 rm(sufficient.alleles.per.group)
@@ -292,7 +305,7 @@ gc() # if trueSnpOnly = TRUE
 # Start saving key results
 gtstats$groupnames <- groupnames 	# "paxl" "paxb"
 gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-gtstats$trueSnpOnly <- trueSnpOnly
+gtstats$control <- control
 gtstats$genotypes <- genotypes		# rows are loci
 rm(genotypes)
 gtstats$alleleFreqByGroup <- alleleFreqByGroup
@@ -377,8 +390,7 @@ if(includeFst){
 	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop))) # original names lost
 	colnames(temp) <- colnames(geno)
 
-	# head(names(temp)) # if not set names above
-	#[1] "V1" "V2" "V3" "V4" "V5" "V6"
+	# head(names(temp)) 
 
 	#table(pop)
 	# pop

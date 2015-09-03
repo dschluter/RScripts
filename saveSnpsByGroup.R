@@ -31,7 +31,7 @@ project <- args[1]
 chrname <- args[2]
 groupnames <- args[3:length(args)]
 
-dropRareAlleles	<- TRUE
+dropRareAlleles	<- FALSE
 plotQualMetrics <- FALSE
 
 # load "chrvec" for the current chromosome
@@ -46,10 +46,17 @@ vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3	# maximum number of ALT alleles
 
+control <- vector(mode = "character")
+control["nMaxAlt"] <- nMaxAlt
+control["dropRareAlleles"] <- dropRareAlleles
+
+cat("\nControl settings on this run\n")
+print(control)
+
 library(VariantAnnotation, quietly = TRUE)
 
 load(chrmaskfile) 	# object is named "chrvec"
-which.M <- which(chrvec == "M")
+which.chrvec.M <- which(chrvec == "M")
 # object.size(chrvec)
 #  93,740,176 bytes # chrXXI
 # 500,401,968 bytes # chrUn
@@ -137,19 +144,20 @@ nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each g
 # ---
 # Drop masked SNP (variants whose start position is masked in the chromosome)
 
-keep <- !(start(ranges(vcf)) %in% which.M) # i.e., includes only the good bases: only upper case, no "M"
+keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
 vcf <- vcf[keep]
 cat("\nCompleted removal of snp corresponding to masked bases\n")
+
 rm(keep)
-# rm(which.M)
+# rm(which.chrvec.M) # remove later
+
 # object.size(vcf)
 # 36,360,752 bytes # chrXXI
 gc()
 
 # ------
-# set missing genotypes to NA
+# set missing genotypes to NA instead of "."
 geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
-
 
 # ---
 # Drop variants in which fewer than 2 groups have at least one genotype
@@ -175,7 +183,7 @@ samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting g
 # [7] "Marine-Pac-WestCreek-01-Sara"  
 
 # ----------
-# # Tabulate genotype frequencies by group
+# Tabulate genotype frequencies by group
 # genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){
 	# table(groupcodes, x)
 	# # xtabs(~ groupcodes + x) # took twice as long!
@@ -197,6 +205,7 @@ keep <- z3 >= 2
 
 cat("Keeping only snp that have at least one genotype in at least 2 groups\n")
 vcf <- vcf[keep]
+
 rm(nCalledGenotypes)
 rm(z2)
 rm(z3)
@@ -223,8 +232,11 @@ gc()
 
 if(dropRareAlleles){
 	# Delete rare alleles (< 5% based on the total number of alleles)
-	# Try this RULE: drop alleles that are both less than 5% within all groups AND less than 5% across groups
-	# This protects cases in which we have just one individual from a population and has a unique allele
+	# Try this RULE: drop alleles that are both:
+	# 	less than 5% within every group (measured as a proportion of available alleles)
+	#	AND
+	#	less than 5% total (measured as a percent of 2*nInd, the maximum number of alleles possible)
+	# This protects cases in which we have just one individual from a population and it has a unique allele
 	
 	# Note that afterward, some loci will become invariants
 
@@ -237,9 +249,9 @@ if(dropRareAlleles){
 		  # paxl       20  0  0  0
 		  # paxb       18  0  0  0
 		  # marine-pac 11  1  0  0
-		p <- colSums(x)/sum(nInd)
+		p <- colSums(x)/(2*sum(nInd))
 		         # 0          1          2          3 
-		# 1.68965517 0.03448276 0.00000000 0.00000000
+		# 0.84482759 0.01724138 0.00000000 0.00000000
 		rareTot <- names(p[p > 0 & p < 0.05])
 		# [1] "1"
 		})
@@ -255,15 +267,22 @@ if(dropRareAlleles){
 		  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
 		testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
 		rareAll <- names(testAll[testAll])
+		# [1] "2" "3"
 		})
 	
 	whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
+	# head(whichRareAll)
+	# $`chrXXI:16024_C/T`
+	# character(0)
+	# length(whichRareAll[[1]])
+	# [1] 0
+	
 	whichRareTot[casesRareTot] <- whichRareAll
 	
-	# head(whichRareTot[sapply(whichRareTot, length) > 0])
+	# head(whichRareTot[ sapply(whichRareTot, length) > 0 ])
 		# $`chrXXI:68744_C/G`
 		# [1] "1"
-	# head(alleleFreqByGroup[sapply(whichRareTot, length) > 0])
+	# head(alleleFreqByGroup[ sapply(whichRareTot, length) > 0 ])
 		# $`chrXXI:68744_C/G`
 		              # 0  1  2  3
 		  # paxl       22  0  0  0
@@ -276,7 +295,7 @@ if(dropRareAlleles){
 	
 	
 	needFixing <- sapply(whichRareTot, length) > 0
-	length(whichRareTot[needFixing])
+	# length(whichRareTot[needFixing])
 	# [1] 10295
 
 	tGT <- as.data.frame(t(geno(vcf)$GT[needFixing, ]), stringsAsFactors = FALSE)
@@ -331,9 +350,10 @@ gc()
 # whichAltAllelesUsed lists all the ALT alleles used in genotypes by their index (1, 2, ...)
 
 cat("Determining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
-# unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
 
+# unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
 altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
+
 nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
 
 # Note, there are still "<*:DEL>" alleles. 
@@ -402,18 +422,19 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # Check that all multi-based snp differ only by the first letter
 # Remember that altUsedList still contains "<*:DEL>"
+# n1 <- sapply(altUsedList, length)
+# n2 <- sapply(snpTypeList, length)
+# all(n1 == n2) # should be TRUE
 # snp check:
 # snp <- unlist(snpTypeList)
-# ref <- rep(ref(vcf), sapply(snpTypeList, length))
+# ref <- rep(as.vector(ref(vcf)), n1)
 # alt <- unlist(altUsedList)
-# x <- data.frame(ref, alt, snp, stringsAsFactors = FALSE)
-# x <- x[x$alt != "<*:DEL>", ]
-# x <- x[nchar(x$ref) == nchar(x$alt) & nchar(x$ref) > 1, ] 
-# rownames(x) <- 1:nrow(x)
-# head(x)
-# table(x$snp) # confirm that they are all "snp"
-# any( substr(x$ref, 1, 1) == substr(x$alt, 1, 1) ) # FALSE confirms that the first letter is always different
-# all( substr(x$ref, 2, nchar(x$ref)) == substr(x$alt, 2, nchar(x$alt)) ) # TRUE confirms that rest is always the same
+# snp1 <- snp[!is.na(snp) & snp == "snp"]
+# ref1 <- ref[!is.na(snp) & snp == "snp"]
+# alt1 <- alt[!is.na(snp) & snp == "snp"]
+# table(snp1) # confirms they are all snp
+# any( substr(ref1, 1, 1) == substr(alt1, 1, 1) ) # FALSE confirms that the first letter is always different
+# all( substr(ref1, 2, nchar(ref1)) == substr(alt1, 2, nchar(alt1)) ) # TRUE confirms that rest is always the same
 
 # del check:
 # snp <- unlist(snpTypeList)
@@ -450,8 +471,8 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 # nrow(geno(vcfresults$vcf)$GT)
 # [1] 281607
 
-g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
-
+tstv <- g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
+print(tstv)
 # Results here are for dropRareAlleles = TRUE
 # Table of variant types used (<*:DEL> and unused are NA)
 # snp
@@ -479,11 +500,12 @@ gc()
 vcfresults <- list()
 vcfresults$groupnames <- groupnames
 vcfresults$groupcodes <- groupcodes
+vcfresults$control <- control
 
 vcfresults$vcf <- vcf
 rm(vcf)
 
-vcfresults$altUsedList <- altUsedList
+vcfresults$altUsedList <- altUsedList # remember: unused alt alleles are set to NA not deleted
 rm(altUsedList)
 
 vcfresults$snpTypeList <- snpTypeList # based on altUsedList
@@ -508,7 +530,7 @@ if(plotQualMetrics){
 	vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("QUAL"), geno=c("GT", "GQ", "DP"), 
 		info=c("FS", "QD", "DP")))	
 	gc()
-	keep <- !(start(ranges(vcf)) %in% which.M) # i.e., includes only the good bases: only upper case, no "M"
+	keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
 	vcf <- vcf[keep]
 	rm(keep)
 

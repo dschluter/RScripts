@@ -33,7 +33,8 @@ g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
 	# c( length(ref1[ref1 != alt1]), length(alt1[ref1 != alt1]) )
 	# [1] 216418 216418
 	
-	print(g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1]))
+	tstv <- g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1])
+	return(tstv)
 	}
 
 g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, nMaxAlt = 3, split = "/"){

@@ -15,7 +15,7 @@ g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
 	n2 <- sapply(snpTypeList, length)
 	if( !all(n1 == n2) ) stop("ALTlist and snpTypeList have unequal element numbers")
 	snp <- unlist(snpTypeList)
-	ref <- rep(as.vector(ref(vcf)), n1)
+	ref <- rep(as.vector(REF), n1)
 	alt <- unlist(ALTlist)
 
 	cat("Table of variant types used (<*:DEL> and unused are NA)\n")

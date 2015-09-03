@@ -472,6 +472,7 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 # [1] 281607
 
 tstv <- g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
+# tstv <- g$vcfTsTv(ref(vcfresults$vcf), vcfresults$altUsedList, vcfresults$snpTypeList)
 print(tstv)
 # Results here are for dropRareAlleles = TRUE
 # Table of variant types used (<*:DEL> and unused are NA)

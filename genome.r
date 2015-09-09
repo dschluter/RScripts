@@ -774,9 +774,9 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 	#				CSS <- ( sij/(m*n) ) - (m+n)*( sii/((m-1)*(m^2)) + sjj/((n-1)*(n^2)) )
 	# 		but the correct formula is
 	#				CSS <- ( sij/(m*n) ) - (1/(m+n))*( sii/((m-1)/2) + sjj/((n-1)/2) ) 
-	# 		where sij/(m*n) is the mean of all pairwise distances between lim and ben
-	# 			(1/(m+n))*( sii/((m-1)/2) ) here works out to be the mean pairwise distance within ben
-	# 			(1/(m+n))*( sjj/((n-1)/2) ) here works out to be the mean pairwise distance within lim
+	# 		where sij/(m*n) is the mean of all pairwise distances between individuals of differenc species, lim and ben
+	# 			(1/(m+n))*( sii/((m-1)/2) ) here works out to be the mean pairwise distance between individuals within ben
+	# 			(1/(m+n))*( sjj/((n-1)/2) ) here works out to be the mean pairwise distance between individuals within lim
 	#					
 	#		To handle missing values, Felicity et al calculated 21x21 pairwise distances
 	# 		between the 21 populations of fish in each sliding window. Any pairwise distance based on fewer

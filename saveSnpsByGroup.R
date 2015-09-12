@@ -48,6 +48,7 @@ nMaxAlt			<- 3	# maximum number of ALT alleles
 
 control <- vector(mode = "character")
 control["nMaxAlt"] <- nMaxAlt
+control["nInd"] <- nInd
 control["dropRareAlleles"] <- dropRareAlleles
 
 cat("\nControl settings on this run\n")
@@ -305,7 +306,7 @@ if(dropRareAlleles){
 	# $`chrXXI:7955713_A/AG`
 	              # 0  1  2  3
 	  # paxl       20  0  1  1
-	  # paxb       21  1  0  0 # ok, here's a rare allele that is present in two populations. Keep?
+	  # paxb       21  1  0  0 # here's a rare allele that is present in two populations. Keep?
 	  # marine-pac 13  1  0  0
 
 	

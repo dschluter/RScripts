@@ -124,7 +124,7 @@ cat("Successfully read vcf file\n")
 # [13] "MLEAF"           "MQ"              "MQRankSum"       "QD"             
 # [17] "ReadPosRankSum"  "SOR"
 
-# ---
+# -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
 fishnames <- samples(header(vcf))
 groupcodes <- vector(length = length(fishnames), mode = "integer")
@@ -138,10 +138,11 @@ print(groupcodes)
  
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
 # [1] 11 11  7
+names(nInd)<-groupnames
 
 # Q: What does QUAL = NA imply?
 
-# ---
+# ------
 # Drop masked SNP (variants whose start position is masked in the chromosome)
 
 keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
@@ -157,9 +158,9 @@ gc()
 
 # ------
 # set missing genotypes to NA instead of "."
-geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA  # set "." to NA
+geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
 
-# ---
+# -----
 # Drop variants in which fewer than 2 groups have at least one genotype
 
 # Tally up the number of genotypes in each group
@@ -182,14 +183,12 @@ samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting g
 # [4] "Marine-Pac-MANC_X_X05"          "Marine-Pac-Oyster-06-Sara"      "Marine-Pac-Seyward-01-Sara"    
 # [7] "Marine-Pac-WestCreek-01-Sara"  
 
-# ----------
 # Tabulate genotype frequencies by group
 # genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){
 	# table(groupcodes, x)
 	# # xtabs(~ groupcodes + x) # took twice as long!
 	# })
 
-# ----------
 # Indicate whether there's at least one genotype in at least two groups. 
 # No need for a more stringent criterion here because one will need to be applied in gtStats2groups anyway
 
@@ -231,12 +230,11 @@ gc()
 # Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
 
 if(dropRareAlleles){
-	# Delete rare alleles (< 5% based on the total number of alleles)
+	# Delete rare alleles
 	# Try this RULE: drop alleles that are both:
-	# 	less than 5% within every group (measured as a proportion of available alleles)
+	#	less than 5% total (measured as a percent of 2*sum(nInd), the maximum number of alleles possible)
 	#	AND
-	#	less than 5% total (measured as a percent of 2*nInd, the maximum number of alleles possible)
-	# This protects cases in which we have just one individual from a population and it has a unique allele
+	# 	singletons within every group (in other words, keep rare alleles present at least twice in any population)
 	
 	# Note that afterward, some loci will become invariants
 
@@ -255,44 +253,61 @@ if(dropRareAlleles){
 		rareTot <- names(p[p > 0 & p < 0.05])
 		# [1] "1"
 		})
-	casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
 	
-	# Of those that are rare in total, figure out which are also rare (< 5%) in all groups
+	# Of those that are rare in total, figure out which are also rare within every group
+	casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
 	whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
 		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
-		prop <- sweep(x, 1, rowSums(x), FUN = "/")
+		# prop <- sweep(x, 1, rowSums(x), FUN = "/")
 		                      # 0          1          2          3
 		  # paxl       1.00000000 0.00000000 0.00000000 0.00000000
 		  # paxb       1.00000000 0.00000000 0.00000000 0.00000000
 		  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
-		testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
+		# testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
+		testAll <- apply(x, 2, function(x){all(x < 2)})
 		rareAll <- names(testAll[testAll])
-		# [1] "2" "3"
+		# [1] "1" "2" "3"
 		})
 	
 	whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
 	# head(whichRareAll)
 	# $`chrXXI:16024_C/T`
-	# character(0)
+	# [1] "1"
 	# length(whichRareAll[[1]])
-	# [1] 0
+	# [1] 1
 	
 	whichRareTot[casesRareTot] <- whichRareAll
 	
 	# head(whichRareTot[ sapply(whichRareTot, length) > 0 ])
-		# $`chrXXI:68744_C/G`
+		# $`chrXXI:16024_C/T`
 		# [1] "1"
 	# head(alleleFreqByGroup[ sapply(whichRareTot, length) > 0 ])
-		# $`chrXXI:68744_C/G`
+		# $`chrXXI:16024_C/T`
 		              # 0  1  2  3
-		  # paxl       22  0  0  0
-		  # paxb       21  1  0  0
-		  # marine-pac 14  0  0  0
+		  # paxl       20  0  0  0
+		  # paxb       18  0  0  0
+		  # marine-pac 11  1  0  0 # in most cases, the rare allele is in the marine population (not tested comprehensively)
 		  
 	# Some have 3 rare alleles!
 	# whichRareTot[sapply(whichRareTot, length) > 2]
 	# alleleFreqByGroup[sapply(whichRareTot, length) > 2]
-	
+	# $`chrXXI:2416645_T/TGTTGCTGGGAAAACGATGGGTTGTCACATGTGTGAATAGAAAAGCA
+	              # 0  1  2  3
+	  # paxl       19  1  1  1 # ok, all rare and just in paxl
+	  # paxb       22  0  0  0
+	  # marine-pac 14  0  0  0
+	# $`chrXXI:2674955_C/G`
+	              # 0  1  2  3
+	  # paxl       21  1  0  0 # ok, all rare are in different populations
+	  # paxb       21  0  0  1
+	  # marine-pac 13  0  1  0
+	# ...
+	# $`chrXXI:7955713_A/AG`
+	              # 0  1  2  3
+	  # paxl       20  0  1  1
+	  # paxb       21  1  0  0 # ok, here's a rare allele that is present in two populations. Keep?
+	  # marine-pac 13  1  0  0
+
 	
 	needFixing <- sapply(whichRareTot, length) > 0
 	# length(whichRareTot[needFixing])
@@ -300,7 +315,7 @@ if(dropRareAlleles){
 
 	tGT <- as.data.frame(t(geno(vcf)$GT[needFixing, ]), stringsAsFactors = FALSE)
 	# ncol(tGT)
-	# [1] 10295
+	# [1] 58357
 	
 	z <- mapply(tGT, whichRareTot[needFixing], FUN = function(x, i){
 		# x <- tGT[, "chrXXI:9878908_G/GTCGCCGGCCCT"]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
@@ -378,10 +393,12 @@ rm(nAltUsed)
 # -----------------
 # Variant type is defined for VCFtools as (http://vcftools.sourceforge.net/VCF-poster.pdf)
 # SNPs
-# Alignment  VCF representation#   ACGT     POS REF ALT
+# Alignment  VCF representation
+#   ACGT     POS REF ALT
 #   ATGT      2   C   T
 
-# Deletions# Alignment  VCF representation
+# Deletions
+# Alignment  VCF representation
 #   ACGT     POS REF ALT 
 #   A--T      1  ACG  A
 

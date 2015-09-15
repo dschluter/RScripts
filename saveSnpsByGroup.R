@@ -46,9 +46,8 @@ vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3	# maximum number of ALT alleles
 
-control <- vector(mode = "character")
+control <- list()
 control["nMaxAlt"] <- nMaxAlt
-control["nInd"] <- nInd
 control["dropRareAlleles"] <- dropRareAlleles
 
 cat("\nControl settings on this run\n")
@@ -140,6 +139,7 @@ print(groupcodes)
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
 # [1] 11 11  7
 names(nInd)<-groupnames
+control$nInd <- nInd
 
 # Q: What does QUAL = NA imply?
 
@@ -228,57 +228,67 @@ alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT, groupnames, groupcod
 gc()
 
 # --------------------------------------
-# Calculate the allele proportions and drop rare alleles if dropRareAlleles is TRUE
+# Drop rare alleles if dropRareAlleles is TRUE
 
 if(dropRareAlleles){
 	# Delete rare alleles
-	# Try this RULE: drop alleles that are both:
-	#	less than 5% total (measured as a percent of 2*sum(nInd), the maximum number of alleles possible)
-	#	AND
-	# 	singletons within every group (in other words, keep rare alleles present at least twice in any population)
+	# RULE1: drop alleles that are less than 5% total measured as a percent of 2*sum(nInd), the maximum number of alleles possible
+	# or
+	# RULE2: drop alleles that are less than 5% total measured as a percent of the total number of alleles in the sample.
+	
+	# Here we are using ** RULE2 **
+	# Otherwise we get lots of rare alleles simply because there are few genotypes in total
+
+	# Code commented out below would also: identify alleles that are < 5% within every group
+	#                                      identify singleton alleles within groups
 	
 	# Note that afterward, some loci will become invariants
 
 	cat("Deleting rare alleles and setting their genotypes to NA\n")
 
-	# First test whether any alleles are rare globally
+	# Test whether any alleles are rare globally
 	whichRareTot <- lapply(alleleFreqByGroup, function(x){
 		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
 		              # 0  1  2  3
 		  # paxl       20  0  0  0
 		  # paxb       18  0  0  0
 		  # marine-pac 11  1  0  0
-		p <- colSums(x)/(2*sum(nInd))
-		         # 0          1          2          3 
-		# 0.84482759 0.01724138 0.00000000 0.00000000
+		# p <- colSums(x)/(2*sum(nInd)) # RULE1
+		p <- colSums(x)/sum(colSums(x)) # RULE2
+		   # 0    1    2    3 
+		# 0.98 0.02 0.00 0.00
 		rareTot <- names(p[p > 0 & p < 0.05])
 		# [1] "1"
 		})
 	
-	# Of those that are rare in total, figure out which are also rare within every group
-	casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
-	whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
-		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
-		# prop <- sweep(x, 1, rowSums(x), FUN = "/")
-		                      # 0          1          2          3
-		  # paxl       1.00000000 0.00000000 0.00000000 0.00000000
-		  # paxb       1.00000000 0.00000000 0.00000000 0.00000000
-		  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
-		# testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
-		testAll <- apply(x, 2, function(x){all(x < 2)})
-		rareAll <- names(testAll[testAll])
-		# [1] "1" "2" "3"
-		})
+	if(FALSE){ # this is a slick way to comment something out
+		# Of those that are rare in total, figure out which are also rare (< 5%) within every group
+		# This code is commented out but could be added later
+		casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
+		whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
+			# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
+			# prop <- sweep(x, 1, rowSums(x), FUN = "/")
+			                      # 0          1          2          3
+			  # paxl       1.00000000 0.00000000 0.00000000 0.00000000
+			  # paxb       1.00000000 0.00000000 0.00000000 0.00000000
+			  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
+			# testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
+			testAll <- apply(x, 2, function(x){all(x < 2)})
+			rareAll <- names(testAll[testAll])
+			# [1] "1" "2" "3"
+			})
+		# This next command finds the intersection of the alleles that are 
+		#	both rare globally and within every group, and saves the result in "whichRareAll"
+		whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
+		# head(whichRareAll)
+		# $`chrXXI:16024_C/T`
+		# [1] "1"
+		# length(whichRareAll[[1]])
+		# [1] 1
+		whichRareTot[casesRareTot] <- whichRareAll
+		}
 	
-	whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
-	# head(whichRareAll)
-	# $`chrXXI:16024_C/T`
-	# [1] "1"
-	# length(whichRareAll[[1]])
-	# [1] 1
-	
-	whichRareTot[casesRareTot] <- whichRareAll
-	
+	# View some cases of alleles that are rare
 	# head(whichRareTot[ sapply(whichRareTot, length) > 0 ])
 		# $`chrXXI:16024_C/T`
 		# [1] "1"
@@ -289,34 +299,40 @@ if(dropRareAlleles){
 		  # paxb       18  0  0  0
 		  # marine-pac 11  1  0  0 # in most cases, the rare allele is in the marine population (not tested comprehensively)
 		  
-	# Some have 3 rare alleles!
+	# View some cases that have 3 rare alleles!
 	# whichRareTot[sapply(whichRareTot, length) > 2]
-	# alleleFreqByGroup[sapply(whichRareTot, length) > 2]
-	# $`chrXXI:2416645_T/TGTTGCTGGGAAAACGATGGGTTGTCACATGTGTGAATAGAAAAGCA
+	# $`chrXXI:475792_G/GCGTCTGCTAAATGACC`
+	# [1] "1" "2" "3"
+	# $`chrXXI:488280_T/TAAAAATAAGTTCAACACTAATGCAAAATTGAGCAAAATGTTAC`
+	# [1] "1" "2" "3"
+	# $`chrXXI:1315110_G/GTCTGGCCGGCTCAATGGGTTGTAAGTCACAGCGCGCCGCACAT`
+	# [1] "1" "2" "3"
+	# head( alleleFreqByGroup[sapply(whichRareTot, length) > 2] )
+	# $`chrXXI:475792_G/GCGTCTGCTAAATGACC`            
 	              # 0  1  2  3
-	  # paxl       19  1  1  1 # ok, all rare and just in paxl
-	  # paxb       22  0  0  0
+	  # paxl       22  0  0  0
+	  # paxb        4  2  2  2 # all rare benthic alleles
 	  # marine-pac 14  0  0  0
-	# $`chrXXI:2674955_C/G`
+	
+	# $`chrXXI:488280_T/TAAAAATAAGTTCAACACTAATGCAAAATTGAGCAAAATGTTAC`           
 	              # 0  1  2  3
-	  # paxl       21  1  0  0 # ok, all rare are in different populations
-	  # paxb       21  0  0  1
-	  # marine-pac 13  0  1  0
-	# ...
-	# $`chrXXI:7955713_A/AG`
+	  # paxl       22  0  0  0
+	  # paxb       18  2  1  1 # all rare benthic alleles
+	  # marine-pac 12  0  0  0
+	
+	# $`chrXXI:1315110_G/GTCTGGCCGGCTCAATGGGTTGTAAGTCACAGCGCGCCGCACAT`            
 	              # 0  1  2  3
-	  # paxl       20  0  1  1
-	  # paxb       21  1  0  0 # here's a rare allele that is present in two populations. Keep?
-	  # marine-pac 13  1  0  0
-
+	  # paxl       21  0  0  1
+	  # paxb       16  2  2  0 # rare benthic alleles
+	  # marine-pac 13  0  0  1 # and one rare marine allele
 	
 	needFixing <- sapply(whichRareTot, length) > 0
 	# length(whichRareTot[needFixing])
-	# [1] 10295
+	# [1] 81429
 
 	tGT <- as.data.frame(t(geno(vcf)$GT[needFixing, ]), stringsAsFactors = FALSE)
 	# ncol(tGT)
-	# [1] 58357
+	# [1] 81429
 	
 	z <- mapply(tGT, whichRareTot[needFixing], FUN = function(x, i){
 		# x <- tGT[, "chrXXI:9878908_G/GTCGCCGGCCCT"]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
@@ -362,14 +378,13 @@ gc()
 # <*:DEL>       A      AA     AAA  ...
    # 8338   73896      21       4  ...  
 
-# Enumerate the alt alleles used in actual genotype calls
-# whichAltAllelesUsed lists all the ALT alleles used in genotypes by their index (1, 2, ...)
-
 cat("Determining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
 
+# Enumerate the alt alleles used in actual genotype calls
+# "whichAltAllelesUsed" lists all the ALT alleles used in genotypes by their index (1, 2, ...)
 # unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
-altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
 
+altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
 nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
 
 # Note, there are still "<*:DEL>" alleles. 
@@ -377,16 +392,15 @@ nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
 # Note that NA has length 1, so a nonzero nAltUsed doesn't mean there are real ALT alleles there
 
 # Compare the number of ALT alleles used vs number of ALT alleles called
+# Number called by GATK
 # table(sapply(alt(vcf), length), useNA = "always")
      # 1      2      3      4      5   <NA>
 # 267591  13243    763      9      1      0
 
+# Number used in ganotype calls
 # table(nAltUsed, useNA = "always")
      # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
  # 26102 243415  11398    692      0
- 
-     # 0      1      2      3   <NA> 
- # 34851 235590  10551    615      0 # if dropRareAlleles = TRUE
 
 rm(nAltUsed)
 
@@ -491,25 +505,22 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 tstv <- g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
 # tstv <- g$vcfTsTv(ref(vcfresults$vcf), vcfresults$altUsedList, vcfresults$snpTypeList)
-print(tstv)
 # Results here are for dropRareAlleles = TRUE
 # Table of variant types used (<*:DEL> and unused are NA)
 # snp
    # del    ins    snp   <NA> 
- # 23216  20013 208979  44199 
+ # 24286  20909 216418  34794 
 
-# Transition-transversion ratio - all true snp
+print(tstv)
 # $R
-# [1] 1.260503
-
+# [1] 1.258801
 # $tstv
      # alt
 # ref     pur   pyr
-  # pur 58217 46281
-  # pyr 46167 58314
-
+  # pur 60301 47947
+  # pyr 47864 60306
 # $tot
-# [1] 208979
+# [1] 216418
 
 gc()
 

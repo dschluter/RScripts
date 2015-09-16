@@ -60,11 +60,11 @@ load(file = vcfresultsfile)   # object is "vcfresults"
 # [6] "snpTypeList"       "alleleFreqByGroup"
 
 control <- vcfresults$control
-control["GTminFrac"] <- GTminFrac
-control["trueSnpOnly"] <- trueSnpOnly
-control["includePfisher"] <- includePfisher
-control["includeFst"] <- includeFst
-control["includePsd"] <- includePsd
+control$GTminFrac <- GTminFrac
+control$trueSnpOnly <- trueSnpOnly
+control$includePfisher <- includePfisher
+control$includeFst <- includeFst
+control$includePsd <- includePsd
 
 
 library(VariantAnnotation)

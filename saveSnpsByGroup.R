@@ -33,6 +33,7 @@ groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
 plotQualMetrics <- FALSE
+saveBiAllelic <- TRUE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -42,13 +43,14 @@ fastaname		<- paste(chrname, "fa", sep = ".")
 # chrgroupname		<- paste("group", chrno, sep="") # annotation database uses groupXXI not chrXXI
 vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
+vcfBiAllelicFile	<- paste(project, ".", chrname, ".vcfresultsBiAllelic.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3	# maximum number of ALT alleles
 
 control <- list()
-control["nMaxAlt"] <- nMaxAlt
-control["dropRareAlleles"] <- dropRareAlleles
+control$nMaxAlt <- nMaxAlt
+control$snpOptions <- c(dropRareAlleles = dropRareAlleles, saveBiAllelic = saveBiAllelic)
 
 cat("\nControl settings on this run\n")
 print(control)
@@ -496,7 +498,6 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 # #      last n letters of ref              last n letters of alt
 # all( substr(x$ref, 2, nchar(x$ref)) == substr(x$alt, nchar(x$alt) - nchar(x$ref) + 2, nchar(x$alt)) ) # TRUE!
 
-
 # --------------------------------------
 # Transition-transversion ratio
 
@@ -549,7 +550,73 @@ gc()
 # cat("\nSaving results\n")
 save(vcfresults, file = vcfresultsfile)
 # load(file = vcfresultsfile) # saved object is "vcfresults"
-rm(vcfresults)
+
+# Make a biallelic snp version of the data set
+if(saveBiAllelic){
+	
+	# Identify the ALT alleles that are true snp
+	whichAltAreSnp <- lapply(vcfresults$snpTypeList, function(x){
+		which(x == "snp")
+		})
+	# length(whichAltAreSnp)
+	# [1] 281607
+
+	# Keep only cases having at least one ALT snp
+	keep <- sapply(whichAltAreSnp, length) >= 1
+	
+	vcf <- vcfresults$vcf[keep]
+	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
+	alleleFreqByGroup <- vcfresults$alleleFreqByGroup[keep]
+	whichAltAreSnp <- whichAltAreSnp[keep]
+	rm(vcfresults)
+
+	# length(whichAltAreSnp)
+	# [1] 214283
+	
+	# ---
+	# Erase the genotypes that are not pure snp
+	whichAltAreNotSnp <- lapply(whichAltAreSnp, function(x){setdiff(c(1:nMaxAlt), x)})
+	nNotSnp <- sapply(whichAltAreNotSnp, length)
+	# table(nNotSnp) # the "0" values are cases in which all Alt alleles are snp
+	     # 0      1      2 
+	     # 9   2117 212157
+
+	rm(whichAltAreSnp)
+
+	z <- mapply(tGT[, nNotSnp > 0], whichAltAreNotSnp[nNotSnp > 0], FUN = function(x, i){
+		# x <- tGT[, "chrXXI:63560_GCGC/G"]; i <- whichAltAreNotSnp["chrXXI:63560_GCGC/G"]
+		# x
+		 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    "1/1" NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
+		# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA   
+		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
+		return(x)
+		})
+	# z is a matrix with cols corresponding to tGT
+	# z[,"chrXXI:63560_GCGC/G"]
+	 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    NA    NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
+	# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA   
+
+	# tGT[, nNotSnp > 0] <- z   # takes too long
+	geno(vcf)$GT[nNotSnp > 0, ] <- t(z)  # fast
+	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
+	# tGT[,"chrXXI:63560_GCGC/G"]
+	
+	# Fix alleleFreqByGroup too
+	z <- mapply(alleleFreqByGroup[nNotSnp > 0], whichAltAreNotSnp[nNotSnp > 0], FUN = function(x, i){
+		# x <- alleleFreqByGroup[["chrXXI:63560_GCGC/G"]]; i <- whichAltAreNotSnp[["chrXXI:63560_GCGC/G"]]
+		x[,as.character(i)] <- 0
+		return(x)
+		}, SIMPLIFY = FALSE)
+	# z["chrXXI:63560_GCGC/G"]
+	
+	alleleFreqByGroup[nNotSnp > 0] <- z
+	
+	# -----
+	# Keep only the two most common alleles (not necessarily the REF)
+	# ** in progress ***
+
+	}
+else{ rm(vcfresults) }
 
 if(plotQualMetrics){
 	# --------------------------------------

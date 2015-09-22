@@ -59,9 +59,11 @@ library(VariantAnnotation, quietly = TRUE)
 
 load(chrmaskfile) 	# object is named "chrvec"
 which.chrvec.M <- which(chrvec == "M")
+
 # object.size(chrvec)
 #  93,740,176 bytes # chrXXI
 # 500,401,968 bytes # chrUn
+
 rm(chrvec)
 
 # Garbage collection -- current memory consumption
@@ -141,6 +143,7 @@ print(groupcodes)
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
 # [1] 11 11  7
 names(nInd)<-groupnames
+
 control$nInd <- nInd
 
 # Q: What does QUAL = NA imply?
@@ -233,16 +236,14 @@ gc()
 # Drop rare alleles if dropRareAlleles is TRUE
 
 if(dropRareAlleles){
-	# Delete rare alleles
+	# Delete rare alleles -- we are using ** RULE2 ** otherwise we get lots of rare alleles when many genotypes are missing
 	# RULE1: drop alleles that are less than 5% total measured as a percent of 2*sum(nInd), the maximum number of alleles possible
 	# or
 	# RULE2: drop alleles that are less than 5% total measured as a percent of the total number of alleles in the sample.
-	
-	# Here we are using ** RULE2 **
-	# Otherwise we get lots of rare alleles simply because there are few genotypes in total
 
-	# Code commented out below would also: identify alleles that are < 5% within every group
-	#                                      identify singleton alleles within groups
+	# Code below can also: identify alleles that are < 5% within every group
+	#                      identify singleton alleles within groups
+	# (currently commented out)
 	
 	# Note that afterward, some loci will become invariants
 
@@ -262,10 +263,11 @@ if(dropRareAlleles){
 		rareTot <- names(p[p > 0 & p < 0.05])
 		# [1] "1"
 		})
+	# whichRareTot["chrXXI:16024_C/T"]
 	
-	if(FALSE){ # this is a slick way to comment something out
+	# a slick way to comment something out
+	if(FALSE){ 
 		# Of those that are rare in total, figure out which are also rare (< 5%) within every group
-		# This code is commented out but could be added later
 		casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
 		whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
 			# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
@@ -288,20 +290,14 @@ if(dropRareAlleles){
 		# length(whichRareAll[[1]])
 		# [1] 1
 		whichRareTot[casesRareTot] <- whichRareAll
-		}
-	
-	# View some cases of alleles that are rare
-	# head(whichRareTot[ sapply(whichRareTot, length) > 0 ])
-		# $`chrXXI:16024_C/T`
-		# [1] "1"
-	# head(alleleFreqByGroup[ sapply(whichRareTot, length) > 0 ])
-		# $`chrXXI:16024_C/T`
-		              # 0  1  2  3
-		  # paxl       20  0  0  0
-		  # paxb       18  0  0  0
-		  # marine-pac 11  1  0  0 # in most cases, the rare allele is in the marine population (not tested comprehensively)
-		  
-	# View some cases that have 3 rare alleles!
+
+		rm(whichRareAll)
+		rm(casesRareTot)
+
+		} # END if FALSE
+
+			  
+	# View cases that have 3 rare alleles
 	# whichRareTot[sapply(whichRareTot, length) > 2]
 	# $`chrXXI:475792_G/GCGTCTGCTAAATGACC`
 	# [1] "1" "2" "3"
@@ -344,6 +340,7 @@ if(dropRareAlleles){
 		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
 		return(x)
 		})
+	
 	# z is a matrix with cols corresponding to tGT
 	# z[,"chrXXI:9878908_G/GTCGCCGGCCCT"]
 		 # [1] "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1"
@@ -353,21 +350,36 @@ if(dropRareAlleles){
 	# geno(vcf)$GT["chrXXI:9878908_G/GTCGCCGGCCCT", ]
 	
 	rm(tGT)
-	rm(whichRareTot)
-	rm(whichRareAll)
-	rm(casesRareTot)
 	
 	# Need to recompute allele frequencies for cases needing fixing (rare alleles dropped)
+	# alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+	              # 0  1  2  3
+	  # paxl        1 20  0  1
+	  # paxb        0 21  1  0
+	  # marine-pac  0 14  0  0
 
-	alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(z, groupnames, groupcodes)
+	# alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(z, groupnames, groupcodes)
+	# The following is faster:
 
-	# alleleFreqByGroup["chrXXI:68744_C/G"]
-	# alleleFreqByGroup["chrXXI:9878908_G/GTCGCCGGCCCT"]
+	z <- mapply(alleleFreqByGroup[needFixing], whichRareTot[needFixing], FUN = function(x, i){
+	# x <- alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+		x[,as.character(i)] <- 0
+		return(x)
+	}, SIMPLIFY = FALSE)
+	# z[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+	              # 0  1  2  3
+	  # paxl        0 20  0  0
+	  # paxb        0 21  0  0
+	  # marine-pac  0 14  0  0
+	alleleFreqByGroup[needFixing] <- z
+
+	rm(whichRareTot)
 	rm(needFixing)
 	rm(z)
 	}
 
 gc()
+
 
 # --------------------------
 # Determine alleles actually used in genotype calls
@@ -387,7 +399,6 @@ cat("Determining which ALT alleles actually used in genotype calls; others ALT a
 # unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
 
 altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
-nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
 
 # Note, there are still "<*:DEL>" alleles. 
 
@@ -399,15 +410,22 @@ nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
      # 1      2      3      4      5   <NA>
 # 267591  13243    763      9      1      0
 
-# Number used in ganotype calls
-# table(nAltUsed, useNA = "always")
-     # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
- # 26102 243415  11398    692      0
+# Number used in genotype calls (commands commented out)
+if(FALSE){
+	nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
+	
+	table(nAltUsed, useNA = "always")
+	     # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
+	 # 26102 243415  11398    692      0
 
-rm(nAltUsed)
+	rm(nAltUsed)
+	} # End if FALSE
 
 # Types of variants
 # -----------------
+
+snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
+
 # Variant type is defined for VCFtools as (http://vcftools.sourceforge.net/VCF-poster.pdf)
 # SNPs
 # Alignment  VCF representation
@@ -451,8 +469,6 @@ rm(nAltUsed)
 # "ATGAAAC" -> "A" "GTGAAAC";   "del" NA      # is snp, first letter different
 # "CG"      -> "GG"  "C";       NA   "del"    # is snp, first letter different
 # "ACT"     -> "TCT" "A";       NA   "del"    # is snp, first letter different
-
-snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # Check that all multi-based snp differ only by the first letter
 # Remember that altUsedList still contains "<*:DEL>"
@@ -551,13 +567,15 @@ gc()
 save(vcfresults, file = vcfresultsfile)
 # load(file = vcfresultsfile) # saved object is "vcfresults"
 
-# Make a biallelic snp version of the data set
+# ----
+# Make a biallelic snp version of the data set * Warning: this might drop out whole populations at a marker if has unique alleles
 if(saveBiAllelic){
 	
 	# Identify the ALT alleles that are true snp
 	whichAltAreSnp <- lapply(vcfresults$snpTypeList, function(x){
 		which(x == "snp")
 		})
+
 	# length(whichAltAreSnp)
 	# [1] 281607
 
@@ -567,7 +585,9 @@ if(saveBiAllelic){
 	vcf <- vcfresults$vcf[keep]
 	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
 	alleleFreqByGroup <- vcfresults$alleleFreqByGroup[keep]
+	altUsedList  <- vcfresults$altUsedList[keep]
 	whichAltAreSnp <- whichAltAreSnp[keep]
+	
 	rm(vcfresults)
 
 	# length(whichAltAreSnp)
@@ -577,6 +597,7 @@ if(saveBiAllelic){
 	# Erase the genotypes that are not pure snp
 	whichAltAreNotSnp <- lapply(whichAltAreSnp, function(x){setdiff(c(1:nMaxAlt), x)})
 	nNotSnp <- sapply(whichAltAreNotSnp, length)
+
 	# table(nNotSnp) # the "0" values are cases in which all Alt alleles are snp
 	     # 0      1      2 
 	     # 9   2117 212157
@@ -591,6 +612,7 @@ if(saveBiAllelic){
 		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
 		return(x)
 		})
+
 	# z is a matrix with cols corresponding to tGT
 	# z[,"chrXXI:63560_GCGC/G"]
 	 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    NA    NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
@@ -599,6 +621,7 @@ if(saveBiAllelic){
 	# tGT[, nNotSnp > 0] <- z   # takes too long
 	geno(vcf)$GT[nNotSnp > 0, ] <- t(z)  # fast
 	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
+
 	# tGT[,"chrXXI:63560_GCGC/G"]
 	
 	# Fix alleleFreqByGroup too
@@ -610,10 +633,79 @@ if(saveBiAllelic){
 	# z["chrXXI:63560_GCGC/G"]
 	
 	alleleFreqByGroup[nNotSnp > 0] <- z
+	rm(z)
 	
 	# -----
 	# Keep only the two most common alleles (not necessarily the REF)
-	# ** in progress ***
+	
+	allelesOrderedByFreq <- lapply(alleleFreqByGroup, function(x){
+		# x <- alleleFreqByGroup[[1]]
+		z <- colSums(x)
+		z[order(z, decreasing = TRUE)]
+		})
+	# head(allelesOrderedByFreq)
+	# $`chrXXI:6316_C/T`
+	# 0 1 2 3 
+	# 3 3 0 0 
+	# $`chrXXI:10364_T/A`
+	# 1 0 2 3 # 0 is second if it is equally the rarest
+	# 8 0 0 0 
+	
+	# Identify all alleles other than the 2 most common alleles
+	whichAllelesToDrop <- lapply(allelesOrderedByFreq, function(x){
+		# x <- allelesOrderedByFreq[[1]]
+		z <- names(x[3:(nMaxAlt + 1)])
+		})
+	
+	# Count the number of alleles represented at each marker
+	nUsedAlleles <- lapply(allelesOrderedByFreq, function(x){sum(x > 0)})
+	# head(nUsedAlleles)
+	
+	# Drop those corresponding genotypes
+	z <- mapply(tGT[, nUsedAlleles > 2], whichAllelesToDrop[nUsedAlleles > 2], FUN = function(x, i){
+		# x <- tGT[, "chrXXI:18389_C/A"]; i <- whichAllelesToDrop[["chrXXI:18389_C/A"]]
+		 # [1] "0/0" "0/2" "0/0" "0/2" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/1"
+		# [17] "0/0" "0/0" "0/1" "0/0" "0/0" "0/1" "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/1"
+		# i
+		# [1] "2" "3"
+		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
+		return(x)
+		})
+
+	geno(vcf)$GT[nUsedAlleles > 2, ] <- t(z)
+	# unname(geno(vcf)$GT["chrXXI:18389_C/A", ])
+	 # [1] "0/0" NA    "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/1"
+	# [17] "0/0" "0/0" "0/1" "0/0" "0/0" "0/1" "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/1"
+	
+	# Fix alleleFreqByGroup too
+	z <- mapply(alleleFreqByGroup, whichAllelesToDrop, FUN = function(x, i){
+		# x <- alleleFreqByGroup[["chrXXI:18389_C/A"]]; i <- whichAllelesToDrop[["chrXXI:18389_C/A"]]
+		x <- x[, -which(colnames(x) %in% i)]
+		return(x)
+		}, SIMPLIFY = FALSE)
+	# z["chrXXI:18389_C/A"]
+	
+	alleleFreqByGroup <- z
+	
+	vcfresultsBiAllelic <- list()
+	vcfresultsBiAllelic$groupnames <- groupnames
+	vcfresultsBiAllelic$groupcodes <- groupcodes
+	vcfresultsBiAllelic$control <- control
+	
+	vcfresultsBiAllelic$vcf <- vcf
+	rm(vcf)
+	
+	vcfresultsBiAllelic$altUsedList <- altUsedList
+	rm(altUsedList)
+		
+	vcfresultsBiAllelic$alleleFreqByGroup <- alleleFreqByGroup
+	rm(alleleFreqByGroup)
+	
+	gc()
+	
+	# cat("\nSaving results\n")
+	save(vcfresultsBiAllelic, file = vcfBiAllelicFile)
+	# load(file = vcfBiAllelicFile) # saved object is "vcfresultsBiAllelic"
 
 	}
 else{ rm(vcfresults) }

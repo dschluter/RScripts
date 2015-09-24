@@ -691,8 +691,7 @@ if(saveBiAllelic){
 	save(vcfresultsBiAllelic, file = vcfBiAllelicFile)
 	# load(file = vcfBiAllelicFile) # saved object is "vcfresultsBiAllelic"
 
-	}
-else{ rm(vcfresults) }
+	} else rm(vcfresults) 
 
 if(plotQualMetrics){
 	# --------------------------------------

@@ -350,32 +350,25 @@ if(dropRareAlleles){
 	# geno(vcf)$GT["chrXXI:9878908_G/GTCGCCGGCCCT", ]
 	
 	rm(tGT)
+	rm(z)
 	
 	# Need to recompute allele frequencies for cases needing fixing (rare alleles dropped)
+	# 	(can't just edit the allele frequency tables because genotypes, not alleles, were dropped)
 	# alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
 	              # 0  1  2  3
 	  # paxl        1 20  0  1
 	  # paxb        0 21  1  0
 	  # marine-pac  0 14  0  0
 
-	# alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(z, groupnames, groupcodes)
-	# The following is faster:
-
-	z <- mapply(alleleFreqByGroup[needFixing], whichRareTot[needFixing], FUN = function(x, i){
-	# x <- alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
-		x[,as.character(i)] <- 0
-		return(x)
-	}, SIMPLIFY = FALSE)
-	# z[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+	alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[needFixing, ], groupnames, groupcodes)
+	# alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
 	              # 0  1  2  3
 	  # paxl        0 20  0  0
-	  # paxb        0 21  0  0
+	  # paxb        0 20  0  0
 	  # marine-pac  0 14  0  0
-	alleleFreqByGroup[needFixing] <- z
 
 	rm(whichRareTot)
 	rm(needFixing)
-	rm(z)
 	}
 
 gc()
@@ -413,11 +406,9 @@ altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
 # Number used in genotype calls (commands commented out)
 if(FALSE){
 	nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
-	
 	table(nAltUsed, useNA = "always")
 	     # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
 	 # 26102 243415  11398    692      0
-
 	rm(nAltUsed)
 	} # End if FALSE
 
@@ -608,7 +599,9 @@ if(saveBiAllelic){
 		# x <- tGT[, "chrXXI:63560_GCGC/G"]; i <- whichAltAreNotSnp["chrXXI:63560_GCGC/G"]
 		# x
 		 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    "1/1" NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
-		# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA   
+		# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+		# i
+		# [1] 1 3
 		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
 		return(x)
 		})
@@ -618,22 +611,18 @@ if(saveBiAllelic){
 	 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    NA    NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
 	# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA   
 
-	# tGT[, nNotSnp > 0] <- z   # takes too long
 	geno(vcf)$GT[nNotSnp > 0, ] <- t(z)  # fast
-	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
-
-	# tGT[,"chrXXI:63560_GCGC/G"]
-	
-	# Fix alleleFreqByGroup too
-	z <- mapply(alleleFreqByGroup[nNotSnp > 0], whichAltAreNotSnp[nNotSnp > 0], FUN = function(x, i){
-		# x <- alleleFreqByGroup[["chrXXI:63560_GCGC/G"]]; i <- whichAltAreNotSnp[["chrXXI:63560_GCGC/G"]]
-		x[,as.character(i)] <- 0
-		return(x)
-		}, SIMPLIFY = FALSE)
-	# z["chrXXI:63560_GCGC/G"]
-	
-	alleleFreqByGroup[nNotSnp > 0] <- z
 	rm(z)
+	
+	# Redo alleleFreqByGroup
+	alleleFreqByGroup[nNotSnp > 0] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[nNotSnp > 0, ], groupnames, groupcodes)
+
+	# alleleFreqByGroup["chrXXI:63560_GCGC/G"]
+	             # 0 1 2 3
+	  # paxl       2 0 4 0
+	  # paxb       2 0 0 0
+	  # marine-pac 2 0 4 0
+
 	
 	# -----
 	# Keep only the two most common alleles (not necessarily the REF)
@@ -677,16 +666,11 @@ if(saveBiAllelic){
 	 # [1] "0/0" NA    "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/1"
 	# [17] "0/0" "0/0" "0/1" "0/0" "0/0" "0/1" "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/1"
 	
-	# Fix alleleFreqByGroup too
-	z <- mapply(alleleFreqByGroup, whichAllelesToDrop, FUN = function(x, i){
-		# x <- alleleFreqByGroup[["chrXXI:18389_C/A"]]; i <- whichAllelesToDrop[["chrXXI:18389_C/A"]]
-		x <- x[, -which(colnames(x) %in% i)]
-		return(x)
-		}, SIMPLIFY = FALSE)
-	# z["chrXXI:18389_C/A"]
+	# Redo alleleFreqByGroup again
+	alleleFreqByGroup[nUsedAlleles > 2] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[nUsedAlleles > 2, ], groupnames, groupcodes)
 	
-	alleleFreqByGroup <- z
-	
+	# alleleFreqByGroup["chrXXI:18389_C/A"]
+		
 	vcfresultsBiAllelic <- list()
 	vcfresultsBiAllelic$groupnames <- groupnames
 	vcfresultsBiAllelic$groupcodes <- groupcodes

@@ -246,7 +246,11 @@ g$qsubGenotypeGVCFsPbs <- function(gvcffiles, outvcfname, chromosome=NULL, GATK 
 			stop("chr missing from some filenames, or more than one chromosome represented")
 			}
 		}
-	pbsfilename <- paste("genotypeGVCFs", chromosome, "pbs", sep = ".")
+
+	# Attach date and time to name of file to make unique
+	hour <- gsub("[ :]","-", Sys.time())
+	pbsfilename <- paste("genotypeGVCFs", chromosome, hour, "pbs", sep = ".")
+
 	pbsfile <- file(pbsfilename, "w")
 	cat("\ninstructions being written to", pbsfilename, "\n")
 	

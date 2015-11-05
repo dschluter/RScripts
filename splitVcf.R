@@ -18,7 +18,7 @@ project <- gsub("[.]vcf$", "", vcffile)
 
 # OPTIONS
 nFirstLines <- 1000    # first number of lines to read to extract header
-nLinesAtaTime = 1000
+nLinesAtaTime = 100000
 
 # Open file and read nFirstLines lines from vcf file
 INFILE <- file(vcffile, open = "r")

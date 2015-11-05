@@ -1,6 +1,9 @@
 #!/usr/bin/Rscript
 args <- commandArgs(TRUE) # first argument will be samfile name
 
+nFirstLines <- 10^2
+nLinesAtaTime <- 10^5
+
 # Run in Unix as " /Linux/R-3.0.1/bin/Rscript splitsam.R subset.sam & "
 #             or " /global/software/R-3.1.2/bin/Rscript splitsam.R subset.sam & "
 #             or "qsub -v samfile=ensb_01.sam splitsam.R.pbs"
@@ -91,4 +94,4 @@ splitsam <- function(samfile, nFirstLines = 10^2, nLinesAtaTime = 10^3){
 
 	} # end of splitsam function
 
-splitsam(samfile = args[1])
+splitsam(samfile = args[1], nFirstLines = nFirstLines, nLinesAtaTime = nLinesAtaTime)

@@ -26,6 +26,7 @@
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb", "marine-pac")
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
+# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
 
 project <- args[1]
 chrname <- args[2]
@@ -33,7 +34,7 @@ groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
 plotQualMetrics <- FALSE
-saveBiAllelic <- TRUE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
+saveBiAllelic <- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)

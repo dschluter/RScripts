@@ -26,6 +26,7 @@
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb")
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
+# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "qryb")
 
 GTminFrac <- 2/3
 
@@ -43,10 +44,9 @@ trueSnpOnly		<- FALSE
 project <- args[1]
 chrname <- args[2]
 groupnames <- args[3:length(args)]
-vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
-gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "-"), "rdd", sep = ".")
+gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".")
 gtstats <- list()
 
 if(length(groupnames) > 2 ) stop("Provide names of only two groups")

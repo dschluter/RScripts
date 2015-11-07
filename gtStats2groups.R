@@ -31,7 +31,7 @@ GTminFrac <- 2/3
 
 includePfisher 	<- FALSE
 includeFst     	<- TRUE
-includePsd		<- TRUE
+includePsd		<- FALSE
 trueSnpOnly		<- FALSE
 # note: An indel relative to REF genome, if fixed and shared between limnetic and benthic, 
 # is not an indel between limnetic and benthic, but a fixed difference. 

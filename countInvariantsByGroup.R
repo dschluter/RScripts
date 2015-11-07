@@ -26,7 +26,7 @@ chrmaskfile             <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # ch
 load(chrmaskfile) 		# object is named "chrvec"
 
 invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv", sep="")
-tempfile				<- paste(project, ".", chrname, ".goodInv.tmp", sep="")
+tempfile				<- paste(project, ".", chrname, ".goodInv.txt", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 
 nLinesAtaTime <- 1000000

@@ -9,7 +9,6 @@
 # setwd("~/Desktop")
 # git("genome.r")
 
-GTminFrac <- 2/3
 stepsize <- 500     # Number of nucleotides in a genome block
 psdMissingAction <- "meanBW" 
 	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
@@ -26,17 +25,17 @@ psdMissingAction <- "meanBW"
 # They are used in a "grep" to divide the fish uniquely into groups
 
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
-# args <- c("BenlimPax22pacMar7", "chrUn")
-# args <- c("BenlimPax22pacMar7", "chrXXI")
+# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
 
 project <- args[1]
 chrname <- args[2]
+groupnames <- args[-c(1:2)]
 
 # open object containing genotype statistics
-gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "-"), 
+gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), 
 							"rdd", sep = ".") 								# object gtstats
 goodInvariantsFile 	<- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object goodInvariants
-blockstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "-"), 
+blockstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), 
 							"blockstats", stepsize, "rdd", sep = ".")
 
 load(gtstatsfile) # object is gtstats
@@ -45,9 +44,11 @@ load(goodInvariantsFile) # object is goodInvariants
 groupnames <- gtstats$groupnames
 
 # process the invariants - keep rows meeting the nMin rule
-nInd <- as.vector(table(gtstats$groups)) 	# n individuals genotyped in each group eg 11 11  7
-nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7 4
-nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
+nInd <- gtstats$nInd 	# n individuals genotyped in each group eg 7 11
+nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
+
+# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
+names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
 
 goodInvariants <- goodInvariants[, c("POS", "REF", groupnames)]
 z<-apply(goodInvariants[, groupnames], 1, function(x){
@@ -66,7 +67,7 @@ gc()
 # Get block window stats for group differences
 
 blockstats <- g$blockstats(gtstats, stepsize, goodInvariants = goodInvariants, 
-					chrvecfile, psdMissingAction = "meanBW") 
+					chrvecfile, psdMissingAction = psdMissingAction) 
 
 save(blockstats, file = blockstatsfile)
 # load(blockstatsfile)

@@ -749,8 +749,8 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		names(psdSum) <- paste("psd", names(psdSum), sep = ".")
 
 		results <- cbind.data.frame(results, psdSum, stringsAsFactors = FALSE)
-		results
 		}
+		results
 }
 
 

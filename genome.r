@@ -3,13 +3,15 @@ g<-list()
 g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
 	# Genetic distance calculator between all pairs of groups or populations
 	# "alleleFreqByGroup" is a list of tabulated allele frequenies, locus by locus
-	
-	# For a given locus, a genetic distance is NA if one of the members of the pair has too few alleles ( < nMin)
+	# "nMin" is a vector with the minimum number of genotypes per group to make a calculation
+	# 	nMinAlleles will be twice nMin
+	# For a given locus, a genetic distance is NA if one of the members of the pair has too few alleles ( < nMinAlleles)
 
 	# methods:
 	#   "nei" (Nei 1972, see http://evolution.genetics.washington.edu/phylip/doc/gendist.html) and
 	#	"pd" (proportional dissimilarity, ie 1 - proportional similarity")
 	
+	nMinAlleles <- 2 * nMin
 	groupnames <- rownames(alleleFreqByGroup[[1]])
 	# groupnames
 	# [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"       "qryb"       "ensl"      
@@ -84,13 +86,13 @@ g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
 			  # marine-atl marine-jap   solitary 
 		         # 2          8          8 
 		         
-		# Which populations fail to meet the nMin criterion at the locus? 
-		z <- nAlleles < nMin
+		# Which populations fail to meet the nMinAlleles criterion at the locus? 
+		z <- nAlleles < nMinAlleles
 
 		# Set failing populations to missing
 		nAlleles[z] <- NA
 		
-		# Convert allele frequencues to proportions for those meeting nMin criterion
+		# Convert allele frequencues to proportions for those meeting nMinAlleles criterion
 		alleleProp <- sweep(x, 1, nAlleles, FUN = "/")
 		# alleleProp  
 		                  # 0      1      2      3
@@ -108,14 +110,14 @@ g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
 		  # solitary   1.0000 0.0000 0.0000 0.0000
 		 
 		if(method == "pd"){
-			# Calculate proportional dissimilarity for all pairs meeting nMin criterion
+			# Calculate proportional dissimilarity for all pairs meeting nMinALleles criterion
 			pd <- apply(rowpairs, 2, function(z){
 								pd <- 1 - ps(alleleProp, z[1], z[2])
 								})
 			pd[is.nan(pd)] <- NA
 			names(pd) <- namesAllpairs
 			
-			# Confirm that the missing pairs are associated with those populations failing to meet nMin criterion
+			# Confirm that the missing pairs are associated with those populations failing to meet nMinAlleles criterion
 			# pd
 			            # paxl.paxb             paxl.pril             paxl.prib             paxl.qryl 
 			               # 0.0625                0.0000                    NA                    NA 

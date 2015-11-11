@@ -138,11 +138,11 @@ for(i in 1:length(groupcodes)){
 	groupcodes[x] <- i
 	}
 cat("groupcodes:")
-print(groupcodes)
+print(groupcodes)  # 
  # [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
  
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
-# [1] 11 11  7
+# [1] 11 11  7 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
 names(nInd)<-groupnames
 
 control$nInd <- nInd

@@ -1,11 +1,148 @@
 g<-list()
 
- # [1] "makeAltUsedList"        "whichAltAllelesUsed"    "qsubRscriptPbs"         "makeChrvecMasked"      
- # [5] "qsubGenotypeGVCFsPbs"   "downloadSra"            "recode"                 "geno.diff"             
- # [9] "psd"                    "blockstats"             "slidewin"               "plot.reads"            
-# [13] "peel"                   "flag.readable"          "gtf2thirdpositions"     "tstv"                  
-# [17] "write.bedGraph"         "wc.revised"             "makeSnpTypeList"        "tableAlleleFreqByGroup"
-# [21] "vcfTsTv"               
+g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
+	# Genetic distance calculator between all pairs of groups or populations
+	# "alleleFreqByGroup" is a list of tabulated allele frequenies, locus by locus
+	
+	# For a given locus, a genetic distance is NA if one of the members of the pair has too few alleles ( < nMin)
+
+	# methods:
+	#   "nei" (Nei 1972, see http://evolution.genetics.washington.edu/phylip/doc/gendist.html) and
+	#	"pd" (proportional dissimilarity, ie 1 - proportional similarity")
+	
+	groupnames <- rownames(alleleFreqByGroup[[1]])
+	# groupnames
+	# [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"       "qryb"       "ensl"      
+	# [8] "ensb"       "marine-pac" "marine-atl" "marine-jap" "solitary"  
+
+	namesAllpairs <- combn(groupnames, 2, FUN=function(x){paste(x, collapse=".")})
+	# head(namesAllpairs)
+	# [1] "paxl.paxb" "paxl.pril" "paxl.prib" "paxl.qryl" "paxl.qryb" "paxl.ensl"
+	
+	# Columns refer to rows of alleleFreqByGroup elements, NOT groupcodes
+	# So the first column indicates 1 2, meaning row 1 vs row 2 of alleleFreqByGroup (paxl vs paxb)
+	rowpairs <- combn(1:length(groupnames), 2)
+	# rowpairs
+	     # [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13] [,14] [,15] [,16] [,17]
+	# [1,]    1    1    1    1    1    1    1    1    1     1     1     2     2     2     2     2     2
+	# [2,]    2    3    4    5    6    7    8    9   10    11    12     3     4     5     6     7     8
+	# ...
+	
+	# FUNCTION: Proportional similarity
+	ps <- function(x, i, j){
+		# x is the full table of allele proportions, with populations in the rows and alleles in the columns,
+		# e.g.,:
+		              # 0  1  2  3
+		  # paxl       12  0  0  0
+		  # paxb       15  1  0  0
+		  # pril       12  0  0  0
+		  # prib        4  0  0  0
+		# i and j indicate the two selected rows of the table of proportions to compute distance for
+		P <- x[c(i, j), ]
+		ps <- sum( apply(P, 2, min) )
+		# print(ps)
+		}
+		
+	# FUNCTION: Nei's (1972) genetic distance
+	neidist1972 <- function(x, i, j){
+		# x is the full table of allele proportions, with populations in the rows and alleles in the columns,
+		# e.g.,:
+		              # 0  1  2  3
+		  # paxl       12  0  0  0
+		  # paxb       15  1  0  0
+		  # pril       12  0  0  0
+		  # prib        4  0  0  0
+		# i and j indicate the two selected rows of the table of proportions to compute distance for	.
+		# Using Wixipedia notation:
+		# Nei (1972) distance is -log( Jxy / (sqrt(Jx * Jy) ) where each J is summer over all loci
+		Jxy <- sum(x[i, ] * x[j, ])
+		Jx  <- sum(x[i, ] * x[i, ])
+		Jy  <- sum(x[j, ] * x[j, ])
+		return(c(Jxy = Jxy, Jx = Jx, Jy = Jy))
+		}
+	
+	genDistList <- lapply(alleleFreqByGroup, function(x){
+		# x <- alleleFreqByGroup[[50]]
+		# x
+		              # 0  1  2  3
+		  # paxl       12  0  0  0
+		  # paxb       15  1  0  0
+		  # pril       12  0  0  0
+		  # prib        4  0  0  0
+		  # qryl        0  0  0  0
+		  # qryb        0  0  0  0
+		  # ensl        0  0  0  0
+		  # ensb        4  0  0  0
+		  # marine-pac  8  2  0  0
+		  # marine-atl  2  0  0  0
+		  # marine-jap  8  0  0  0
+		  # solitary    8  0  0  0
+		
+		nAlleles <- rowSums(x)
+		      # paxl       paxb       pril       prib       qryl       qryb       ensl       ensb marine-pac 
+		        # 12         16         12          4          0          0          0          4         10 
+			  # marine-atl marine-jap   solitary 
+		         # 2          8          8 
+		         
+		# Which populations fail to meet the nMin criterion at the locus? 
+		z <- nAlleles < nMin
+
+		# Set failing populations to missing
+		nAlleles[z] <- NA
+		
+		# Convert allele frequencues to proportions for those meeting nMin criterion
+		alleleProp <- sweep(x, 1, nAlleles, FUN = "/")
+		# alleleProp  
+		                  # 0      1      2      3
+		  # paxl       1.0000 0.0000 0.0000 0.0000
+		  # paxb       0.9375 0.0625 0.0000 0.0000
+		  # pril       1.0000 0.0000 0.0000 0.0000
+		  # prib                                  
+		  # qryl                                  
+		  # qryb                                  
+		  # ensl                                  
+		  # ensb       1.0000 0.0000 0.0000 0.0000
+		  # marine-pac 0.8000 0.2000 0.0000 0.0000
+		  # marine-atl 1.0000 0.0000 0.0000 0.0000
+		  # marine-jap 1.0000 0.0000 0.0000 0.0000
+		  # solitary   1.0000 0.0000 0.0000 0.0000
+		 
+		if(method == "pd"){
+			# Calculate proportional dissimilarity for all pairs meeting nMin criterion
+			pd <- apply(rowpairs, 2, function(z){
+								pd <- 1 - ps(alleleProp, z[1], z[2])
+								})
+			pd[is.nan(pd)] <- NA
+			names(pd) <- namesAllpairs
+			
+			# Confirm that the missing pairs are associated with those populations failing to meet nMin criterion
+			# pd
+			            # paxl.paxb             paxl.pril             paxl.prib             paxl.qryl 
+			               # 0.0625                0.0000                    NA                    NA 
+			# ...
+			}
+		
+		if(method == "nei"){
+			nei <- apply(rowpairs, 2, function(z){
+				nei <- neidist1972(alleleProp, z[1], z[2])
+				})
+			colnames(nei) <- namesAllpairs
+			# return(nei)
+			}
+			
+		# How to put the results into a matrix (use in a blockstats version of this)
+		# Use "njs" in ape package, which can handle some missing values
+		# library(gdata) # needed for lowerTriangle()
+		# d <- matrix(0, nrow = nrow(alleleProp), ncol = nrow(alleleProp))
+		# rownames(d) <- rownames(alleleProp)
+		# colnames(d) <- rownames(alleleProp)
+		# lowerTriangle(d) <- pd
+		# d <- t(d)
+		# lowerTriangle(d) <- pd
+		
+		return(nei)
+		})
+	}
 
 g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
 	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making

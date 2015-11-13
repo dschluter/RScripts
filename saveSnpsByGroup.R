@@ -1,13 +1,10 @@
 #!/usr/bin/Rscript
 
+# Makes vcfresults, containing all snp results
+
 # Run in Unix as " Rscript readSaveDnpdByGroup.R ... "
 
 # ALT alleles of "<*:DEL>" are set to variant type NA
-
-# This reads the variant file, collects good bits, and saves the results. 
-# Includes plots.
-# No analyses are done by groups, but cases in which fewer than 2 groups have 1 genotype
-# 	are dropped (this is a low threshold, use more stringent criteria later on)
 
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
@@ -33,15 +30,14 @@ chrname <- args[2]
 groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
-plotQualMetrics <- FALSE
 saveBiAllelic <- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
+plotQualMetrics <- FALSE
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
 chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
 
 fastaname		<- paste(chrname, "fa", sep = ".")
-# chrgroupname		<- paste("group", chrno, sep="") # annotation database uses groupXXI not chrXXI
 vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 vcfBiAllelicFile	<- paste(project, ".", chrname, ".vcfresultsBiAllelic.rdd", sep = "")
@@ -143,9 +139,7 @@ print(groupcodes)  #
  
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
 # [1] 11 11  7 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
-names(nInd)<-groupnames
-
-control$nInd <- nInd
+names(nInd) <- groupnames
 
 # Q: What does QUAL = NA imply?
 
@@ -539,6 +533,7 @@ gc()
 vcfresults <- list()
 vcfresults$groupnames <- groupnames
 vcfresults$groupcodes <- groupcodes
+vcfresults$nInd <- nInd
 vcfresults$control <- control
 
 vcfresults$vcf <- vcf
@@ -693,6 +688,7 @@ if(saveBiAllelic){
 	# load(file = vcfBiAllelicFile) # saved object is "vcfresultsBiAllelic"
 
 	} else rm(vcfresults) 
+
 
 if(plotQualMetrics){
 	# --------------------------------------

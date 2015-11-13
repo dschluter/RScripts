@@ -56,8 +56,8 @@ load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
 # names(vcfresults)
-# [1] "groupnames"        "groupcodes"        "control"           "vcf"               "altUsedList"      
-# [6] "snpTypeList"       "alleleFreqByGroup"
+# [1] "groupnames"        "groupcodes"        "nInd" 	"control"     "vcf"       "altUsedList"      
+# [7] "snpTypeList"       "alleleFreqByGroup"
 
 control <- vcfresults$control
 control$GTminFrac <- GTminFrac

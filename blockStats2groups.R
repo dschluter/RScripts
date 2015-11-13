@@ -9,7 +9,7 @@
 # setwd("~/Desktop")
 # git("genome.r")
 
-# stepsize <- 500     # Number of nucleotides in a genome block - now  passed as an argument
+# stepsize <- 500     # Number of nucleotides in a genome block - now passed as an argument
 psdMissingAction <- "meanBW" 
 	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
 	# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
@@ -27,11 +27,11 @@ psdMissingAction <- "meanBW"
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxl")
-# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "solitary")
+# args <- c("BenlimAllMarine", "chrXXI", 500, "marine-pac", "solitary")
 
 project <- args[1]
 chrname <- args[2]
-stepsize <- args[3]
+stepsize <- as.integer(args[3])
 groupnames <- args[-c(1:3)]
 
 # open object containing genotype statistics

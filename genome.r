@@ -1,5 +1,94 @@
 g<-list()
 
+g$glazerConvertCoordinate <- function(chr, pos, direction = 'old2new', scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
+	# Converts Jones et al 2012 'old' genome assembly coordinates to Glazer et al 2015 'new' assembly coordinates
+	# 	or the reverse direction ( direction = 'new2old' )
+	# Requires access to the "glazerFileS4 NewScaffoldOrder.csv"
+	# Command is modified from file "glazerconvertCoordinate.R" to allow chr and pos to be vectors
+	# Returns a list of [chromosome, position]
+
+	# Inputs:
+	# chr is a number or string, e.g. c(1,'1','Un') or c("IV",'XXI','Un') of the starting chromosome.
+	# pos is a number of the starting position.
+	# direction is either 'old2new' or 'new2old'.
+	# scafFile gives the path and file name to the file 'FileS4 NewScaffoldOrder.csv'
+  
+	# Examples:
+	# g$glazerConvertCoordinate(3, 1538202) 			# same position
+	# g$glazerConvertCoordinate('Un', 37499024) 			# now on chr 1
+	# g$glazerConvertCoordinate('Un', 23343225) 			# now on chr 2
+	# g$glazerConvertCoordinate(c('Un','Un',"1"), c(23343225, 37499024,541084)) # "1" instead of "I"
+	# g$glazerConvertCoordinate(c('Un','Un',"I"), c(23343225, 37499024,541084)) # "I" instead of "1"
+	# g$glazerConvertCoordinate("1", 541084) 			# different location on chr 1
+	# g$glazerConvertCoordinate('1', 680442, 'new2old') # reverse of previous line
+	# g$glazerConvertCoordinate(12, 594205, 'new2old') 	# used to be on Un
+	# g$glazerConvertCoordinate(1, 540083) 				# in between contigs in original assembly, so NA
+    
+    if(length(chr) != length(pos)) 
+    	warning("In glazerConvertCoordinate, length of chr and pos must be the same")
+
+    # Convert roman to numbers (won't hurt if already numbers)
+    # Won't work if both numeric and roman chromosomes are in the same vector
+    chr[chr != "Un"] <- as.numeric( as.roman(chr[chr != "Un"]) ) 
+        
+	translate <- function(pos, startA, startB, endB, orientation){
+	    # Translates from one coordinate system to a second
+		if(!orientation == 'reverse'){
+	    	pos2 = startB + (pos - startA)
+	    	} else{
+	      	pos2 = endB - (pos - startA)
+	    	}
+	    	return(pos2)
+	  		}
+	  
+	scafTable <- read.csv(scafFile, header=TRUE, stringsAsFactors = FALSE)
+
+	if(direction == 'old2new'){
+		
+		# repeat for every chr and pos: 
+		z <- mapply(chr, pos, FUN = function(chr, pos){
+		
+		    # Pull out right scaffold
+		    x <- scafTable[scafTable$OldChr == chr & scafTable$OldStart <= pos & scafTable$OldEnd >= pos, ]
+	
+		    # Make sure there's exactly 1 scaffold meeting criteria
+			if( !(nrow(x) == 1) ){
+		    	return (list(NA,NA))
+		    	} else {
+		    	# Calculate new coordinate
+				newChr = x[1, 'NewChr']
+				newPos = translate(pos, x[1,'OldStart'], x[1,'NewStart'], x[1,'NewEnd'], x[1, 'NewOrientation'])
+				return(list(newChr = newChr, newPos = newPos))
+		    	}
+		    })
+		return(t(z))
+	    	
+	  	} else if(direction == 'new2old'){
+
+		# repeat for every chr and pos:
+		z <- mapply(chr, pos, FUN = function(chr, pos){
+
+		    # Pull out right scaffold
+		    x <- scafTable[scafTable$NewChr == chr & scafTable$NewStart <= pos & scafTable$NewEnd >= pos, ]
+	
+		    # Make sure there's exactly 1 scaffold meeting criteria
+		    if( !(nrow(x) == 1) ){
+		    	return (list(oldChr = NA, oldPos = NA))
+		    	} else {
+				# Calculate new coordinate
+				oldChr <- x[1,'OldChr']
+				oldPos <- translate(pos, x[1,'NewStart'], x[1,'OldStart'], x[1,'OldEnd'], x[1,'NewOrientation'])
+				return(list(oldChr = oldChr, oldPos  = oldPos))
+				}
+			})
+		return(t(z))
+			
+		} else{
+	    	print('Direction must be old2new or new2old')
+	    	return(list(Chr = NA, Pos = NA))
+	  		}
+	}
+
 g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
 	# Genetic distance calculator between all pairs of groups or populations
 	# "alleleFreqByGroup" is a list of tabulated allele frequenies, locus by locus

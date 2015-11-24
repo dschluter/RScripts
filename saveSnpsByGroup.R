@@ -30,13 +30,13 @@ chrname <- args[2]
 groupnames <- args[3:length(args)]
 
 dropRareAlleles	<- FALSE
-saveBiAllelic <- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
+saveBiAllelic 	<- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 plotQualMetrics <- FALSE
 
 # convert snp to Glazer assembly coordinates
-Glazerize <- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
-GTminFrac <- 2/3
+GTminFrac 		<- 2/3
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -586,6 +586,9 @@ rm(snpTypeList)
 vcfresults$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
 
+save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
+# load(file = vcfresultsfile) 
+
 gc()
 
 if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
@@ -594,8 +597,11 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 		chrNumeric <- chrno
 		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
 		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
-	} else {
+		
+		} else {
+		
 		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
+		
 		}
 
 	vcfresults$newChr <- unname(unlist(newCoords[ ,"newChr"]))
@@ -618,16 +624,12 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 		vcfresultsPart$snpTypeList <-       vcfresults$snpTypeList[vcfresults$newChr == i]
 		vcfresultsPart$alleleFreqByGroup <- vcfresults$alleleFreqByGroup[vcfresults$newChr == i]
 		save(vcfresultsPart, file = paste(project, chrname, "vcfresultsPart", i, "rdd", sep = "."))
-
-		} else{
-
-		save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
-		# load(file = vcfresultsfile) 
-	} # end if(Glazerize)
+		} # end if(Glazerize)
 
 
 # ----
 # Make a biallelic snp version of the data set * Warning: this might drop out whole populations at a marker if has unique alleles
+# Need to modify for Glazerize
 if(saveBiAllelic){
 	
 	# Identify the ALT alleles that are true snp
@@ -762,9 +764,9 @@ if(saveBiAllelic){
 	} else rm(vcfresults) 
 
 
-if(plotQualMetrics){
+if(plotQualMetrics){ # REDO to include only the snp retained in vcfresults
 	# --------------------------------------
-	# Plots of quality metrics
+	# Plots of quality metrics - uses only the old assembly results
 	# Current version drops only the rows corresponding to M in chrvec
 	# IE, rare alleles not excluded, etc.
 	

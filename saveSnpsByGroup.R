@@ -32,7 +32,9 @@ groupnames <- args[3:length(args)]
 dropRareAlleles	<- FALSE
 saveBiAllelic <- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 plotQualMetrics <- FALSE
-Glazerize <- TRUE   # converts snp to Glazer assembly coordinates
+
+# convert snp to Glazer assembly coordinates
+Glazerize <- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
 GTminFrac <- 2/3
 
@@ -559,19 +561,6 @@ print(tstv)
 gc()
 
 # --------------------------------------
-if(Glazerize){
-	pos <- start(rowData(vcf))
-	if(chrno != "M" & chrno != "VIIpitx1" ){
-		chrNumeric <- chrno
-		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
-
-		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
-		} else {
-		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
-		}
-	}
-
-# --------------------------------------
 # Save everything to a list for analyses
 
 vcfresults <- list()
@@ -599,9 +588,43 @@ rm(alleleFreqByGroup)
 
 gc()
 
-# cat("\nSaving results\n")
-save(vcfresults, file = vcfresultsfile)
-# load(file = vcfresultsfile) # saved object is "vcfresults"
+if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
+	pos <- start(rowData(vcfresults$vcf))
+	if(chrno != "M" & chrno != "VIIpitx1" ){
+		chrNumeric <- chrno
+		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
+		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
+	} else {
+		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
+		}
+
+	vcfresults$newChr <- unname(unlist(newCoords[ ,"newChr"]))
+	vcfresults$newPos <- unname(unlist(newCoords[ ,"newPos"]))
+	
+	z <- unique(vcfresults$newChr)
+	# [1] "21" "Un"
+	
+	for(i in z){ # saved object is "vcfresultsPart"
+		vcfresultsPart <- list()
+		vcfresultsPart$groupnames <-        vcfresults$groupnames
+		vcfresultsPart$groupcodes <-        vcfresults$groupcodes
+		vcfresultsPart$control <-           vcfresults$control
+		vcfresultsPart$nInd <-              vcfresults$nInd
+		vcfresultsPart$nMin <-              vcfresults$nMin
+		vcfresultsPart$vcf <-               vcfresults$vcf[vcfresults$newChr == i]
+		vcfresultsPart$newChr <-            vcfresults$newChr[vcfresults$newChr == i]
+		vcfresultsPart$newPos <-            vcfresults$newPos[vcfresults$newChr == i]
+		vcfresultsPart$altUsedList <-       vcfresults$altUsedList[vcfresults$newChr == i]
+		vcfresultsPart$snpTypeList <-       vcfresults$snpTypeList[vcfresults$newChr == i]
+		vcfresultsPart$alleleFreqByGroup <- vcfresults$alleleFreqByGroup[vcfresults$newChr == i]
+		save(vcfresultsPart, file = paste(project, chrname, "vcfresultsPart", i, "rdd", sep = "."))
+
+		} else{
+
+		save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
+		# load(file = vcfresultsfile) 
+	} # end if(Glazerize)
+
 
 # ----
 # Make a biallelic snp version of the data set * Warning: this might drop out whole populations at a marker if has unique alleles

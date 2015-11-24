@@ -5,19 +5,28 @@
 # One strategy is to use a very low threshold when deciding whether to drop a base,
 #	eg keep any base that has at least one genotype in at least 2 of the groups
 
-# qsub -I -l walltime=01:00:00 -l mem=2gb # work interactively; use "exit" to exit
+# qsub -I -l walltime=03:00:00 -l mem=2gb # work interactively; use "exit" to exit
 # module load R/3.1.2
 # R
 
+args <- commandArgs(TRUE) # project chrname DPmin groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrXXI", "1", "paxl", "paxb", "marine-pac")
 # args <- c(project, chrname, DPmin, groupnames)
-args <- commandArgs(TRUE) # project chrname DPmin groupnames[vector]
+# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
 
 project <- args[1]
 chrname <- args[2]
-DPmin <- as.integer(args[3])
+groupnames <- args[3:length(args)]
+
+# convert snp to Glazer assembly coordinates
+Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+
+GTminFrac	<- 2/3
+DPmin 		<- 1
+
+# DPmin <- as.integer(args[3])
 # GTminFrac <- eval(parse(text=args[4]))
-groupnames <- args[4:length(args)]
+
 GTmissing <- "."                     # how GATK represents missing genotypes in the vcf file "./."
 
 # load "chrvec" for the current chromosome
@@ -51,7 +60,10 @@ for(i in 1:length(groupcodes)){
 	groupcodes[x] <- i
 	}
 # groupcodes
- # [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+ # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+# [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
+# [51]  3  3  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12 12 12 12 12  2
+# [76]  2  2  2  2  2  1  1  1  1  1  1
  
 # Masked rows in the reference genome
 maskedPOS <- which(chrvec == "M")

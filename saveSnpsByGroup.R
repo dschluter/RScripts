@@ -570,10 +570,6 @@ vcfresults$control <- control
 vcfresults$nInd <- nInd
 vcfresults$nMin <- nMin
 
-if(Glazerize){
-	vcfresults$newChr <- newCoords[ ,"newChr"]
-	vcfresults$newPos <- newCoords[ ,"newPos"]
-	}
 vcfresults$vcf <- vcf
 rm(vcf)
 
@@ -585,11 +581,6 @@ rm(snpTypeList)
 
 vcfresults$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
-
-save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
-# load(file = vcfresultsfile) 
-
-gc()
 
 if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
 	pos <- start(rowData(vcfresults$vcf))
@@ -625,6 +616,11 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 		vcfresultsPart$alleleFreqByGroup <- vcfresults$alleleFreqByGroup[vcfresults$newChr == i]
 		save(vcfresultsPart, file = paste(project, chrname, "vcfresultsPart", i, "rdd", sep = "."))
 		} # end if(Glazerize)
+
+save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
+# load(file = vcfresultsfile) 
+
+gc()
 
 
 # ----

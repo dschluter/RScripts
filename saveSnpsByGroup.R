@@ -624,7 +624,7 @@ save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
 gc()
 
 
-# ----
+# -----
 # Make a biallelic snp version of the data set * Warning: this might drop out whole populations at a marker if has unique alleles
 # Need to modify for Glazerize
 if(saveBiAllelic){

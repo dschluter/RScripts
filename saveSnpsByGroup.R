@@ -32,6 +32,9 @@ groupnames <- args[3:length(args)]
 dropRareAlleles	<- FALSE
 saveBiAllelic <- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 plotQualMetrics <- FALSE
+Glazerize <- TRUE   # converts snp to Glazer assembly coordinates
+
+GTminFrac <- 2/3
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
@@ -48,6 +51,7 @@ nMaxAlt			<- 3	# maximum number of ALT alleles
 control <- list()
 control$nMaxAlt <- nMaxAlt
 control$snpOptions <- c(dropRareAlleles = dropRareAlleles, saveBiAllelic = saveBiAllelic)
+control$GTminFrac <- GTminFrac
 
 cat("\nControl settings on this run\n")
 print(control)
@@ -128,6 +132,8 @@ cat("Successfully read vcf file\n")
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
 fishnames <- samples(header(vcf))
+cat("fishnames:")
+print(fishnames)
 groupcodes <- vector(length = length(fishnames), mode = "integer")
 for(i in 1:length(groupcodes)){
 	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
@@ -135,11 +141,36 @@ for(i in 1:length(groupcodes)){
 	}
 cat("groupcodes:")
 print(groupcodes)  # 
- # [1] 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+ # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+# [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
+# [51]  3  3  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12 12 12 12 12  2
+# [76]  2  2  2  2  2  1  1  1  1  1  1
  
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
-# [1] 11 11  7 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
+# [1] 11 11  9  9  6  6  6  6  7  3  4  8 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
 names(nInd) <- groupnames
+nInd
+cat("Number of individuals (nInd):")
+print(nInd)  # 
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+        # 11         11          9          9          6          6          6 
+      # ensb marine-pac marine-atl marine-jap   solitary 
+         # 6          7          3          4          8
+
+nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+         # 7          7          6          6          4          4          4 
+      # ensb marine-pac marine-atl marine-jap   solitary 
+         # 4          4          2          2          5 
+
+nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
+names(nMin) <- groupnames
+cat("Minimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):")
+print(nMin)  # 
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+         # 5          5          5          5          4          4          4 
+      # ensb marine-pac marine-atl marine-jap   solitary 
+         # 4          4          2          2          5 
 
 # Q: What does QUAL = NA imply?
 
@@ -229,12 +260,11 @@ gc()
 
 # --------------------------------------
 # Drop rare alleles if dropRareAlleles is TRUE
+#  -- we are using ** RULE2 ** otherwise we get lots of rare alleles when many genotypes are missing
+# RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
+# RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
 
 if(dropRareAlleles){
-	# Delete rare alleles -- we are using ** RULE2 ** otherwise we get lots of rare alleles when many genotypes are missing
-	# RULE1: drop alleles that are less than 5% total measured as a percent of 2*sum(nInd), the maximum number of alleles possible
-	# or
-	# RULE2: drop alleles that are less than 5% total measured as a percent of the total number of alleles in the sample.
 
 	# Code below can also: identify alleles that are < 5% within every group
 	#                      identify singleton alleles within groups
@@ -371,7 +401,8 @@ gc()
 
 # --------------------------
 # Determine alleles actually used in genotype calls
-# Max of 3 ALT alleles per locus was used.
+
+# Max of 3 ALT alleles per locus was used -- contained in alt(vcf)
 
 # Some ALT alleles are labeled as "<*:DEL>". 
 # Broad says: "This means there is a deletion in that sample that spans this position, 
@@ -398,7 +429,7 @@ altUsedList <- g$makeAltUsedList(geno(vcf)$GT, alt(vcf))
      # 1      2      3      4      5   <NA>
 # 267591  13243    763      9      1      0
 
-# Number used in genotype calls (commands commented out)
+# Number of ALT alleles actually used in genotype calls ( if(FALSE) comments everything out )
 if(FALSE){
 	nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
 	table(nAltUsed, useNA = "always")
@@ -528,14 +559,32 @@ print(tstv)
 gc()
 
 # --------------------------------------
+if(Glazerize){
+	pos <- start(rowData(vcf))
+	if(chrno != "M" & chrno != "VIIpitx1" ){
+		chrNumeric <- chrno
+		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
+
+		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
+		} else {
+		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
+		}
+	}
+
+# --------------------------------------
 # Save everything to a list for analyses
 
 vcfresults <- list()
 vcfresults$groupnames <- groupnames
 vcfresults$groupcodes <- groupcodes
-vcfresults$nInd <- nInd
 vcfresults$control <- control
+vcfresults$nInd <- nInd
+vcfresults$nMin <- nMin
 
+if(Glazerize){
+	vcfresults$newChr <- newCoords[ ,"newChr"]
+	vcfresults$newPos <- newCoords[ ,"newPos"]
+	}
 vcfresults$vcf <- vcf
 rm(vcf)
 

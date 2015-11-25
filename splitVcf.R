@@ -2,19 +2,20 @@
 # Code to extract variant sites from a .vcf file 
 #	and to save the invariant DP and RGQ values to a second file named etc.DP.inv
 
-# Assumes that VCF file is named "project.chr.vcf"
-# Run on hermes as:
-#	/global/software/R-3.1.2/bin/Rscript splitVcf.R Paxton12fish.chrXXI.vcf
-
 args <- commandArgs(TRUE) # get arguments
+# args <- c("BenlimAllMarine", "chrXXI")
 
-vcffile <- args
+project <- args[1]
+chrname <- args[2]
+
+vcffile <- paste(project, chrname, "vcf", sep = ".")
+# vcffile <- args
 #vcffile <- "Paxton12fish.chrXXI.vcf"
 #vcffile <- "temp.vcf"
 
 # Extract project and chr name
-# project <- gsub("(^[A-z0-9_-]*[.]chr[A-z1]+)[.]vcf", "\\1", vcffile)
-project <- gsub("[.]vcf$", "", vcffile)
+# projectchr <- gsub("(^[A-z0-9_-]*[.]chr[A-z1]+)[.]vcf", "\\1", vcffile)
+projectchr <- gsub("[.]vcf$", "", vcffile)
 
 # OPTIONS
 nFirstLines <- 1000    # first number of lines to read to extract header
@@ -33,8 +34,8 @@ x <- x[-c(1:nhead)] # keep the non-header part of x
 nlines <- length(x)
 
 # Open 2 output file connections and write headers
-outfile1 <- file(paste(project, "var", "vcf", sep="."), "w")
-outfile2 <- file(paste(project, "DP", "inv", sep="."), "w")
+outfile1 <- file(paste(projectchr, "var", "vcf", sep="."), "w")
+outfile2 <- file(paste(projectchr, "DP", "inv", sep="."), "w")
 
 writeLines(headerlines, outfile1)
 

@@ -149,5 +149,36 @@ close(OUTFILE)
 
 # Read the whole thing into memory and save
 goodInvariants <- read.table(file = tempfile, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
+
+if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
+	pos <- goodInvariants$POS
+	if(chrno != "M" & chrno != "VIIpitx1" ){
+		chrNumeric <- chrno
+		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
+		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
+		
+		} else {
+		
+		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
+		
+		}
+
+	newChr <- unname(unlist(newCoords[ ,"newChr"]))
+	newPos <- unname(unlist(newCoords[ ,"newPos"]))
+	
+	goodInvariants <- cbind.data.frame( data.frame(newChr = newChr, newPos = newPos), goodInvariants)
+	
+	z<- unique(newChr)
+	# [1] "21" "Un"
+	
+	goodList <- split(goodInvariants, z) # make sure that the list elements are named "21" and "Un"
+	
+	for(i in z){ # saved object is "goodInvariantsPart"
+		goodInvariantsPart <- goodList[[i]]
+		save(vcfresultsPart, file = paste(project, chrname, "goodInvariantsPart", i, "rdd", sep = "."))
+		}
+		
+	} # end if(Glazerize)
+
 save(goodInvariants, file = goodInvariantsFile)
 

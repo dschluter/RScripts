@@ -171,15 +171,17 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 	z<- unique(newChr)
 	# [1] "21" "Un"
 	
-	goodList <- split(goodInvariants, z) # make sure that the list elements are named "21" and "Un"
+	goodList <- split(goodInvariants, goodInvariants$newChr) # make sure that the list elements are named "21" and "Un"
 	print(names(goodList)) # checking names of split data set
 	
 	for(i in z){ # saved object is "goodInvariantsPart"
 		goodInvariantsPart <- goodList[[i]]
 		save(goodInvariantsPart, file = paste(project, chrname, "goodInvPart", i, "rdd", sep = "."))
+		# load(goodInvariantsPart)  # object named "goodInvariantsPart"
 		}
 		
 	} # end if(Glazerize)
 
 save(goodInvariants, file = goodInvariantsFile)
+# load(goodInvariantsFile)  # object named "goodInvariants"
 

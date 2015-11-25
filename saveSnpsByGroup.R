@@ -105,7 +105,7 @@ vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "
 #  50,514,280 bytes # chrXXI
 # 210,524,096 bytes # chrUn
 
-cat("Successfully read vcf file\n")
+cat("\nSuccessfully read vcf file\n")
 
 # You can import data subsets or fields if desired, see manual
 
@@ -134,14 +134,14 @@ cat("Successfully read vcf file\n")
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
 fishnames <- samples(header(vcf))
-cat("fishnames:")
+cat("\nfishnames:\n")
 print(fishnames)
 groupcodes <- vector(length = length(fishnames), mode = "integer")
 for(i in 1:length(groupcodes)){
 	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
 	groupcodes[x] <- i
 	}
-cat("groupcodes:")
+cat("\ngroupcodes:\n")
 print(groupcodes)  # 
  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
 # [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
@@ -152,7 +152,7 @@ nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each g
 # [1] 11 11  9  9  6  6  6  6  7  3  4  8 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
 names(nInd) <- groupnames
 nInd
-cat("Number of individuals (nInd):")
+cat("\nNumber of individuals (nInd):\n")
 print(nInd)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
         # 11         11          9          9          6          6          6 
@@ -167,7 +167,7 @@ nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group
 
 nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
 names(nMin) <- groupnames
-cat("Minimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):")
+cat("\nMinimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):\n")
 print(nMin)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
          # 5          5          5          5          4          4          4 
@@ -181,7 +181,7 @@ print(nMin)  #
 
 keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
 vcf <- vcf[keep]
-cat("\nCompleted removal of snp corresponding to masked bases\n")
+cat("\nCompleted removal of snp corresponding to masked bases\n\n")
 
 rm(keep)
 # rm(which.chrvec.M) # remove later
@@ -236,7 +236,7 @@ z2 <- data.frame(z2)
 z3 <- apply(z2, 1, sum)
 keep <- z3 >= 2
 
-cat("Keeping only snp that have at least one genotype in at least 2 groups\n")
+cat("\nKeeping only snp that have at least one genotype in at least 2 groups\n\n")
 vcf <- vcf[keep]
 
 rm(nCalledGenotypes)
@@ -274,7 +274,7 @@ if(dropRareAlleles){
 	
 	# Note that afterward, some loci will become invariants
 
-	cat("Deleting rare alleles and setting their genotypes to NA\n")
+	cat("\nDeleting rare alleles and setting their genotypes to NA\n")
 
 	# Test whether any alleles are rare globally
 	whichRareTot <- lapply(alleleFreqByGroup, function(x){
@@ -413,7 +413,7 @@ gc()
 # <*:DEL>       A      AA     AAA  ...
    # 8338   73896      21       4  ...  
 
-cat("Determining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
+cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
 
 # Enumerate the alt alleles used in actual genotype calls
 # "whichAltAllelesUsed" lists all the ALT alleles used in genotypes by their index (1, 2, ...)
@@ -443,6 +443,7 @@ if(FALSE){
 # Types of variants
 # -----------------
 
+cat("\nMaking snp type list based on alt alleles actually used\n")
 snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 
 # Variant type is defined for VCFtools as (http://vcftools.sourceforge.net/VCF-poster.pdf)

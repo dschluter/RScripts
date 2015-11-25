@@ -175,7 +175,7 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 	
 	for(i in z){ # saved object is "goodInvariantsPart"
 		goodInvariantsPart <- goodList[[i]]
-		save(vcfresultsPart, file = paste(project, chrname, "goodInvariantsPart", i, "rdd", sep = "."))
+		save(vcfresultsPart, file = paste(project, chrname, "goodInvPart", i, "rdd", sep = "."))
 		}
 		
 	} # end if(Glazerize)

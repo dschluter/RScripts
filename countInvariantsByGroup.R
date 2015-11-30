@@ -35,13 +35,13 @@ chrmaskfile             <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # ch
 load(chrmaskfile) 		# object is named "chrvec"
 
 invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv", sep="")
-tempfile				<- paste(project, ".", chrname, ".goodInv.txt", sep="")
+textfile				<- paste(project, ".", chrname, ".goodInv.txt", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 
 nLinesAtaTime <- 1000000
 
 INFILE <- file(invariantsummaryname, open = "r")
-OUTFILE <- file(tempfile, "w")
+OUTFILE <- file(textfile, "w")
 
 x <- readLines(con = INFILE, n = nLinesAtaTime)
 x1 <- strsplit(x, split = "\t")
@@ -67,6 +67,7 @@ for(i in 1:length(groupcodes)){
  
 # Masked rows in the reference genome
 maskedPOS <- which(chrvec == "M")
+rm(chrvec)
 
 # Loop
 while(nlines >0){
@@ -148,10 +149,19 @@ close(INFILE)
 close(OUTFILE)
 
 # Read the whole thing into memory and save
-goodInvariants <- read.table(file = tempfile, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
+goodInvariants <- read.table(file = textfile, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
+print("\nRe-read output text invariants file, now saving in rdd format\n")
+save(goodInvariants, file = goodInvariantsFile)
+# load(goodInvariantsFile)  # object named "goodInvariants"
 
-if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
+# If Glazerize is TRUE, split goodInvariants txt file by new assembly chromosome number
+# Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
+if(Glazerize){ 
+	
+	# grab pos information
 	pos <- goodInvariants$POS
+	
+	# convert pos to newChr and newPos
 	if(chrno != "M" & chrno != "VIIpitx1" ){
 		chrNumeric <- chrno
 		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
@@ -165,23 +175,29 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 
 	newChr <- unname(unlist(newCoords[ ,"newChr"]))
 	newPos <- unname(unlist(newCoords[ ,"newPos"]))
+	rm(newCoords)
 	
 	goodInvariants <- cbind.data.frame( data.frame(newChr = newChr, newPos = newPos), goodInvariants)
 	
 	z<- unique(newChr)
 	# [1] "21" "Un"
 	
-	goodList <- split(goodInvariants, goodInvariants$newChr) # make sure that the list elements are named "21" and "Un"
-	print(names(goodList)) # checking names of split data set
-	
+	# goodList <- split(goodInvariants, goodInvariants$newChr) # make sure that the list elements are named "21" and "Un"
+	# print(names(goodList)) # checking names of split data set
+	# for(i in z){ # saved object is "goodInvariantsPart"
+		# goodInvariantsPart <- goodList[[i]]
+		# save(goodInvariantsPart, file = paste(project, chrname, "goodInvPart", i, "rdd", sep = "."))
+		# # load(goodInvariantsPart)  # object named "goodInvariantsPart"
+		# }
+		
 	for(i in z){ # saved object is "goodInvariantsPart"
-		goodInvariantsPart <- goodList[[i]]
+		goodInvariantsPart 			<- goodInvariants[newChr == i]
+		goodInvariantsPart$newChr	<- newChr[newChr == i]
+		goodInvariantsPart$newPos	<- newPos[newChr == i]
+		goodInvariantsPart			<- goodInvariantsPart[c( 1,2,"newChr","newPos", 3:ncol(goodInvariants) )]
 		save(goodInvariantsPart, file = paste(project, chrname, "goodInvPart", i, "rdd", sep = "."))
-		# load(goodInvariantsPart)  # object named "goodInvariantsPart"
 		}
 		
 	} # end if(Glazerize)
 
-save(goodInvariants, file = goodInvariantsFile)
-# load(goodInvariantsFile)  # object named "goodInvariants"
 

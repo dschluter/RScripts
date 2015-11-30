@@ -162,10 +162,15 @@ if(Glazerize){
 	pos <- goodInvariants$POS
 	
 	# convert pos to newChr and newPos
+	chrNumeric <- chrno
+	chrNumeric[chrno != "Un" & chrno != "M" & chrno != "VIIpitx1"] <- 
+		as.numeric( as.roman( chrNumeric[chrno != "Un" & chrno != "M" & chrno != "VIIpitx1"] ) )
+	chr <- rep(chrNumeric, length(pos))
+		
+		
 	if(chrno != "M" & chrno != "VIIpitx1" ){
-		chrNumeric <- chrno
-		chrNumeric[chrno != "Un"] <- as.numeric( as.roman( chrNumeric[chrno != "Un"] ) )
-		newCoords <- g$glazerConvertCoordinate(rep(chrNumeric, length(pos)), pos)
+		
+		newCoords <- g$glazerConvertCoordinate(), pos)
 		
 		} else {
 		

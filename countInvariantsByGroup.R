@@ -31,14 +31,18 @@ GTmissing <- "."                     # how GATK represents missing genotypes in 
 
 # load "chrvec" for the current chromosome
 chrno 					<- gsub("^chr", "", chrname)
-chrmaskfile             <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
+chrmaskfile             <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.*.masked.rdd
 load(chrmaskfile) 		# object is named "chrvec"
+# table(chrvec)
+       # A        C        G        M        T 
+ # 8754452  7589050  7570271 29869838  8766600 
 
 invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv", sep="")
 textfile				<- paste(project, ".", chrname, ".goodInv.txt", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 
-nLinesAtaTime <- 1000000
+nLinesAtaTime <- 100000
+# nLinesAtaTime <- 10000
 
 INFILE <- file(invariantsummaryname, open = "r")
 OUTFILE <- file(textfile, "w")
@@ -78,12 +82,12 @@ while(nlines >0){
 	z <- x2$POS %in% maskedPOS
 	x <- x2[!z,]
 	
-	# Elements of invariantsummaryname should be "0" or like "3:6" but some may be like ".:3"
+	# Elements of invariantsummaryname should be "0" or like "3:6" but some may be like ".:3" or even NA:NA
 	# Note: the columns haven't been divided into groups yet
 	y <- lapply(x[, -c(1:2)], function(x){
-	#		y <- as.integer(sub("([0-9]*)[:/][0-9]+", "\\1", x))
-		y <- sub("([0-9.]*)[:][0-9.]+", "\\1", x)
-		y[y == "."] <- "0"
+	#	y <- as.integer(sub("([0-9]*)[:/][0-9]+", "\\1", x[,3]))
+		y <- sub("([0-9.NA]*)[:][0-9.NA]+", "\\1", x)
+		y[y %in% c(".", "NA")] <- "0"
 		y <- ( as.integer(y) >= DPmin ) # TRUE if DP of a given genotype is bigger than DPmin
 		})
 	# Reunite columns
@@ -161,25 +165,16 @@ if(Glazerize){
 	# grab pos information
 	pos <- goodInvariants$POS
 	
-	# convert pos to newChr and newPos
-	chrNumeric <- chrno
-	chrNumeric[chrno != "Un" & chrno != "M" & chrno != "VIIpitx1"] <- 
-		as.numeric( as.roman( chrNumeric[chrno != "Un" & chrno != "M" & chrno != "VIIpitx1"] ) )
-	chr <- rep(chrNumeric, length(pos))
-		
+	# convert pos to newChr and newPos		
 		
 	if(chrno != "M" & chrno != "VIIpitx1" ){
-		
-		newCoords <- g$glazerConvertCoordinate(), pos)
-		
+		newCoords <- g$glazerConvertOld2New(chrname, pos)
 		} else {
-		
 		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
-		
 		}
 
-	newChr <- unname(unlist(newCoords[ ,"newChr"]))
-	newPos <- unname(unlist(newCoords[ ,"newPos"]))
+	newChr <- newCoords$newChr
+	newPos <- newCoords$newPos
 	rm(newCoords)
 	
 	goodInvariants <- cbind.data.frame( data.frame(newChr = newChr, newPos = newPos), goodInvariants)

@@ -6,8 +6,8 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	# 'New' is the Glazer et al 2015 'new' assembly coordinates
 	
 	# Requires access to the "glazerFileS4 NewScaffoldOrder.csv"
-	# Command is extensively modified from file "glazerconvertCoordinate.R" to allow chr and pos to be vectors
-	# Returns a list of [chromosome, position]
+	# Command is extensively modified from file "glazerconvertCoordinate.R" to allow pos to be vector
+	# Returns a list of [newChr, newPos]
 
 	# Inputs:
 	# chrname is an element string e.g. "chrXXI" or "chrUn"
@@ -15,13 +15,11 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	# direction is either 'old2new' or 'new2old'.
 	# scafFile gives the path and file name to the file 'FileS4 NewScaffoldOrder.csv'
   
-    direction <- 'old2new'
-
 	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)
 	chrno <- gsub("^chr", "", chrname)
 	chrNumeric <- chrno
 	# Convert to an actual number if name of chromosome is a roman numeral
-	#	(detects by ensuring there are no lower case letters, no U and no M
+	#	(detects by ensuring there are no lower case letters, no U and no M)
 	if( !grepl("[a-zMU]+", chrno) ) chrNumeric <- as.numeric( as.roman( chrNumeric ) )
         
 	translate <- function(pos, startA, startB, endB, orientation){
@@ -33,14 +31,15 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	    	}
 	    	return(pos2)
 	  		}
-	  
-    newPos <- pos # initiate
-    newChr <- rep(chrNumeric, length(pos)) # initiate
+	 
+	# initiate
+    newPos <- pos 
+    newChr <- rep(chrNumeric, length(pos))
 
 	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
+	
 	oldChrRows <- which( as.character(scafTable$OldChr) == as.character(chrNumeric) )
-	# [1] 178 180 181 183 305
-
+	# [1] 178 180 181 183 305 # chrXXI
 	# scafTable[oldChrRows, ]
 	    # Scaffold  Length NewChr NewStart   NewEnd NewOrientation OldChr OldStart   OldEnd
 	# 178      144  297070     21  1494736  1791805        unknown     21        1   297070
@@ -49,19 +48,16 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	# 183      127  266767     21 16438087 16704853        forward     21 11399569 11666335
 	# 305      257   50152     Un 10615548 10665699        unknown     21 11667336 11717487
 
-	if(direction == 'old2new'){
-
-		# repeat for every row of scafTable[oldChrRows, ]
-		for(i in oldChrRows){
-			# i <- oldChrRows[1]
-			x <- scafTable[i, ]
-			k <- which( pos >= x$OldStart & pos <= x$OldEnd)
-			newChr[k] <- x$NewChr
-			newPos[k] <- translate(pos[k], x$OldStart, x$NewStart, x$NewEnd, x$NewOrientation)
-			}
-	    	
+	# repeat for every row of scafTable[oldChrRows, ]
+	for(i in oldChrRows){
+		# i <- oldChrRows[1]
+		x <- scafTable[i, ]
+		k <- which( pos >= x$OldStart & pos <= x$OldEnd)
+		newChr[k] <- x$NewChr
+		newPos[k] <- translate(pos[k], x$OldStart, x$NewStart, x$NewEnd, x$NewOrientation)
+		}
+	return(data.frame(newChr = newChr, newPos = newPos))
 	}
-
 
 # This works but is too slow
 g$glazerConvertCoordinate <- function(chr, pos, direction = 'old2new', scafFile = "glazerFileS4 NewScaffoldOrder.csv"){

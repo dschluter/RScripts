@@ -2,6 +2,8 @@
 # Code to extract variant sites from a .vcf file 
 #	and to save the invariant DP and RGQ values to a second file named etc.DP.inv
 
+# This code might generate "NA:NA" in DP.inv, so next function needs to deal with it.
+
 args <- commandArgs(TRUE) # get arguments
 # args <- c("BenlimAllMarine", "chrXXI")
 
@@ -83,4 +85,3 @@ while(nlines >0){
 close(INFILE)
 close(outfile1)
 close(outfile2)
-

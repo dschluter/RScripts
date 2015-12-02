@@ -191,10 +191,9 @@ if(Glazerize){
 		# }
 		
 	for(i in z){ # saved object is "goodInvariantsPart"
-		goodInvariantsPart 			<- goodInvariants[newChr == i]
+		goodInvariantsPart 			<- goodInvariants[newChr == i, ]
 		goodInvariantsPart$newChr	<- newChr[newChr == i]
 		goodInvariantsPart$newPos	<- newPos[newChr == i]
-		goodInvariantsPart			<- goodInvariantsPart[c( 1,2,"newChr","newPos", 3:ncol(goodInvariants) )]
 		save(goodInvariantsPart, file = paste(project, chrname, "goodInvPart", i, "rdd", sep = "."))
 		}
 		

@@ -1,8 +1,8 @@
 g<-list()
 
 
-g$joinVcfresultsParts <- function(project = "BenlimAllMarine", chrname = "chrXXI"){
-	# Function to combine vcfresultsPart files having the same new name
+g$combineVcfresultsParts <- function(project = "BenlimAllMarine", chrname = "chrXXI"){
+	# Function to combine vcfresultsPart files having the same newChr (after Glazerized)
 	# chrname is the chromosome name whose vcfresultsPart objects are to be joined
 	
 	chrNumeric <- g$chrname2numeric(chrname)
@@ -54,18 +54,18 @@ g$chrname2numeric <- function(chrname){
 	# Detects whether chrno refers to an actual number by ensuring there are no lower case letters, no U and no M
 	# chrno will work too (ie without the "chr" prefix)
 	
-	g$chrname2numeric("chrXXI")
-	[1] 21
-	g$chrname2numeric("chrUn")
-	[1] "Un"
-	g$chrname2numeric("chrM")
-	[1] "M"
-	g$chrname2numeric("chrVIIpitx1")
-	[1] "VIIpitx1"
-	g$chrname2numeric("I")
-	[1] 1
-	g$chrname2numeric("XX")
-	[1] 20
+	# g$chrname2numeric("chrXXI")
+	# [1] 21
+	# g$chrname2numeric("chrUn")
+	# [1] "Un"
+	# g$chrname2numeric("chrM")
+	# [1] "M"
+	# g$chrname2numeric("chrVIIpitx1")
+	# [1] "VIIpitx1"
+	# g$chrname2numeric("I")
+	# [1] 1
+	# g$chrname2numeric("XX")
+	# [1] 20
 
 	chrno <- gsub("^chr", "", chrname)
 	chrNumeric <- chrno

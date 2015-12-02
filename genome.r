@@ -1,5 +1,81 @@
 g<-list()
 
+
+g$joinVcfresultsParts <- function(project = "BenlimAllMarine", chrname = "chrXXI"){
+	# Function to combine vcfresultsPart files having the same new name
+	# chrname is the chromosome name whose vcfresultsPart objects are to be joined
+	
+	chrNumeric <- g$chrname2numeric(chrname)
+	# [1] 21
+	
+	z <- list.files( pattern=glob2rx( paste(project, "chr*.vcfresultsPart", chrNumeric, "rdd", sep = ".") ), ignore.case=TRUE )
+	# [1] "BenlimAllMarine.chrUn.vcfresultsPart.21.rdd" 
+	# [2] "BenlimAllMarine.chrXXI.vcfresultsPart.21.rdd"
+	
+	if(length(z) > 1){
+		parts <- vector("list", length(z))
+		names(parts) <- z
+		for(i in 1:length(z)){
+			load(z[i])
+			parts[[i]] <- vcfresultsPart
+			}
+			
+		# names(parts)
+		# [1] "BenlimAllMarine.chrUn.vcfresultsPart.21.rdd" 
+		# [2] "BenlimAllMarine.chrXXI.vcfresultsPart.21.rdd"
+		
+		# Check that names of all the elements are the same
+		if(!all( unlist( lapply( parts, function(x){
+			setequal( names(parts[[1]]), names(x) )
+			}) ) )) stop("Names vary between vcfresultsPart objects")
+			
+		# Check that the group names are all the same
+		if(!all( unlist( lapply( parts, function(x){
+			setequal( parts[[1]]$groupnames, x$groupnames )
+			}) ) )) stop("groupnames vary between vcfresultsPart objects")
+			
+		# Could also check that controls are the same, etc
+		
+		# Start combining. OK, we can't combine the vcf parts because sequence info is not the same (chrUn.fa vs chrXXI.fa)
+		# so just keep as a list of vcf objects. 
+		# REDO
+		x <- parts[[1]]
+		for(i in 2:length(parts)){
+			# i <- 2
+			x$vcf <- rbind(x$vcf, parts[[i]]$vcf)
+			}
+
+
+		}
+	}
+	
+g$chrname2numeric <- function(chrname){
+	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)
+	# Detects whether chrno refers to an actual number by ensuring there are no lower case letters, no U and no M
+	# chrno will work too (ie without the "chr" prefix)
+	
+	g$chrname2numeric("chrXXI")
+	[1] 21
+	g$chrname2numeric("chrUn")
+	[1] "Un"
+	g$chrname2numeric("chrM")
+	[1] "M"
+	g$chrname2numeric("chrVIIpitx1")
+	[1] "VIIpitx1"
+	g$chrname2numeric("I")
+	[1] 1
+	g$chrname2numeric("XX")
+	[1] 20
+
+	chrno <- gsub("^chr", "", chrname)
+	chrNumeric <- chrno
+	
+	# Convert to an actual number if name of chromosome is a roman numeral
+	#	(detects by ensuring there are no lower case letters, no U and no M)
+	if( !grepl("[a-zMU]+", chrno) ) chrNumeric <- as.numeric( as.roman( chrNumeric ) )
+	chrNumeric
+	}
+
 g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
 	# Converts coordinates for a single chromosome from 'old' to 'new'
 	# 'Old' is the Jones et al 2012 'old' genome assembly 

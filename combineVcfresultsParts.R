@@ -77,7 +77,7 @@ if(length(z) > 1){
 		vcfresults$snpTypeList <- c(vcfresults$snpTypeList, parts[[i]]$snpTypeList)			
 		vcfresults$alleleFreqByGroup <- c(vcfresults$alleleFreqByGroup, parts[[i]]$alleleFreqByGroup)			
 		}
-
+	}
 # names(vcfresults$vcf)
 # [1] "chrUn"  "chrXXI"
 

@@ -41,7 +41,7 @@ oldChrNames <- sapply( strsplit(z, split = "[.]"), function(x){x[2]})
 names(parts) <- oldChrNames
 
 for(i in 1:length(z)){
-	load(z[i])
+	load(z[i]) # object name is vcfresultsPart
 	parts[[i]] <- vcfresultsPart
 	}
 	

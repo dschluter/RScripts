@@ -41,11 +41,11 @@ oldChrNames <- sapply( strsplit(z, split = "[.]"), function(x){x[2]})
 names(parts) <- oldChrNames
 
 for(i in 1:length(z)){
-	load(z[i])
-	parts[[i]] <- goodInvPart
+	load(z[i]) # name of object is goodInvariantsPart
+	parts[[i]] <- goodInvariantsPart
 	}
 	
-goodInv <- do.call("rbind", parts)
+goodInvariants <- do.call("rbind", parts)
 
-save(goodInv, file = goodInvNewName) # object is goodInv
-# load(goodInvNewName) # object is goodInv
+save(goodInvariants, file = goodInvNewName) # object is goodInvariants
+# load(goodInvNewName) # object is goodInvariants

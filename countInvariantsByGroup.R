@@ -154,7 +154,7 @@ close(OUTFILE)
 
 # Read the whole thing into memory and save
 goodInvariants <- read.table(file = textfile, header = TRUE, comment.char = "", stringsAsFactors = FALSE)
-print("\nRe-read output text invariants file, now saving in rdd format\n")
+cat("\nRe-read output text invariants file, now saving in rdd format\n")
 save(goodInvariants, file = goodInvariantsFile)
 # load(goodInvariantsFile)  # object named "goodInvariants"
 

@@ -21,28 +21,37 @@ chrname <- args[2]
 chrNumeric <- g$chrname2numeric(chrname)
 # [1] 21
 
-# Find the corresponding files, chosen based on the "21" before the ".rdd"
-z <- list.files( pattern=glob2rx( paste(project, "chr*.vcfresultsPart", chrNumeric, "rdd", sep = ".") ), ignore.case=TRUE )
+# Results file
+vcfresultsNewName <- paste(project, chrname, "vcfresultsNew", "rdd", sep = ".")
+# [1] "BenlimAllMarine.chrXXI.vcfresultsNew.rdd"
+
+# glob to identify all vcfresultsPart files, they will have chrNumeric (e.g., "21") before the ".rdd"
+vcfresultsPartNames <- paste(project, "chr*.vcfresultsPart", chrNumeric, "rdd", sep = ".")
+# [1] "BenlimAllMarine.chr*.vcfresultsPart.21.rdd"
+
+# The corresponding file names
+z <- list.files( pattern=glob2rx( vcfresultsPartNames ), ignore.case=TRUE )
 	# [1] "BenlimAllMarine.chrUn.vcfresultsPart.21.rdd" 
 	# [2] "BenlimAllMarine.chrXXI.vcfresultsPart.21.rdd"
 
-oldChrNames <- sapply( strsplit(names(parts), split = "[.]"), function(x){x[2]})
-# [1] "chrUn"  "chrXXI"
-
+# Load the vcfresultsPart files, place in a temporary list: "parts"
 parts <- vector("list", length(z)) # initiate
+oldChrNames <- sapply( strsplit(z, split = "[.]"), function(x){x[2]})
+# [1] "chrUn"  "chrXXI"
 names(parts) <- oldChrNames
 
-# Load the vcfresultsPart files as list elements
 for(i in 1:length(z)){
 	load(z[i])
 	parts[[i]] <- vcfresultsPart
 	}
 	
-# We can't combine the vcf parts because sequence info is not the same (chrUn.fa vs chrXXI.fa)
-# so just keep as a list of vcf objects, even if there is just one part.
-x <- parts[[1]]
-x$vcf <- list(x$vcf) # converts vcf part into a list element
-names(x$vcf)[1] <- oldChrNames[1]
+# We can't simply combine the vcf VariantAnnotation parts because their sequence info is not the same 
+# (chrUn.fa vs chrXXI.fa) so just keep as separate list objects of vcfresults,
+#  even if there is just one part.
+# Initiate
+vcfresults <- parts[[1]]
+vcfresults$vcf <- list(vcfresults$vcf) # converts vcf part into a list element
+names(vcfresults$vcf)[1] <- oldChrNames[1]
 
 if(length(z) > 1){
 	
@@ -60,15 +69,17 @@ if(length(z) > 1){
 	
 	for(i in 2:length(parts)){
 		# i <- 2
-		x$vcf[[i]] <- parts[[i]]$vcf
-		names(x$vcf)[i] <- oldChrNames[i]
-		x$newChr <- c(x$newChr, parts[[i]]$newChr)
-		x$newPos <- c(x$newPos, parts[[i]]$newPos)			
-		x$altUsedList <- c(x$altUsedList, parts[[i]]$altUsedList)			
-		x$snpTypeList <- c(x$snpTypeList, parts[[i]]$snpTypeList)			
-		x$alleleFreqByGroup <- c(x$alleleFreqByGroup, parts[[i]]$alleleFreqByGroup)			
+		vcfresults$vcf[[i]] <- parts[[i]]$vcf
+		names(vcfresults$vcf)[i] <- oldChrNames[i]
+		vcfresults$newChr <- c(vcfresults$newChr, parts[[i]]$newChr)
+		vcfresults$newPos <- c(vcfresults$newPos, parts[[i]]$newPos)			
+		vcfresults$altUsedList <- c(vcfresults$altUsedList, parts[[i]]$altUsedList)			
+		vcfresults$snpTypeList <- c(vcfresults$snpTypeList, parts[[i]]$snpTypeList)			
+		vcfresults$alleleFreqByGroup <- c(vcfresults$alleleFreqByGroup, parts[[i]]$alleleFreqByGroup)			
 		}
 
-vcfresultsList <- x
-save(vcfresultsList, file = "") # object is vcfresultsList
-# load("") # object is vcfresultsList
+# names(vcfresults$vcf)
+# [1] "chrUn"  "chrXXI"
+
+save(vcfresults, file = vcfresultsNewName) # object is vcfresults
+# load(vcfresultsNewName) # object is vcfresults

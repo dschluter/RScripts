@@ -25,15 +25,16 @@
 
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb")
-# args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "qryb")
+# args <- c("BenlimAllMarine", "chrXXI", "paxl", "paxb")
 
-GTminFrac <- 2/3
+Glazerize 		<- TRUE # using new assembly coordinates; use the results in vcfresultsNew files
 
 includePfisher 	<- FALSE
 includeFst     	<- TRUE
-includePsd		<- FALSE
-trueSnpOnly		<- FALSE
+includePsd		<- TRUE
+trueSnpOnly		<- FALSE # Note: this must be evaluated separately for each pair of populations
+
 # note: An indel relative to REF genome, if fixed and shared between limnetic and benthic, 
 # is not an indel between limnetic and benthic, but a fixed difference. 
 # However, REF indel that is polymorphic within or between limnetics and benthics is an indel.
@@ -43,36 +44,46 @@ trueSnpOnly		<- FALSE
 
 project <- args[1]
 chrname <- args[2]
-groupnames <- args[3:length(args)]
-vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
+groupnames <- args[3:length(args)] # Here, refers only to the two under consideration
+if(Glazerize){
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
+	} else {
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
 gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".")
 gtstats <- list()
 
 if(length(groupnames) > 2 ) stop("Provide names of only two groups")
 
+cat("\nProject, chromosome, 2groups:", project, chrname, groupnames, "\n")
+
 cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
 # names(vcfresults)
-# [1] "groupnames"        "groupcodes"        "nInd" 	"control"     "vcf"       "altUsedList"      
-# [7] "snpTypeList"       "alleleFreqByGroup"
+ # [1] "groupnames"        "groupcodes"        "control"          
+ # [4] "nInd"              "nMin"              "vcf"              
+ # [7] "newChr"            "newPos"            "altUsedList"      
+# [10] "snpTypeList"       "alleleFreqByGroup"
 
 control <- vcfresults$control
-control$GTminFrac <- GTminFrac
-control$trueSnpOnly <- trueSnpOnly
-control$includePfisher <- includePfisher
-control$includeFst <- includeFst
-control$includePsd <- includePsd
-
+GTminFrac <- control$GTminFrac
+control$gtstatsOptions <- c(includePfisher = includePfisher, includeFst = includeFst, 
+	includePsd = includePsd, trueSnpOnly = trueSnpOnly)
+control$Glazerize <- Glazerize
 
 library(VariantAnnotation)
 # library(GenomicFeatures)
 
 # Group codes for the two groups of interest here
 # 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
-fishnames <- samples(header(vcfresults$vcf)) # pulls fish names
+if(Glazerize){  # grab fish names
+	fishnames <- samples(header(vcfresults$vcf[[1]]))
+	} else {
+	fishnames <- samples(header(vcfresults$vcf))
+	}
+
 groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
 	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
@@ -80,24 +91,35 @@ for(i in 1:length(groupcodes)){
 	}
 cat("\ngroupcodes:\n")
 print(groupcodes)
-# [1] 0 0 0 0 0 0 0 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+ # [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
+# [39] 2 2 2 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
+# [77] 2 2 2 2 1 1 1 1 1 1
 groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 
-nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11  7
-nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7 4
-nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
+# nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11
+# nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7
+# nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5
+nInd <- vcfresults$nInd[groupnames]
+nMin <- vcfresults$nMin[groupnames]
 
 cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
 print( data.frame(groupnames=groupnames, nInd, nMin) )
 
 # ----------
-# Pull out the genotypes for just the two groups being analyzed
+# Pull out the genotypes for just the two groups being analyzed. 
+# 	geno(vcfresults$vcf)$GT has already been edited in "saveSnpsByGroup.R"
 # Bring over coding annotations too, if present
+if(Glazerize){
+	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT[ , groupcodes > 0]})
+	genotypes <- do.call("rbind", genotypes)
+	} else genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
 
-genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
-geno(vcfresults$vcf)$GT <- NULL
+# Wipe out the genotypes in vcf to save memory?
+if(Glazerize){
+	for(i in 1:length(vcfresults$vcf)) geno(vcfresults$vcf[[i]])$GT <- NULL
+	} else geno(vcfresults$vcf)$GT <- NULL
 
 gcinfo(TRUE)
 gc()
@@ -114,37 +136,32 @@ sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
 	z <- rowSums(x, na.rm = TRUE)
 	z[1] >= 2*nMin[1] & z[2] >= 2*nMin[2]
 	})
-	
-# length(sufficient.alleles.per.group[sufficient.alleles.per.group])
-# [1] 269349
 
 # Drop cases with insufficient numbers of individuals
 # Keep snpTypeList too, need it if want to remove non-polymorphic indels later
 
 genotypes <- genotypes[sufficient.alleles.per.group, ]
-
 alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
-
-gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group] # contains rowData but not genotypes (GT empty)
+if(Glazerize){
+	nPerChr <- sapply(vcfresults$vcf, nrow) # nrow for each vcf block in vcfresults$vcf
+	oldChr <- rep(names(nPerChr), nPerChr)
+	gtstats$vcf <- vector("list", length(nPerChr))
+	names(gtstats$vcf) <- names(vcfresults$vcf)
+	for(i in 1:length(vcfresults$vcf)){
+		gtstats$vcf[[i]] <- vcfresults$vcf[[i]][ sufficient.alleles.per.group[oldChr == names(gtstats$vcf)[i]] ]
+		}
+	} else gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group]
 
 snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
+if(Glazerize) newPos <- vcfresults$newPos[sufficient.alleles.per.group]
 
 rm(sufficient.alleles.per.group)
 rm(vcfresults) # assuming we have extracted all the useful bits
 
 gc()
-# chrXXI
-           # used  (Mb) gc trigger  (Mb) max used  (Mb)
-# Ncells  6037587 322.5   10049327 536.7 10049327 536.7
-# Vcells 17640420 134.6   39455907 301.1 39417064 300.8
-# hermes chrUn
-           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells 12407797 662.7   25310187 1351.8  25310187 1351.8
-# Vcells 50531600 385.6  128513897  980.5 128347380  979.3
-
 
 # nrow(genotypes)
-# [1] 269349
+# [1] 871120
 
 # table(genotypes[rownames(genotypes) == "chrXXI:54638_T/TG",])
 # 0/0 1/1 
@@ -167,8 +184,8 @@ status[is.invariant] <- "i"
 rm(is.invariant)
 
 # table(status)
-     # i      v
-# 115352 153997
+     # i      v 
+# 627449 243671
 
 # status[rownames(genotypes) == "chrXXI:54638_T/TG"]
 # [1] "v"
@@ -314,6 +331,10 @@ gtstats$alleleFreqByGroup <- alleleFreqByGroup
 rm(alleleFreqByGroup)
 gtstats$status <- status
 rm(status)
+if(Glazerize){
+	gtstats$newPos <- newPos
+	rm(newPos)
+	}
 
 # -------------------------------------------------------------
 # Group differences in allele frequencies using Fisher exact test
@@ -421,7 +442,7 @@ if(includeFst){
 
 	cat("\nFst\n")
 	print(z$FST)
-	#[1] 0.4078011
+	#[1] 0.4119456
 	# head(z$sigma.loc)
 
 	# Check, per locus measures: ** this is the one we're keeping

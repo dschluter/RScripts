@@ -29,14 +29,14 @@ vcfresultsNewName <- paste(project, chrname, "vcfresultsNew", "rdd", sep = ".")
 vcfresultsPartNames <- paste(project, "chr*.vcfresultsPart", chrNumeric, "rdd", sep = ".")
 # [1] "BenlimAllMarine.chr*.vcfresultsPart.21.rdd"
 
-# The corresponding file names
+# The corresponding file names is whatever order (*watch order in subsequent files*)
 z <- list.files( pattern=glob2rx( vcfresultsPartNames ), ignore.case=TRUE )
 	# [1] "BenlimAllMarine.chrUn.vcfresultsPart.21.rdd" 
 	# [2] "BenlimAllMarine.chrXXI.vcfresultsPart.21.rdd"
 
-# Load the vcfresultsPart files, place in a temporary list: "parts"
+# Load the vcfresultsPart files in the order given above, place in a temporary list: "parts"
 parts <- vector("list", length(z)) # initiate
-oldChrNames <- sapply( strsplit(z, split = "[.]"), function(x){x[2]})
+oldChrNames <- sapply( strsplit(z, split = "[.]"), function(x){x[2]}) # will keep in the order given
 # [1] "chrUn"  "chrXXI"
 names(parts) <- oldChrNames
 
@@ -55,7 +55,7 @@ names(vcfresults$vcf)[1] <- oldChrNames[1]
 
 if(length(z) > 1){
 	
-	# Check that names of all the elements are the same
+	# Check that names of all the variables are the same in the different list elements (vcf's)
 	if(!all( unlist( lapply( parts, function(x){
 		setequal( names(parts[[1]]), names(x) )
 		}) ) )) stop("Names vary between vcfresultsPart objects")

@@ -432,14 +432,14 @@ g$whichAltAllelesUsed <- function(GT, split = "/"){
 			})
 	}
 
-g$qsubRscriptPbs <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
+g$makePbsRunRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# The Rscript command executes a particular *.R file and provides any needed arguments
 	# This version also downloads the .R file from github so that the latest version is available
 	# This version does not include pbsfile as an argument, it will make from the .R root
 	# This version automatically submits the pbs file to the queue
 	# Example: (note that all the arguments to .R script are included in a single quotation
-	# 	g$qsubRscriptPbs(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
+	# 	g$makePbsRunRscript(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
 	
 	if(Rscript == "") stop("You need to provide an Rscript command")
 		

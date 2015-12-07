@@ -23,9 +23,9 @@ if(job == "splitup"){
 	POS <- seq(1:length(chrvec))
 	
 	if(chrno != "M" & chrno != "VIIpitx1" ){
-		newCoords <- g$glazerConvertOld2New(chrname, POS)
+		#newCoords <- g$glazerConvertOld2New(chrname, POS)
 		} else {
-		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
+		newCoords <- data.frame(newChr = rep(chrno, length(POS)), newPos = POS)
 		}
 	
 	# head(newCoords)

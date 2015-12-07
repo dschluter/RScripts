@@ -7,7 +7,7 @@
 # module load R/3.1.2
 # R
 
-args <- commandArgs(TRUE) # chrname job ("split" or "join")
+args <- commandArgs(TRUE) # chrname job ("splitup" or "rejoin")
 # args <- c("chrXXI")
 
 chrname <- args[1]
@@ -16,7 +16,7 @@ chrno <- gsub("^chr", "", chrname)
 chrNumeric <- g$chrname2numeric(chrname)
 # [1] 21
 
-if(job == "split"){
+if(job == "splitup"){
 	cat("\nChromosome being split is", chrname, "\n")
 	chrvecfile = paste("chrvec.", chrno, ".masked.rdd", sep = "")
 	load(chrvecfile) # object name is "chrvec"
@@ -52,8 +52,8 @@ if(job == "split"){
 		# 6 1494741    M
 		save(chrvecPart, file = paste("chrvec.", chrno, ".Part.", i, ".rdd", sep = ""))
 		}
-	} else if(job == "join"){
-	} else stop("Job argument must be 'join' or 'split'")
+	} else if(job == "rejoin"){
+	} else stop("Job argument must be 'rejoin' or 'splitup'")
 	
 	
 

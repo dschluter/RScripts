@@ -84,7 +84,7 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 		newChr[k] <- x$NewChr
 		newPos[k] <- translate(pos[k], x$OldStart, x$NewStart, x$NewEnd, x$NewOrientation)
 		}
-	return(data.frame(newChr = newChr, newPos = newPos))
+	return(data.frame(newChr = newChr, newPos = newPos, stringsAsFactors = FALSE))
 	}
 
 # This works but is too slow

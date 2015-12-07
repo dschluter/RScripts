@@ -121,7 +121,7 @@ if(Glazerize){
 	for(i in 1:length(vcfresults$vcf)) geno(vcfresults$vcf[[i]])$GT <- NULL
 	} else geno(vcfresults$vcf)$GT <- NULL
 
-gcinfo(TRUE)
+# gcinfo(TRUE)
 gc()
 
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})

@@ -27,31 +27,37 @@ psdMissingAction <- "meanBW"
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxl")
-# args <- c("BenlimAllMarine", "chrXXI", 500, "marine-pac", "solitary")
+# args <- c("BenlimAllMarine", "chrXXI", 500, "paxl", "paxb")
 
 project <- args[1]
 chrname <- args[2]
 stepsize <- as.integer(args[3])
 groupnames <- args[-c(1:3)]
 
-# open object containing genotype statistics
-gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), 
-							"rdd", sep = ".") 								# object gtstats
-goodInvariantsFile 	<- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object goodInvariants
-blockstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), 
-							"blockstats", stepsize, "rdd", sep = ".")
-
+gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".") 								# object gtstats
 load(gtstatsfile) # object is gtstats
-load(goodInvariantsFile) # object is goodInvariants
 
+control <- gtstats$control
+Glazerize <- control$Glazerize
 groupnames <- gtstats$groupnames
-
-# process the invariants - keep rows meeting the nMin rule
 nInd <- gtstats$nInd 	# n individuals genotyped in each group eg 7 11
 nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
 
+if(Glazerize){
+	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
+	} else {
+	goodInvariantsFile <- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object is goodInvariants
+	}
+load(goodInvariantsFile) # object is goodInvariants
+
+blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), 
+							"blockstats", stepsize, "rdd", sep = ".")
+
 # Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
 names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
+
+# Rename newPos to POS if using Glazer reassembly
+goodInvariants$POS <- goodInvariants$newPos
 
 goodInvariants <- goodInvariants[, c("POS", "REF", groupnames)]
 z<-apply(goodInvariants[, groupnames], 1, function(x){

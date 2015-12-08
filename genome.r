@@ -62,8 +62,10 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	 
 	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
 	
+	# Find those rows in the table that correspond to the current chromosome
 	oldChrRows <- which( as.character(scafTable$OldChr) == as.character(chrNumeric) )
 	# [1] 178 180 181 183 305 # chrXXI
+	
 	# scafTable[oldChrRows, ]
 	    # Scaffold  Length NewChr NewStart   NewEnd NewOrientation OldChr OldStart   OldEnd
 	# 178      144  297070     21  1494736  1791805        unknown     21        1   297070
@@ -73,11 +75,11 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	# 305      257   50152     Un 10615548 10665699        unknown     21 11667336 11717487
 	
 	# To deal with skips such as the one above, set all newPos that are skipped to NA. They are probably all NNNNN
-	# initiate
+	# So, to initiate
     newPos <- rep(NA, length(pos)) 
     newChr <- rep(NA, length(pos))
 
-	# repeat for every row of scafTable[oldChrRows, ]
+	# Repeat the coversion using each row of scafTable corresponding to the old chromosome, one at a time
 	for(i in oldChrRows){
 		# i <- oldChrRows[1]
 		x <- scafTable[i, ]
@@ -85,8 +87,17 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 		newChr[k] <- x$NewChr
 		newPos[k] <- translate(pos[k], x$OldStart, x$NewStart, x$NewEnd, x$NewOrientation)
 		}
+	
+	# Put results in a new data frame
 	newCoords <- data.frame(newChr = newChr, newPos = newPos, stringsAsFactors = FALSE)
+	nrowsBeforeNAdrop <- nrow(newCoords)
+	
+	# Clean the data frame of NA's
 	newCoords <- na.omit(newCoords)
+	nrowsAfterNAdrop <- nrow(newCoords)
+	
+	If(nrowsBeforeNAdrop != nrowsAfterNAdrop) cat("\nSome POS were dropped -- not included in scafTable -- probably all NNNNNN\n")
+
 	return(newCoords)
 	}
 

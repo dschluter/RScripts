@@ -9,6 +9,7 @@
 
 args <- commandArgs(TRUE) # chrname job ("splitup" or "rejoin")
 # args <- c("chrXXI", "splitup")
+# args <- c("chrXXI", "rejoin")
 
 chrname <- args[1]
 job <- args[2]
@@ -92,7 +93,38 @@ if(job == "splitup"){
 	# Un.5 1792810    A
 	# Un.6 1792811    G
 	
+	# NO
 	chrvec <- as.character( chrvecFrame$base[order(chrvecFrame$newPos)] )
+	
+	# Check that values of newPos agree with the number of bases
+	if(min(chrvecFrame$newPos) != 1) stop("Lowest POS is not 1")
+
+	# if(max(chrvecFrame$newPos) != length(chrvec)) stop("Length of chrvec not equal to largest POS")
+	# max(chrvecFrame$newPos)
+	# [1] 17357772
+	# length(chrvec)
+	# [1] 17349772
+	# 17357772 - 17349772
+	# [1] 8000 # Must be missing 1000's of NNNNNNN
+	
+	# if( length(unique(chrvecFrame$newPos)) != length(chrvecFrame$newPos) ) stop("POS not unique")
+	# length(unique(chrvecFrame$newPos))
+	# [1] 17345772
+	# length(chrvecFrame$newPos)
+	# [1] 17349772
+	# 17345772 - 17349772
+	# [1] -4000 # Must be duplicated values of POS in the files
+	
+	# length(unique(parts[[1]]$newPos)) # Un
+	# [1] 5682437
+	# length(parts[[1]]$newPos)
+	# [1] 5682437
+	# length(unique(parts[[2]]$newPos)) # 21
+	# [1] 11664335
+	# length(parts[[2]]$newPos)
+	# [1] 11667335
+	
+	
 
 	save(goodInvariants, file = chrvecfileNewName) # object is chrvec
 	# load(chrvecfileNewName) # object is chrvec

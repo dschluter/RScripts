@@ -60,10 +60,6 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	    	return(pos2)
 	  		}
 	 
-	# initiate
-    newPos <- pos 
-    newChr <- rep(chrNumeric, length(pos))
-
 	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
 	
 	oldChrRows <- which( as.character(scafTable$OldChr) == as.character(chrNumeric) )
@@ -71,10 +67,15 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	# scafTable[oldChrRows, ]
 	    # Scaffold  Length NewChr NewStart   NewEnd NewOrientation OldChr OldStart   OldEnd
 	# 178      144  297070     21  1494736  1791805        unknown     21        1   297070
-	# 180       16 9196662     21  4442219 13638880        forward     21   298071  9494732
+	# 180       16 9196662     21  4442219 13638880        forward     21   298071  9494732 *skips 1000 here to next Oldstart
 	# 181       43 1902836     21 13639881 15542716        forward     21  9495733 11398568
 	# 183      127  266767     21 16438087 16704853        forward     21 11399569 11666335
 	# 305      257   50152     Un 10615548 10665699        unknown     21 11667336 11717487
+	
+	# To deal with skips such as the one above, set all newPos that are skipped to NA. They are probably all NNNNN
+	# initiate
+    newPos <- rep(NA, length(pos)) 
+    newChr <- rep(NA, length(pos))
 
 	# repeat for every row of scafTable[oldChrRows, ]
 	for(i in oldChrRows){
@@ -84,7 +85,9 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 		newChr[k] <- x$NewChr
 		newPos[k] <- translate(pos[k], x$OldStart, x$NewStart, x$NewEnd, x$NewOrientation)
 		}
-	return(data.frame(newChr = newChr, newPos = newPos, stringsAsFactors = FALSE))
+	newCoords <- data.frame(newChr = newChr, newPos = newPos, stringsAsFactors = FALSE)
+	newCoords <- na.omit(newCoords)
+	return(newCoords)
 	}
 
 # This works but is too slow

@@ -25,12 +25,17 @@ if(job == "splitup"){
 	load(chrvecfile) # object name is "chrvec"
 	POS <- seq(1:length(chrvec))
 	
+	# *keep only the non-M to avoid overlap later*
+	POS <- POS[chrvec != "M"]
+	
 	if(chrno != "M" & chrno != "VIIpitx1" ){
 		newCoords <- g$glazerConvertOld2New(chrname, POS)
 		} else {
 		newCoords <- data.frame(newChr = rep(chrno, length(POS)), newPos = POS)
 		}
 	
+	# NewStart	NewEnd	OldChr	OldStart		OldEnd	# 1			  517387		Un	22323409	 	22840795	# 518388		 1018815		Un	22841796	 	23342223	# 1019816	 1276953		Un	29838944	 	30096081	# 1277954	 1493735		Un	31561396	 	31777177	# 1494736	 1791805		21	       1		  297070	# 1792806	 4441218		Un	 5106262		 7754674	# 4442219	13638880		21	  298071		 9494732	# 13639881	15542716		21	 9495733		11398568	# 15543717	16437086		Un	15742364	 	16635733	# 16438087 	16704853		21	11399569	 	11666335	# 16705854 	16996730		Un	28000487	 	28291363	# 16997731	17222261		Un	31335865 	31560395	# 17223262	17357772		Un	37062399 	37196909
+
 	# head(newCoords)
 	  # newChr  newPos
 	# 1     21 1494736
@@ -123,8 +128,19 @@ if(job == "splitup"){
 	# [1] 11664335
 	# length(parts[[2]]$newPos)
 	# [1] 11667335
-	
-	
+	# y <- tapply(parts[[2]]$newPos, parts[[2]]$newPos, length)
+	# y<-y[y>1]
+	# head(y)
+	# 9494733 9494734 9494735 9494736 9494737 9494738 
+	      # 2       2       2       2       2       2
+	# tail(y)
+	# 11667330 11667331 11667332 11667333 11667334 11667335
+	# y2 <- parts[[2]]$newPos[as.integer(names(y))]
+	# y2 <- parts[[2]]$base[as.integer(names(y))]
+	# table(y2)
+	# y2
+	   # A    C    G    M    T 
+	   # 0    0    0 3000    0
 
 	save(goodInvariants, file = chrvecfileNewName) # object is chrvec
 	# load(chrvecfileNewName) # object is chrvec

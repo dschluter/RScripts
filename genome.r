@@ -96,7 +96,7 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	newCoords <- na.omit(newCoords)
 	nrowsAfterNAdrop <- nrow(newCoords)
 	
-	If(nrowsBeforeNAdrop != nrowsAfterNAdrop) cat("\nSome POS were dropped -- not included in scafTable -- probably all NNNNNN\n")
+	if(nrowsBeforeNAdrop != nrowsAfterNAdrop) cat("\nSome POS were dropped -- not included in scafTable -- probably all NNNNNN\n")
 
 	return(newCoords)
 	}

@@ -21,6 +21,8 @@ chrname <- args[2]
 chrNumeric <- g$chrname2numeric(chrname)
 # [1] 21
 
+cat("\nchrNumeric is", chrNumeric, "\n")
+
 # Results file
 vcfresultsNewName <- paste(project, chrname, "vcfresultsNew", "rdd", sep = ".")
 # [1] "BenlimAllMarine.chrXXI.vcfresultsNew.rdd"

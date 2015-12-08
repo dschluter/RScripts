@@ -18,6 +18,8 @@ project <- args[1]
 chrname <- args[2]
 groupnames <- args[3:length(args)]
 
+cat("\nchrname is", chrname, "\n")
+
 # convert snp to Glazer assembly coordinates
 Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 

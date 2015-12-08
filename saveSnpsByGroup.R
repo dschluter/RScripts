@@ -29,6 +29,8 @@ project <- args[1]
 chrname <- args[2]
 groupnames <- args[3:length(args)]
 
+cat("\nchrname is", chrname, "\n")
+
 dropRareAlleles	<- FALSE
 saveBiAllelic 	<- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 plotQualMetrics <- FALSE

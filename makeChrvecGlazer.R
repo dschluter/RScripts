@@ -2,6 +2,7 @@
 
 # Converts chrvec for each chromosome (which contains windowsmaskerSdust info) 
 # from old (Jones et al) to new assembly (Glazer et al).
+# Requires the file "" in the working directory
 
 # qsub -I -l walltime=02:00:00 -l mem=4gb 
 # module load R/3.1.2
@@ -16,6 +17,8 @@ job <- args[2]
 chrno <- gsub("^chr", "", chrname)
 chrNumeric <- g$chrname2numeric(chrname)
 # [1] 21
+
+scafFile = "glazerFileS4 NewScaffoldOrder.csv"
 
 if(job == "splitup"){
 	# SPLITUP
@@ -92,64 +95,46 @@ if(job == "splitup"){
 	
 	chrvecFrame <- do.call("rbind", parts)
 	# head(chrvecFrame)
-		      # newPos base
-	# Un.1 1792806    T
-	# Un.2 1792807    A
-	# Un.3 1792808    T
-	# Un.4 1792809    C
-	# Un.5 1792810    A
-	# Un.6 1792811    G
+	           # newChr  newPos  oldPos base
+	# Un.4134155     21 1792806 5106262    T
+	# Un.4134156     21 1792807 5106263    A
+	# Un.4134157     21 1792808 5106264    T
+	# Un.4134158     21 1792809 5106265    C
+	# Un.4134159     21 1792810 5106266    A
+	# Un.4134160     21 1792811 5106267    G
 	
-	# NO
-	chrvec <- as.character( chrvecFrame$base[order(chrvecFrame$newPos)] )
+	# load("chrvec.Un.masked.rdd")
+	# head( chrvec[chrvecFrame$oldPos ] )
+	# [1] "T" "A" "T" "C" "A" "G"
 	
-	# Check that values of newPos agree with the number of bases
-	if(min(chrvecFrame$newPos) != 1) stop("Lowest POS is not 1")
+	# table(chrvecFrame$base)
+	      # A       C       G       T 
+	# 3360296 2902636 2896769 3371368
 
-	# if(max(chrvecFrame$newPos) != length(chrvec)) stop("Length of chrvec not equal to largest POS")
-	# max(chrvecFrame$newPos)
+	# Check that there are no redundant positions	
+	if( length(unique(chrvecFrame$newPos)) != length(chrvecFrame$newPos) ) stop("POS not unique")
+
+	# Determine the size of the new chromosome
+	# max(chrvecFrame$newPos) # not infallible method
 	# [1] 17357772
-	# length(chrvec)
-	# [1] 17349772
-	# 17357772 - 17349772
-	# [1] 8000 # Must be missing 1000's of NNNNNNN
-	
-	# if( length(unique(chrvecFrame$newPos)) != length(chrvecFrame$newPos) ) stop("POS not unique")
-	# length(unique(chrvecFrame$newPos))
-	# [1] 17345772
-	# length(chrvecFrame$newPos)
-	# [1] 17349772
-	# 17345772 - 17349772
-	# [1] -4000 # Must be duplicated values of POS in the files
-	
-	# length(unique(parts[[1]]$newPos)) # Un
-	# [1] 5682437
-	# length(parts[[1]]$newPos)
-	# [1] 5682437
-	# length(unique(parts[[2]]$newPos)) # 21
-	# [1] 11664335
-	# length(parts[[2]]$newPos)
-	# [1] 11667335
-	# y <- tapply(parts[[2]]$newPos, parts[[2]]$newPos, length)
-	# y<-y[y>1]
-	# head(y)
-	# 9494733 9494734 9494735 9494736 9494737 9494738 
-	      # 2       2       2       2       2       2
-	# tail(y)
-	# 11667330 11667331 11667332 11667333 11667334 11667335
-	# y2 <- parts[[2]]$newPos[as.integer(names(y))]
-	# y2 <- parts[[2]]$base[as.integer(names(y))]
-	# table(y2)
-	# y2
-	   # A    C    G    M    T 
-	   # 0    0    0 3000    0
 
-	save(goodInvariants, file = chrvecfileNewName) # object is chrvec
+	x <- read.csv(scafFile, stringsAsFactors = FALSE) # better method
+	chrvecMax <- max( x$NewEnd[as.character(x$NewChr) == as.character(chrNumeric)] ) 
+
+	# chrvecMax
+	# [1] 17357772 # size of the new chromosome
+	
+	chrvec <- rep("M", chrvecMax) # initiate
+	chrvec[chrvecFrame$newPos] <- chrvecFrame$base
+	
+	# table(chrvec)
+	      # A       C       G       M       T 
+	# 3360296 2902636 2896769 4826703 3371368 
+
+
+	save(chrvec, file = chrvecfileNewName) # object is chrvec
 	# load(chrvecfileNewName) # object is chrvec
 	
-	# length(chrvec)
-	# [1] 17349772
-
 	} else stop("Job argument must be 'rejoin' or 'splitup'")
 	
 	

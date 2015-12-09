@@ -29,35 +29,37 @@ if(job == "splitup"){
 	POS <- POS[chrvec != "M"]
 	
 	if(chrno != "M" & chrno != "VIIpitx1" ){
-		newCoords <- g$glazerConvertOld2New(chrname, POS)
+		newCoords <- cbind.data.frame( g$glazerConvertOld2New(chrname, POS), oldPos = POS, stringsAsFactors = FALSE )
 		} else {
-		newCoords <- data.frame(newChr = rep(chrno, length(POS)), newPos = POS)
+		newCoords <- data.frame(newChr = rep(chrno, length(POS)), newPos = POS, oldPos = POS)
 		}
 	
 	# NewStart	NewEnd	OldChr	OldStart		OldEnd	# 1			  517387		Un	22323409	 	22840795	# 518388		 1018815		Un	22841796	 	23342223	# 1019816	 1276953		Un	29838944	 	30096081	# 1277954	 1493735		Un	31561396	 	31777177	# 1494736	 1791805		21	       1		  297070	# 1792806	 4441218		Un	 5106262		 7754674	# 4442219	13638880		21	  298071		 9494732	# 13639881	15542716		21	 9495733		11398568	# 15543717	16437086		Un	15742364	 	16635733	# 16438087 	16704853		21	11399569	 	11666335	# 16705854 	16996730		Un	28000487	 	28291363	# 16997731	17222261		Un	31335865 	31560395	# 17223262	17357772		Un	37062399 	37196909
+	
+	# Grab the bases corresponding to oldPos, so that they are associated with the newPos and newChr
+	newCoords$base <- chrvec[newCoords$oldPos]
 
 	# head(newCoords)
-	  # newChr  newPos
-	# 1     21 1494736
-	# 2     21 1494737
-	# 3     21 1494738
-	# 4     21 1494739
-	# 5     21 1494740
-	# 6     21 1494741
+	  # newChr  newPos oldPos base
+	# 1     21 1495159    424    T
+	# 2     21 1495160    425    C
+	# 3     21 1495161    426    T
+	# 4     21 1495162    427    G
+	# 5     21 1495163    428    A
+	# 6     21 1495164    429    C
+	
+	# length(chrvec)
+	# [1] 11717487
+
+	# range(newCoords$oldPos)
+	# [1]      424 11717487
 	
 	z <- unique(newCoords$newChr)
 	# [1] 21 Un
 	
 	for(i in z){ # saved object is "chrvecPart"
-		chrvecPart <- chrvec[newCoords$newChr == i]
-		chrvecPart <- data.frame(newPos = newCoords$newPos[newCoords$newChr == i], base = chrvecPart)
-			   # newPos base
-		# 1 1494736    M
-		# 2 1494737    M
-		# 3 1494738    M
-		# 4 1494739    M
-		# 5 1494740    M
-		# 6 1494741    M
+		# i <- z[1]
+		chrvecPart <- newCoords[newCoords$newChr == i, ]
 		save(chrvecPart, file = paste("chrvec.", chrno, ".Part.", i, ".rdd", sep = "")) # object is chrvecPart
 		}
 	} else if(job == "rejoin"){

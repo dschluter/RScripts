@@ -50,7 +50,7 @@ if(Glazerize){
 	} else {
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
-gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".")
+gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")
 gtstats <- list()
 
 if(length(groupnames) > 2 ) stop("Provide names of only two groups")

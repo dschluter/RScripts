@@ -9,18 +9,6 @@
 # setwd("~/Desktop")
 # git("genome.r")
 
-# stepsize <- 500     # Number of nucleotides in a genome block - now passed as an argument
-psdMissingAction <- "meanBW" 
-	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
-	# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
-	# 	"meanBW", then psd = NA replaced by mean psd, calculated separately for Between-group and Within-group pairs.
-	#   "meanGroup" then psd = NA replaced by mean psd, calculated separately for every unique type of pair
-	#		identified by missingGroups.
-	#		For example, pairs that are "1,1", "1,2" and "2,2" are treated separately, whereas "meanBW" treats
-	#		"1,1" and "2,2" as the same (i.e., both are within-group).
-
-# ---
-
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
@@ -35,13 +23,22 @@ stepsize <- as.integer(args[3])
 groupnames <- args[-c(1:3)]
 chrno <- gsub("chr", "", chrname)
 
-gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".")	# object is gtstats
+gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")	# object is gtstats
 load(gtstatsfile) # object is gtstats
 # names(gtstats)
  # [1] "vcf"               "groupnames"        "groups"           
  # [4] "nInd"              "nMin"              "control"          
  # [7] "genotypes"         "alleleFreqByGroup" "status"           
 # [10] "newPos"            "fst"               "psd"
+
+psdMissingAction <- "meanBW" 
+	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
+	# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
+	# 	"meanBW", then psd = NA replaced by mean psd, calculated separately for Between-group and Within-group pairs.
+	#   "meanGroup" then psd = NA replaced by mean psd, calculated separately for every unique type of pair
+	#		identified by missingGroups.
+	#		For example, pairs that are "1,1", "1,2" and "2,2" are treated separately, whereas "meanBW" treats
+	#		"1,1" and "2,2" as the same (i.e., both are within-group).
 
 control <- gtstats$control
 Glazerize <- control$Glazerize

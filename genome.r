@@ -790,7 +790,7 @@ g$psd <- function(genotypes, groups){
 	}
 
 
-g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissingAction = NA){
+g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvec, control){
 	
 	# This function calculates preliminary results for sliding window analyses on a (repeat-masked) chromosome
 	# It breaks the chromosome into blocks or bins of size stepsize and calculates a value of interest in each bin
@@ -800,6 +800,8 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 
 	# GATK no longer gives multiple rows of snps at the same value of POS
 
+	Glazerize <- control$Glazerize
+	psdMissingAction <- control$psdMissingAction
 	if( !is.element(psdMissingAction, c("meanAll", "meanBW", "meanGroup")) )
 		stop("psdMissingAction must be one of meanAll, meanBW, or meanGroup")
 
@@ -825,76 +827,83 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 	
 	pop <- as.character(gtstats$groups)
 	k <- as.integer(stepsize) # this is the size of the block
+	nbases <- length(chrvec)
 	
 	library(VariantAnnotation)
 	
-	load(chrvecfile) # object is chrvec
-	nbases <- length(chrvec)
-
 	# Establish the break points of the bins into which nucleotides will be grouped (e.g., k = 500 bases per bin)
 	# The last bin goes from the final bin of fully k nucleotides to the last nucleotide. 
 	# This last bin might be small.
 	
 	ibase <- c( seq(1, nbases, k), nbases + 1) # bases marking breaks between steps of size k
-	midbase <- ibase + (stepsize)/2 # If want something to indicate midpoint of blocks instead:
-	# [1]  251  751 1251 1751 2251 2751
+	midbase <- ibase + (stepsize)/2 # If want something to indicate midpoint of blocks instead
 
+	# head(midbase)
+	# [1]  251  751 1251 1751 2251 2751
 	# head(ibase)
 	# [1]    1  501 1001 1501 2001 2501
 	# tail(ibase)
-	# [1] 11715001 11715501 11716001 11716501 11717001 11717488 * last one less than k
+	# [1] 17355501 17356001 17356501 17357001 17357501 17357773 # * last one is less than k
 
   # 1) Count number of non-M bases in each nucleotide bin of stepsize "k". 
 	
 	# Break nucleotide index of chr into bins of stepsize k
-
 	chrbins <- findInterval(1:nbases, ibase) # indicates in which "bin" of size k each base belongs
 											 # if none missing, there should be k 1's, k 2's, etc.
 	# chrbins[499:505]
 	# [1] 1 1 2 2 2 2 2
 	
 	# count up the number of unmasked nucleotides in each bin - These are the ones coded as ACGT
-
 	nUnmasked <- tapply(chrvec, chrbins, function(x){length(x[x %in% c("A","C","G","T")])})
 	# head(nUnmasked)
-	#  1  2  3  4  5  6 
-	# 12  0  0  0  0  0 
-
+	# nUnmasked[1:20]
+	 # 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+	 # 0  0  0  9  0  0  0  0  0  0  0  0  0  0  4  0  0 11  0  0
 	rm(chrvec)
-
 
   # 2) Count up the number of snp and number of invariants in each bin
 	# Need to split SNP counts into same bins of stepsize k and then sum up
 
-	# head(start(rowData(gtstats$vcf)))
-	# [1] 16024 16025 16026 18389 18511 18549
+	# Check that this works if not glazerizing (ie gtstats$vcf is a vcf not a list)
+	if(Glazerize) pos <- gtstats$newPos else pos <- start(rowData(gtstats$vcf))
+
+	# head(pos) # 
+	# [1] 1794949 1794951 1794957 1794962 1794969 1794974
 	
-	
-	# ALl start positions are unique 
-	#	- it means I'm saying that snps and indels at the same start POS are just different alleles!!
-	# length(start(rowData(gtstats$vcf)))
-	# [1] 269349
-	# length(unique(start(rowData(gtstats$vcf))))
-	# [1] 269349
+	# All start positions are unique 
+	#	- snps and indels at the same start POS are just different alleles
+	# length(pos)
+	# [1] 871120
+	# length(unique(pos))
+	# [1] 871120
 		
 	# Count up the number of good snp in each bin (cut works because ibase intervals are made as factors)
-	snpBins <- cut(start(rowData(gtstats$vcf)), breaks = ibase, right = FALSE)
+	snpBins <- cut(pos, breaks = ibase, right = FALSE)
 	nSnp <- table( snpBins )
 
 	# head(nSnp)
     # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001) 
     #       0           0           0           0           0           0 
     
-    # This still includes some invariants, sites not polymorphic in these two populations
-    is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
-		z <- colSums(x, na.rm = TRUE)
-		sum( z > 0 ) >= 2
-		})
-	is.monomorphic <- split(!is.polymorphic, snpBins)
+    # Data still includes some invariants, sites not polymorphic in these two populations
+    # The following is now redundant -- I think this information is already in gtstats$status
+    # is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
+		# z <- colSums(x, na.rm = TRUE)
+		# sum( z > 0 ) >= 2
+		# })
+	# table(is.polymorphic, gtstats$status)
+	# is.polymorphic      i      v
+	         # FALSE 627449      0
+	         # TRUE       0 243671
+
+	is.monomorphic <- split(gtstats$status == "i", snpBins)
+	# is.monomorphic <- split(!is.polymorphic, snpBins)
 	nMonomorphic <- sapply(is.monomorphic, sum)
 
+
 	# Count up the number of good invariants in each bin
-	nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) )
+	if(Glazerize){ nInvariants <- table( cut(goodInvariants$newPos, breaks = ibase, right = FALSE) )
+	} else { nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) ) }
 	
 	# head(nInvariants)
     # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001)  
@@ -907,29 +916,29 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 	results <- data.frame(ibase = ibase[-length(ibase)], midbase = midbase[-length(midbase)], nUnmasked = nUnmasked, 
 					nSnp = as.vector(nSnp) - nMonomorphic, nInvariants = as.vector(nInvariants) + nMonomorphic)
 
-	#results[105:125,]
+	# results[110:130,]
 	    # ibase midbase nUnmasked nSnp nInvariants
-	# 105 52001   52251         0    0           0
-	# 106 52501   52751        25    0          14
-	# 107 53001   53251       159    3         156
-	# 108 53501   53751       372    1          12
-	# 109 54001   54251       302    2          59
-	# 110 54501   54751       480   13         454
-	# 111 55001   55251       399    8         334
-	# 112 55501   55751       500    0          40
-	# 113 56001   56251       376    0          77
-	# 114 56501   56751       500    7         296
-	# 115 57001   57251       409    0         112
-	# 116 57501   57751       257    0           0
-	# 117 58001   58251       108    0           0
-	# 118 58501   58751       440    5         373
-	# 119 59001   59251       487    8         463
-	# 120 59501   59751       443    0           0
-	# 121 60001   60251       162    0           0
-	# 122 60501   60751         0    0           0
-	# 123 61001   61251       108    0           0
-	# 124 61501   61751       203    2          98
-	# 125 62001   62251       474   10         369
+	# 110 54501   54751         0    0           0
+	# 111 55001   55251         0    0           0
+	# 112 55501   55751        28    0           0
+	# 113 56001   56251         0    0           0
+	# 114 56501   56751         9    0           0
+	# 115 57001   57251         9    0           0
+	# 116 57501   57751         5    0           0
+	# 117 58001   58251        99    4          60
+	# 118 58501   58751       193   33         160
+	# 119 59001   59251        89    6          83
+	# 120 59501   59751       411   19         389
+	# 121 60001   60251       398    3         194
+	# 122 60501   60751       343    5         222
+	# 123 61001   61251       314    3         266
+	# 124 61501   61751       456    5         180
+	# 125 62001   62251       336    8          88
+	# 126 62501   62751         4    0           0
+	# 127 63001   63251         8    0           0
+	# 128 63501   63751       106    0           0
+	# 129 64001   64251       283    0           0
+	# 130 64501   64751       363    0           6
 		
 	
   # 3) Calculate Fst summary stats
@@ -951,10 +960,10 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		# VARa VARb VARw  fst 
 		   # 0    0    0  NaN 
 		   
-		# z[10000]
-		# $`[4.9995e+06,5e+06)`
-		      # VARa       VARb       VARw        fst 
-		 # 2.1719008 -0.2090909  2.1818182  0.5240279 
+		# z[20000]
+		# $`[9.9995e+06,1e+07)`
+		     # VARa      VARb      VARw       fst 
+		# 2.6595041 0.3818182 2.6363636 0.4684134
 
 		z <- as.data.frame(do.call("rbind", z))
 		
@@ -966,21 +975,7 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		rm(z)
 		rm(fstBinned)
 				
-		# results[105:115,]
-		    # ibase midbase nUnmasked nSnp nInvariants         VARa        VARb       VARw          fst
-		# 105 52001   52251         0    0           0  0.000000000  0.00000000 0.00000000           NA
-		# 106 52501   52751        25    0          14  0.000000000  0.00000000 0.00000000           NA
-		# 107 53001   53251       159    3         156  0.003312310 -0.00645986 0.27142857  0.012346420
-		# 108 53501   53751       372    1          12  0.026851852  0.14898990 0.09090909  0.100662670
-		# 109 54001   54251       302    2          59  0.005788854  0.17820513 0.28095238  0.012450585
-		# 110 54501   54751       480   13         454 -0.223594034  1.92135843 1.15960551 -0.078251693
-		# 111 55001   55251       399    8         334 -0.045139015  0.65066268 0.61020734 -0.037129114
-		# 112 55501   55751       500    0          40  0.000000000  0.00000000 0.00000000           NA
-		# 113 56001   56251       376    0          77  0.000000000  0.00000000 0.00000000           NA
-		# 114 56501   56751       500    7         296 -0.016474119  1.56464314 0.82750825 -0.006934494
-		# 115 57001   57251       409    0         112  0.000000000  0.00000000 0.00000000           NA
-		
-		}
+		} # end fst
 
   			
   # 4) Calculate CSS quantities of interest within bins
@@ -996,16 +991,19 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		wbPairs <- rep("w", length(gtpairs))
 		wbPairs[sapply(strsplit(gtpairs, split=","), function(x){length(unique(x))}) == 2] <- "b"
 		# wbPairs
-		  # [1] "w" "w" "w" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "b"
-		 # [26] "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "b" "b" "b" "b" "b" "w" "w"
-		 # [51] "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b"
-		 # [76] "b" "b" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "b"
-		# [101] "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w"
-		# [126] "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w"
-		# [151] "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b"
-		# [176] "b" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "b" "b" "b"
-		# [201] "b" "b" "b" "w" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "w" "w"
-		# [226] "w" "w" "w" "w" "w" "w"
+		  # [1] "w" "w" "w" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b"
+		 # [19] "b" "b" "b" "w" "w" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b"
+		 # [37] "b" "b" "b" "b" "b" "w" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w"
+		 # [55] "b" "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w"
+		 # [73] "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "b"
+		 # [91] "b" "b" "b" "b" "b" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w"
+		# [109] "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w"
+		# [127] "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b"
+		# [145] "b" "b" "b" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w"
+		# [163] "w" "w" "w" "w" "w" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "w" "w"
+		# [181] "b" "b" "b" "b" "b" "b" "w" "w" "w" "b" "b" "b" "b" "b" "b" "w" "w" "b"
+		# [199] "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b"
+		# [217] "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w"
 	
 		if(psdMissingAction == "meanBW") psdGroups <- wbPairs else 
 			if(psdMissingAction == "meanAll") psdGroups <- rep(1, length(wbPairs)) else 
@@ -1058,23 +1056,22 @@ g$blockstats <- function(gtstats, stepsize, goodInvariants, chrvecfile, psdMissi
 		psdSum <- lapply(psdBins, colSums)
 		psdSum <- as.data.frame( do.call("rbind", psdSum), stringsAsFactors = FALSE )
 
-		# psdSum[109:112,]
-		         # 2,2      2,2       2,2       2,2      2,1    2,1      2,1      2,1       2,1       2,2      2,2
-		# 109 1.500000 0.500000 0.4421769 0.3809524 0.500000 0.0000 0.000000 0.377551 0.4489796 0.4421769 1.061224
-		# 110 1.959184 2.910714 2.4107143 2.2934605 3.979167 1.8750 2.656863 3.185317 2.3750000 2.0702948 2.963346
-		# 111 2.283834 3.193878 2.3101566 2.3101566 2.270833 3.1875 1.137500 3.145833 3.3541667 2.4738776 1.590157
-		# 112 0.000000 0.000000 0.0000000 0.0000000 0.000000 0.0000 0.000000 0.000000 0.0000000 0.0000000 0.000000
-		          # 2,2      2,2      2,2      2,2      2,1      2,1      2,1       2,1       2,1      2,1       2,2
-		# 109 0.4421769 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.4489796 0.4489796 0.500000 1.0000000
-		# 110 2.0904018 2.484805 3.641428 1.973214 3.363889 2.678959 1.863889 1.9677579 2.4659091 2.935317 1.5484694
-		# 111 2.4738776 2.310157 2.174343 1.973878 3.770833 2.054167 2.545833 1.6708333 1.9208333 2.420833 0.7838338
-		# 112 0.0000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.0000000 0.0000000 0.000000 0.0000000
-		# ...
-		          # 1,1       1,1       1,1
-		# 109 0.4421769 0.4421769 0.4421769
-		# 110 2.2377723 2.7349810 1.6950109
-		# 111 1.1391762 1.6391762 0.7800000
-		# 112 0.0000000 0.0000000 0.0000000
+		# psdSum[120:125,]
+		          # 2,2       2,2       2,2       2,2      2,1       2,1       2,1
+		# 120 4.1061111 3.8134125 5.6071429 4.6071429 6.000000 5.6071429 4.0000000
+		# 121 0.7600000 0.6052842 0.6052842 0.6052842 0.750000 0.5238095 0.5863095
+		# 122 0.3838589 0.2116101 0.2116101 1.3838589 0.225000 0.3678571 0.2250000
+		# 123 0.4913219 2.0363636 0.4913219 0.3286713 1.100000 1.1000000 1.1000000
+		# 124 0.3929746 0.9286889 0.9286889 0.3284585 1.963333 2.5633333 2.5633333
+		# 125 3.5000000 2.8092589 2.8092589 2.5000000 2.000000 3.7000000 2.5000000
+		         # 2,1      2,1       2,2       2,2       2,2        2,2       2,2
+		# 120 6.500000 4.868056 6.5149063 4.2113717 5.6220492 6.00000000 4.6000000
+		# 121 0.750000 0.750000 0.7600000 0.6052842 0.7600000 0.76000000 0.6052842
+		# 122 1.225000 0.725000 0.4747680 0.1207010 0.4747680 0.12070099 1.1207010
+		# 123 1.100000 1.100000 1.0363636 0.4913219 1.3286713 0.03636364 0.3286713
+		# 124 1.563333 1.463333 0.3284585 0.3284585 0.3284585 0.32845850 0.9286889
+		# 125 3.583692 0.500000 3.1202266 2.9264464 3.4200000 1.50000000 3.5490323
+		# ....
 
 		names(psdSum) <- paste("psd", names(psdSum), sep = ".")
 

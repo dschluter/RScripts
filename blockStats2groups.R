@@ -33,22 +33,32 @@ project <- args[1]
 chrname <- args[2]
 stepsize <- as.integer(args[3])
 groupnames <- args[-c(1:3)]
+chrno <- gsub("chr", "", chrname)
 
-gtstatsfile 		<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".") 								# object gtstats
+gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "rdd", sep = ".")	# object is gtstats
 load(gtstatsfile) # object is gtstats
+# names(gtstats)
+ # [1] "vcf"               "groupnames"        "groups"           
+ # [4] "nInd"              "nMin"              "control"          
+ # [7] "genotypes"         "alleleFreqByGroup" "status"           
+# [10] "newPos"            "fst"               "psd"
 
 control <- gtstats$control
 Glazerize <- control$Glazerize
 groupnames <- gtstats$groupnames
 nInd <- gtstats$nInd 	# n individuals genotyped in each group eg 7 11
 nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
+control$psdMissingAction <- psdMissingAction
 
 if(Glazerize){
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
+	chrvecfile = paste("chrvec.", chrno, ".glazer.rdd", sep = "")
 	} else {
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object is goodInvariants
+	chrvecfile = paste("chrvec.", chrno, ".masked.rdd", sep = "")
 	}
 load(goodInvariantsFile) # object is goodInvariants
+load(chrvecfile) # object is chrvec
 
 blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), 
 							"blockstats", stepsize, "rdd", sep = ".")
@@ -56,18 +66,17 @@ blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."),
 # Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
 names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
 
-# Rename newPos to POS if using Glazer reassembly
-goodInvariants$POS <- goodInvariants$newPos
+# Rename newPos to POS if using Glazer reassembly - no, keep them separate
+# goodInvariants$POS <- goodInvariants$newPos
 
-goodInvariants <- goodInvariants[, c("POS", "REF", groupnames)]
-z<-apply(goodInvariants[, groupnames], 1, function(x){
+# Grab the columns of interest
+goodInvariants <- goodInvariants[, c("newPos", "POS", "REF", groupnames)]
+
+# Drop invariants that do not meet the minimum number of genotypes required
+z <- apply(goodInvariants[, groupnames], 1, function(x){
 	all(x >= nMin)
 	})
 goodInvariants <- goodInvariants[z, ]
-
-# get the chrvec file name for blockstats
-chrno <- gsub("chr", "", chrname)
-chrvecfile = paste("chrvec.", chrno, ".masked.rdd", sep = "")
 
 gc()
 
@@ -75,8 +84,7 @@ gc()
 # ----------
 # Get block window stats for group differences
 
-blockstats <- g$blockstats(gtstats, stepsize, goodInvariants = goodInvariants, 
-					chrvecfile, psdMissingAction = psdMissingAction) 
+blockstats <- g$blockstats(gtstats, stepsize, goodInvariants = goodInvariants, chrvec = chrvec, control = control) 
 
 save(blockstats, file = blockstatsfile)
 # load(blockstatsfile)

@@ -38,6 +38,17 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 
 	for(i in chrname){
 		# i <- "chrXXI"
+		# Grab data needed to include an underline to indicate location of old assembly of this chromosome
+		drawOldAssembly <- FALSE
+		if( Glazerize & !is.element(i, c("chrVIIpitx1", "chrUn", "chrM")) ){
+			chrNumeric <- g$chrname2numeric( i )
+			# grab those rows for which both old and new are on the given chrname
+			z <- x[x$NewChr == chrNumeric & x$OldChr == chrNumeric,] 
+			zstart <- z$NewStart/10^6
+			zend <- z$NewEnd/10^6
+			drawOldAssembly <- TRUE
+			}
+
 		lapply(interestingPairs, function(groupnames){
 			# groupnames <- interestingPairs[[1]]
 			blockstatsfile 	<- paste(project, i, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
@@ -51,6 +62,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 				VarPerBase <- FSTwin$totVARa/FSTwin$nbases
 				ibaseMillions <- FSTwin$ibase/10^6
 				plot(VarPerBase ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase), col = "blue")
 				} else
 	
 			if(tolower(method) == "fst"){
@@ -58,6 +70,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 					windowNmin = windowNmin)
 				ibaseMillions <- FSTwin$ibase/10^6
 				plot(fst ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst), col = "blue")
 				} else
 	
 			if(tolower(method) == "css"){
@@ -66,18 +79,9 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 				cssPerBase <- CSSwin$CSS/CSSwin$nbases
 				ibaseMillions <- CSSwin$ibase/10^6
 				plot(cssPerBase ~ ibaseMillions, data = CSSwin, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase), col = "blue")
 				} else stop("Method must be vara, fst, or css")
-	
-			# Add an underline to indicate location of old assembly of same chromosome
-			if( Glazerize & !is.element(i, c("chrVIIpitx1", "chrUn", "chrM")) ){
-				chrNumeric <- g$chrname2numeric( i )
-				# grab those rows for which both old and new are on the given chrname
-				z <- x[x$NewChr == chrNumeric & x$OldChr == chrNumeric,] 
-				zstart <- z$NewStart/10^6
-				zend <- z$NewEnd/10^6
-				segments(x0 = zstart, x1 = zend, y0 = -.001, col = "blue")
-				}
-				
+					
 			})
 		}
 	dev.off()

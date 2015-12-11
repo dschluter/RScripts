@@ -23,6 +23,8 @@ stepsize <- as.integer(args[3])
 groupnames <- args[-c(1:3)]
 chrno <- gsub("chr", "", chrname)
 
+cat("\nProject, chrname, groupnames, stepsize", project, chrname, groupnames, stepsize, "\n")
+
 gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")	# object is gtstats
 load(gtstatsfile) # object is gtstats
 # names(gtstats)

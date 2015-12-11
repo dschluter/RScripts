@@ -62,7 +62,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 				VarPerBase <- FSTwin$totVARa/FSTwin$nbases
 				ibaseMillions <- FSTwin$ibase/10^6
 				plot(VarPerBase ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase), col = "blue")
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase, na.rm=TRUE), col = "blue")
 				} else
 	
 			if(tolower(method) == "fst"){
@@ -70,7 +70,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 					windowNmin = windowNmin)
 				ibaseMillions <- FSTwin$ibase/10^6
 				plot(fst ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst), col = "blue")
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue")
 				} else
 	
 			if(tolower(method) == "css"){
@@ -79,7 +79,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 				cssPerBase <- CSSwin$CSS/CSSwin$nbases
 				ibaseMillions <- CSSwin$ibase/10^6
 				plot(cssPerBase ~ ibaseMillions, data = CSSwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase), col = "blue")
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase, na.rm=TRUE), col = "blue")
 				} else stop("Method must be vara, fst, or css")
 					
 			})

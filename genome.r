@@ -1,5 +1,87 @@
 g<-list()
 
+g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, interestingPairs,
+			stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
+			Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
+	# Carries out sliding window analysis and plots the results to a pdf file, one chromosome per page.
+	# All interestingPairs are plotted on the same page, whose length is adjusted according to their number
+
+	# interestingPairs must be a list, 
+	#	eg interestingPairs <- list(c("paxl", "paxb"), c("pril", "prib"))
+
+	# methods: 
+	# 	"vara" is totVarA, variance among, per base
+	# 	"fst" is weir-cockerham Fst
+	# 	"css" is my slightly moodified version of felicity's CSS score, per base
+	
+	# stepsize is the size of the block in the corresponding blockstats file
+	# nsteps.per.window 	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
+	# windowNmin	 		# minimum number of good bases in window to include, otherwise not included
+	
+	# Glazerize = TRUE results in line segments being included in plot to locate the old assembly of that chr
+	# 		"glazerFileS4 NewScaffoldOrder.csv" must be in local directory
+	if(Glazerize) x <- read.csv(scafFile)
+
+	# Order the chromosomes by their numeric values, leaving out the specially named ones
+	if(orderChr){
+		chrSpecial <- intersect(chrname, c("chrVIIpitx1", "chrUn", "chrM"))
+		if(length(chrSpecial) > 0) chrname <- chrname[!is.element(chrname, chrSpecial)]
+		chrNumeric <- sapply(chrname, g$chrname2numeric)
+		chrname <- chrname[ order(chrNumeric) ]
+		if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
+		}
+			
+	# Adjust page size according to the number of interestingPairs
+	npairs <- length(interestingPairs)
+	pdf( paste(project, "slidewin", method, "pdf", sep = "."), height = max(11, round(npairs * 1.5)) )
+	par(mfrow = c(npairs, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+
+	for(i in chrname){
+		# i <- "chrXXI"
+		lapply(interestingPairs, function(groupnames){
+			# groupnames <- interestingPairs[[1]]
+			blockstatsfile 	<- paste(project, i, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
+			load(blockstatsfile) # object name is blockstats
+			header <- paste(c(groupnames, "/", i), collapse = " ")
+	
+			if(tolower(method) == "vara"){
+				FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
+					windowNmin = windowNmin)
+				# Need to convert raw variances to *per-base*
+				VarPerBase <- FSTwin$totVARa/FSTwin$nbases
+				ibaseMillions <- FSTwin$ibase/10^6
+				plot(VarPerBase ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
+				} else
+	
+			if(tolower(method) == "fst"){
+				FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
+					windowNmin = windowNmin)
+				ibaseMillions <- FSTwin$ibase/10^6
+				plot(fst ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
+				} else
+	
+			if(tolower(method) == "css"){
+				CSSwin <- g$slidewin(blockstats, method = c("CSS"), nsteps.per.window = nsteps.per.window, 
+					windowNmin = windowNmin)
+				cssPerBase <- CSSwin$CSS/CSSwin$nbases
+				ibaseMillions <- CSSwin$ibase/10^6
+				plot(cssPerBase ~ ibaseMillions, data = CSSwin, type="l", lwd = 0.5, main = header)
+				} else stop("Method must be vara, fst, or css")
+	
+			# Add an underline to indicate location of old assembly of same chromosome
+			if( Glazerize & !is.element(i, c("chrVIIpitx1", "chrUn", "chrM")) ){
+				chrNumeric <- g$chrname2numeric( i )
+				# grab those rows for which both old and new are on the given chrname
+				z <- x[x$NewChr == chrNumeric & x$OldChr == chrNumeric,] 
+				zstart <- z$NewStart/10^6
+				zend <- z$NewEnd/10^6
+				segments(x0 = zstart, x1 = zend, y0 = -.001, col = "blue")
+				}
+				
+			})
+		}
+	dev.off()
+	}
 
 g$chrname2numeric <- function(chrname){
 	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)

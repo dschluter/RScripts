@@ -61,6 +61,8 @@ cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
+gc()
+
 # names(vcfresults)
  # [1] "groupnames"        "groupcodes"        "control"          
  # [4] "nInd"              "nMin"              "vcf"              
@@ -124,18 +126,26 @@ if(Glazerize){
 # gcinfo(TRUE)
 gc()
 
+cat("\nCalculating allele frequencies for each locus\n")
+
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 vcfresults$alleleFreqByGroup <- NULL
 
+cat("\nDone calculating allele frequencies for each locus\n")
+gc()
 
 # ----------
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
+
+cat("\nIdentifying loci with sufficient numbers of individuals genotyped\n")
 
 # Identify loci with enough alleles in both groups (the minimum number of alleles is nMin*2)
 sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
 	z <- rowSums(x, na.rm = TRUE)
 	z[1] >= 2*nMin[1] & z[2] >= 2*nMin[2]
 	})
+
+cat("\nDropping loci with insufficient numbers of individuals genotyped\n")
 
 # Drop cases with insufficient numbers of individuals
 # Keep snpTypeList too, need it if want to remove non-polymorphic indels later
@@ -157,6 +167,8 @@ if(Glazerize) newPos <- vcfresults$newPos[sufficient.alleles.per.group]
 
 rm(sufficient.alleles.per.group)
 rm(vcfresults) # assuming we have extracted all the useful bits
+
+cat("\nDone dropping loci with insufficient numbers of individuals genotyped\n")
 
 gc()
 
@@ -532,6 +544,7 @@ if(includePsd){
 	colnames(psd) <- colnames(z) # duplicate names were ok
 	rm(z)
 	
+	cat("\nDone calculating percent sequence divergence\n")
 	gc()
 
 	gtstats$psd <- psd

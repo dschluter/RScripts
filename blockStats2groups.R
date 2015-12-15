@@ -214,6 +214,8 @@ rm(nSnp)
 rm(nInvariants)
 rm(nMonomorphic) 
 
+gc()
+
 # blockstats[110:130,]
 	    # ibase midbase nUnmasked nSnp nInvariants
 	# 110 54501   54751         0    0           0
@@ -278,6 +280,8 @@ if( !is.null(fst) ){
 	rm(fst)
 
 	cat("\nDone Fst calculations\n")
+	
+	gc()
 	
 	} # end fst
 
@@ -424,6 +428,10 @@ if( !is.null(psd) ){
 	
 	psd <- as.data.frame(t(psd), stringsAsFactors = FALSE)
 
+	cat("\nDone assigning averages to missing pairwise distances\n")
+	
+	gc()
+
 	psdBins <- split(psd, snpBins)
 	rm(psd)
   	cat("\nEnded assigning average pairwise distances\n")
@@ -445,6 +453,8 @@ if( !is.null(psd) ){
 		}
 	psdBins <- z
 	rm(z)
+	
+	gc()
 
  	cat("\nSumming the psd's within bins\n")
 	

@@ -117,6 +117,9 @@ cat("\nSuccessfully read vcf file\n")
 # geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
 # # head(rowRanges(vcf), 3)	# Genomic positions. This command didn't work
 # head(rowData(vcf), 3)		# Genomic positions. This command worked instead
+# To print many rows, do this first:
+# options(showHeadLines=Inf)    # allows you to print many lines
+# options("showHeadLines"=NULL) # reverts back to default
 # ref(vcf)					# extract the REF 
 # alt(vcf)					# ALT alleles (DNAStringSetList)
 # qual(vcf)	 				# SNP quality
@@ -180,6 +183,8 @@ print(nMin)  #
 
 # ------
 # Drop masked SNP (variants whose start position is masked in the chromosome)
+# ** applied to CHRIV, this step removes base "12811481", the putative site of the Eda mutation **
+# 	In windowsmaskerSdust.chrIV, the site is marked as masked.
 
 keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
 vcf <- vcf[keep]

@@ -152,6 +152,9 @@ cat("\nDropping loci with insufficient numbers of individuals genotyped\n")
 
 genotypes <- genotypes[sufficient.alleles.per.group, ]
 alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
+
+# if Glazerize is TRUE, then vcfresults$vcf is a list (containing blocks from 1 or more former chromosomes)
+# So need to drop cases with insufficient numbers of individuals separately for each element of vcfresults$vcf
 if(Glazerize){
 	nPerChr <- sapply(vcfresults$vcf, nrow) # nrow for each vcf block in vcfresults$vcf
 	oldChr <- rep(names(nPerChr), nPerChr)
@@ -185,7 +188,7 @@ gc()
 
 # "i" = invariant
 # "v" = variant
-# "n" = missing, indicates that the snp is dropped in a later step
+# "n" = missing (later step, the snp is dropped)
 
 status <- rep("v", length(alleleFreqByGroup)) # initialize
 is.invariant <- sapply(alleleFreqByGroup, function(x){
@@ -205,7 +208,7 @@ rm(is.invariant)
 # Don't drop the invariant sites - these need to be counted with the invariants when doing block stats
 
 # -----------------
-# If trueSnpOnly = TRUE, drop everything except *true snp and invariants* 
+# If trueSnpOnly = TRUE, *drop everything except true snp and invariants* 
 # Sites have multiple alt alleles, and only some are true snps
 
 # Remember: if an indel w.r.t. REF is fixed for the same allele in both limnetic and benthic, it is not an indel.
@@ -422,8 +425,8 @@ if(includeFst){
 	temp <- unlist(geno)
 	temp <- g$recode(temp, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
 							c("11","12", "22", "13", "23", "33", "14", "24", "34", "44"))
-	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop))) # original names lost
-	colnames(temp) <- colnames(geno)
+	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop)))
+	colnames(temp) <- colnames(geno) # otherwise names are lost
 
 	# head(names(temp)) 
 
@@ -433,13 +436,45 @@ if(includeFst){
 	# 11 11 
 
 	gc() # when trueSnpOnly = FALSE
-		       # used  (Mb) gc trigger  (Mb) max used  (Mb)
-	# Ncells  6395311 341.6   14466089 772.6 12131744 648.0
-	# Vcells 28639355 218.6   66338776 506.2 63103588 481.5
+	          # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells 13123769 700.9   25310187 1351.8  25310187 1351.8
+	# Vcells 66308800 505.9  197794160 1509.1 247242700 1886.4
 
 	rm(geno)
 	
+	if(FALSE){
+		# Alternate strategy:
+		# Try block version, maybe closer in structure to data.table
+		# Break up into smaller blocks to reduce memory needed by hierfstat
+		geno <- gtstats$genotypes[gtstats$status == "v", ]
+		# geno <- geno[1:1000,]
+		blocks <- cut(1:nrow(geno), 100) # break up the cases into many smaller blocks and run on each
+		# z <- by(geno, blocks, FUN=function(x){
+		system.time({
+		z <- list()
+		for(i in 1:length(levels(blocks))){
+				# i <- 1
+				x <- t( geno[blocks == levels(blocks)[i], ] )
+				x1 <- apply(x, 2, function(x){
+					as.integer( g$recode(x, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
+									c("11","12", "22", "13", "23", "33", "14", "24", "34", "44")) )
+									})
+				x1 <- as.data.frame(x1, stringsAsFactors = FALSE)
+				# Must use groups in wc command because must be a number
+				z1 <- g$wc.revised( cbind(groups, x1) )
+				z[[i]] <- cbind( lsiga  = z1$sigma.loc[,"lsiga"], 
+							lsigb = z1$sigma.loc[,"lsigb"], 
+							lsigw  = z1$sigma.loc[,"lsigw"], 
+							fst = z1$per.loc$FST, 
+							fis = z1$per.loc$FIS )
+				}
+				}) # 27 minutes
+				# })
+		}
+
 	# Must use groups instead of pop in wc command because must be a number
+
+	# system.time( z <- g$wc.revised(cbind(groups, temp[,1:1000])) ) # 5 sec
 
 	# Calculate Fst - # took about 40 min
 	# z <- wc(cbind(groups, temp))
@@ -451,6 +486,8 @@ if(includeFst){
 		           # used  (Mb) gc trigger  (Mb) max used  (Mb)
 	# Ncells  6860317 366.4   14466089 772.6 14466089 772.6
 	# Vcells 32533361 248.3   85109004 649.4 73302178 559.3
+	
+	
 
 	cat("\nFst\n")
 	print(z$FST)

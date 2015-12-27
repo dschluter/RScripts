@@ -126,13 +126,16 @@ if(Glazerize){
 # gcinfo(TRUE)
 gc()
 
-cat("\nCalculating allele frequencies for each locus\n")
+cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
 
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
 vcfresults$alleleFreqByGroup <- NULL
 
-cat("\nDone calculating allele frequencies for each locus\n")
+cat("\nDone extracting allele frequencies for each locus\n")
 gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells 14022358 748.9   25310187 1351.8  25310187 1351.8
+# Vcells 57018471 435.1  197794295 1509.1 245339434 1871.8
 
 # ----------
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
@@ -174,6 +177,9 @@ rm(vcfresults) # assuming we have extracted all the useful bits
 cat("\nDone dropping loci with insufficient numbers of individuals genotyped\n")
 
 gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells 12626268 674.4   25310187 1351.8  25310187 1351.8
+# Vcells 53339500 407.0  158235436 1207.3 245339434 1871.8
 
 # nrow(genotypes)
 # [1] 871120
@@ -260,9 +266,6 @@ if(trueSnpOnly){
 	# alleleFreqByGroup["chrXXI:54638_T/TG"]
 	
 	gc()
-		       # used  (Mb) gc trigger  (Mb) max used  (Mb)
-	# Ncells  6681616 356.9   11759451 628.1 11759451 628.1
-	# Vcells 28811593 219.9   57298003 437.2 57298003 437.2
 
 
 	# Filter once more to change the status of rows having insufficient numbers of alleles after indels deleted
@@ -297,11 +300,7 @@ if(trueSnpOnly){
 
 	} # end if(trueSnpOnly)
 
-gc() # if trueSnpOnly = TRUE
-           # used  (Mb) gc trigger  (Mb) max used  (Mb)
-# Ncells  6796335 363.0   11759451 628.1 11759451 628.1
-# Vcells 29382190 224.2   57298003 437.2 57298003 437.2
-
+gc() 
 
 # ------------------
 # Genotype frequencies
@@ -396,10 +395,8 @@ if(includeFst){
 	
 	# Prepare genotypes for Fst
 
-	# Initialize so that we can set all stats for non-polymorphic sites to NA
-	fst <- data.frame(row.names = rownames(gtstats$genotypes) )
-
-	geno <- as.data.frame(t(gtstats$genotypes[gtstats$status == "v", ]), stringsAsFactors = FALSE) 
+	# fst <- data.frame(row.names = rownames(gtstats$genotypes) ) # initialize
+	# geno <- as.data.frame(t(gtstats$genotypes[gtstats$status == "v", ]), stringsAsFactors = FALSE) 
 
 	library(hierfstat)
 	
@@ -421,12 +418,11 @@ if(includeFst){
 
 	# Convert genotypes to hierfstat format:
 	# Columns are genotypes indicated as 11 (0/0), 12 (0/1), 22 (1/1), or NA (NA)
-	
-	temp <- unlist(geno)
-	temp <- g$recode(temp, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
-							c("11","12", "22", "13", "23", "33", "14", "24", "34", "44"))
-	temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop)))
-	colnames(temp) <- colnames(geno) # otherwise names are lost
+	# temp <- unlist(geno)
+	# temp <- g$recode(temp, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
+							# c("11","12", "22", "13", "23", "33", "14", "24", "34", "44"))
+	# temp <- as.data.frame(matrix(as.integer(temp), nrow = length(pop)))
+	# colnames(temp) <- colnames(geno) # otherwise names are lost
 
 	# head(names(temp)) 
 
@@ -435,65 +431,71 @@ if(includeFst){
 	 # 1  2 
 	# 11 11 
 
-	gc() # when trueSnpOnly = FALSE
-	          # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells 13123769 700.9   25310187 1351.8  25310187 1351.8
-	# Vcells 66308800 505.9  197794160 1509.1 247242700 1886.4
-
-	rm(geno)
+	# rm(geno)
 	
-	if(FALSE){
-		# Alternate strategy:
-		# Try block version, maybe closer in structure to data.table
-		# Break up into smaller blocks to reduce memory needed by hierfstat
-		geno <- gtstats$genotypes[gtstats$status == "v", ]
-		# geno <- geno[1:1000,]
-		blocks <- cut(1:nrow(geno), 100) # break up the cases into many smaller blocks and run on each
-		# z <- by(geno, blocks, FUN=function(x){
-		system.time({
-		z <- list()
-		for(i in 1:length(levels(blocks))){
-				# i <- 1
-				x <- t( geno[blocks == levels(blocks)[i], ] )
-				x1 <- apply(x, 2, function(x){
-					as.integer( g$recode(x, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
-									c("11","12", "22", "13", "23", "33", "14", "24", "34", "44")) )
-									})
-				x1 <- as.data.frame(x1, stringsAsFactors = FALSE)
-				# Must use groups in wc command because must be a number
-				z1 <- g$wc.revised( cbind(groups, x1) )
-				z[[i]] <- cbind( lsiga  = z1$sigma.loc[,"lsiga"], 
-							lsigb = z1$sigma.loc[,"lsigb"], 
-							lsigw  = z1$sigma.loc[,"lsigw"], 
-							fst = z1$per.loc$FST, 
-							fis = z1$per.loc$FIS )
-				}
-				}) # 27 minutes
-				# })
-		}
+	# system.time( z <- g$wc.revised(cbind(groups, temp[,1:1000])) ) # 5 sec
 
 	# Must use groups instead of pop in wc command because must be a number
-
-	# system.time( z <- g$wc.revised(cbind(groups, temp[,1:1000])) ) # 5 sec
 
 	# Calculate Fst - # took about 40 min
 	# z <- wc(cbind(groups, temp))
 
 	# Use this slightly faster version - took about 20 minutes
-	z <- g$wc.revised(cbind(groups,temp))
+	# z <- g$wc.revised(cbind(groups,temp))
+
+	# ---
+	# Alternate strategy:
+	# Break up into smaller blocks to reduce memory needed by hierfstat
+
+	# Initialize
+	fst <- matrix(nrow=nrow(gtstats$genotypes), ncol = 5, 
+			dimnames = list(rownames(gtstats$genotypes), c("lsiga","lsigb","lsigw","fst","fis")) ) # initialize
+
+	geno <- gtstats$genotypes[gtstats$status == "v", ]
+	# geno <- geno[1:1000,]
+
+	blocks <- cut(1:nrow(geno), 100) # break up the cases into many smaller blocks and run on each
+	# z <- by(geno, blocks, FUN=function(x){
+	# system.time({
+	z <- list()
+	for(i in 1:length(levels(blocks))){
+			# i <- 1
+			x <- t( geno[blocks == levels(blocks)[i], ] )
+			x1 <- apply(x, 2, function(x){
+				as.integer( g$recode(x, c("0/0","0/1","1/1","0/2","1/2","2/2","0/3","1/3","2/3","3/3"), 
+								c("11","12", "22", "13", "23", "33", "14", "24", "34", "44")) )
+								})
+			x1 <- as.data.frame(x1, stringsAsFactors = FALSE)
+			# Must use groups in wc command because must be a number
+			z1 <- g$wc.revised( cbind(groups, x1) )
+			z[[i]] <- cbind( lsiga  = z1$sigma.loc[,"lsiga"], 
+						lsigb = z1$sigma.loc[,"lsigb"], 
+						lsigw  = z1$sigma.loc[,"lsigw"], 
+						fst = z1$per.loc$FST, 
+						fis = z1$per.loc$FIS )
+			}
+			# }) # 27 minutes
+			# })
+	# }
+	z <- do.call("rbind", z)
+	fst[gtstats$status == "v", ] <- z
+	rm(geno)
+	rm(z)
 	
 	gc() # when trueSnpOnly = FALSE
-		           # used  (Mb) gc trigger  (Mb) max used  (Mb)
-	# Ncells  6860317 366.4   14466089 772.6 14466089 772.6
-	# Vcells 32533361 248.3   85109004 649.4 73302178 559.3
-	
-	
+	          # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells 13134522 701.5   25310187 1351.8  25310187 1351.8
+	# Vcells 61577380 469.8  158235436 1207.3 245339434 1871.8
 
-	cat("\nFst\n")
-	print(z$FST)
+	cat("\nWhole-chromosome Fst:\n")
+	# print(z$FST)
 	#[1] 0.4119456
-	# head(z$sigma.loc)
-
+	
+	z <- colSums(fst, na.rm = TRUE)
+	FST <- z["lsiga"]/sum(c(z["lsiga"], z["lsigb"], z["lsigw"]))
+	print(unname(FST))
+	#[1] 0.4119456
+	
 	# Check, per locus measures: ** this is the one we're keeping
 	# tsiga <- sum(z$sigma.loc[,"lsiga"], na.rm=TRUE)
 	# tsigb <- sum(z$sigma.loc[,"lsigb"], na.rm=TRUE)
@@ -506,40 +508,26 @@ if(includeFst){
 	# tsigw <- sum(z$sigma[,"sigw"], na.rm=TRUE)
 	# tsiga/sum(c(tsiga, tsigb, tsigw))
 	
-	# This saves back to the rows of "fst" where status == "v"
-	fst$lsiga <- rep(NA, nrow(fst)) # initialize
-	fst[rownames(z$sigma.loc), 1] <- z$sigma.loc[,"lsiga"]
-
-	fst$lsigb <- rep(NA, nrow(fst))
-	fst[rownames(z$sigma.loc), 2] <- z$sigma.loc[,"lsigb"]
-
-	fst$lsigw <- rep(NA, nrow(fst))
-	fst[rownames(z$sigma.loc), 3] <- z$sigma.loc[,"lsigw"]
-
-	fst$fst <- rep(NA, nrow(fst))
-	fst[rownames(z$sigma.loc), 4] <- z$per.loc$FST
-
-	fst$fis <- rep(NA, nrow(fst))
-	fst[rownames(z$sigma.loc), 5] <- z$per.loc$FIS
-
-	# head(fst)	
-	                        # lsiga       lsigb      lsigw         fst         fis
-	# chrXXI:16024_C/T           NA          NA         NA          NA          NA
-	# chrXXI:16025_C/G           NA          NA         NA          NA          NA
-	# chrXXI:16026_A/T -0.003954248  0.32956656 0.05263158 -0.01045423  0.86229243
-	# chrXXI:18389_C/A -0.008046977 -0.01007063 0.19047619 -0.04668742 -0.05582218
-	# chrXXI:18511_A/G  0.027777778  0.07222222 0.10000000  0.13888889  0.41935484
-	# chrXXI:18549_C/T -0.009721618  0.09556847 0.04761905 -0.07283972  0.66743575	
-	
-	# head(cbind.data.frame(gtstats$status, fst))
-		
+	# head(fst, 10)
+	                          # lsiga        lsigb      lsigw         fst         fis
+	# chrUn:5108405_C/A             NA           NA         NA          NA          NA
+	# chrUn:5108407_C/G    0.002492877 -0.001282051 0.06666667  0.03672613 -0.01960784
+	# chrUn:5108413_C/T             NA           NA         NA          NA          NA
+	# chrUn:5108418_C/A             NA           NA         NA          NA          NA
+	# chrUn:5108425_C/T             NA           NA         NA          NA          NA
+	# chrUn:5108430_G/A             NA           NA         NA          NA          NA
+	# chrUn:5109443_ATC/A           NA           NA         NA          NA          NA
+	# chrUn:5109445_C/A             NA           NA         NA          NA          NA
+	# chrUn:5109559_A/G   -0.015202530  0.036868687 0.30000000 -0.04726183  0.10944528
+	# chrUn:5109564_A/G             NA           NA         NA          NA          NA
+			
 	gtstats$fst <- fst
 	rm(fst)
 	
 	gc()
-		       # used  (Mb) gc trigger  (Mb) max used  (Mb)
-	# Ncells  6865570 366.7   14466089 772.6 14466089 772.6
-	# Vcells 33888695 258.6   85109004 649.4 73302178 559.3
+	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells 13136759 701.6   25310187 1351.8  25310187 1351.8
+	# Vcells 65349107 498.6  158235436 1207.3 245339434 1871.8
 
 	# pdf(file = paste(project, ".", chrname, ".FstPlot", ".pdf", sep=""))
 	# Plot Fst

@@ -61,6 +61,8 @@ cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
 
+# ** todo: in saveSnpsByGroup.R convert alleleFreqByGroup into a data frame, saves so much memory (see below) **
+
 gc()
 
 # names(vcfresults)
@@ -125,6 +127,9 @@ if(Glazerize){
 
 # gcinfo(TRUE)
 gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells 15852434 846.7   21754962 1161.9  17756025  948.3
+# Vcells 89044870 679.4  247242869 1886.4 245339434 1871.8
 
 cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
 
@@ -136,6 +141,47 @@ gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
 # Ncells 14022358 748.9   25310187 1351.8  25310187 1351.8
 # Vcells 57018471 435.1  197794295 1509.1 245339434 1871.8
+
+# Size of all objects in memory; only biggest ones shown
+# sort( sapply(ls(),function(x){object.size(get(x))}))
+        # genotypes   vcfresults  alleleFreqByGroup 
+        # 234975480    459576304         1025567832 # wow alleleFreqByGroup is big!
+
+# How big is alleleFreqByGroup if in a data frame?
+# z <- do.call("rbind.data.frame", alleleFreqByGroup) # takes forever
+# object.size(z)
+# 177793664 bytes # so much smaller!
+# head(z)
+                        # 0 1 2 3
+# chrUn:5106536_T/A.paxl  8 0 0 0
+# chrUn:5106536_T/A.paxb 22 0 0 0
+# chrUn:5106537_G/A.paxl  8 0 0 0
+# chrUn:5106537_G/A.paxb 22 0 0 0
+# chrUn:5106540_G/A.paxl  8 0 0 0
+# chrUn:5106540_G/A.paxb 22 0 0 0
+
+# Compare sizes of different kinds of objects
+# class(alleleFreqByGroup[[1]])
+# # [1] "matrix"
+# # list of matrices:
+# object.size(alleleFreqByGroup[1:1000]) 
+# # 1120752 bytes
+# # Single data frame:
+# z1 <- names(alleleFreqByGroup[1:1000])
+# z <- as.data.frame( do.call("rbind", alleleFreqByGroup[1:1000]) )
+# z$groupnames <- rep(groupnames, 1000)
+# z$marker <- rep(z1, rep(2, 1000))
+# rownames(z) <- 1:nrow(z)
+# head(z)
+   # # 0 1 2 3 groupnames            marker
+# # 1  8 0 0 0       paxl chrUn:5106536_T/A
+# # 2 22 0 0 0       paxb chrUn:5106536_T/A
+# # 3  8 0 0 0       paxl chrUn:5106537_G/A
+# # 4 22 0 0 0       paxb chrUn:5106537_G/A
+# # 5  8 0 0 0       paxl chrUn:5106540_G/A
+# # 6 22 0 0 0       paxb chrUn:5106540_G/A
+# object.size(z)
+# # 137856 bytes # so much smaller!
 
 # ----------
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
@@ -341,8 +387,8 @@ gtstats$nMin <- nMin
 gtstats$control <- control
 gtstats$genotypes <- genotypes		# rows are loci
 rm(genotypes)
-gtstats$alleleFreqByGroup <- alleleFreqByGroup
-rm(alleleFreqByGroup)
+# gtstats$alleleFreqByGroup <- alleleFreqByGroup # not needed in gtstats, and is too big
+# rm(alleleFreqByGroup)
 gtstats$status <- status
 rm(status)
 if(Glazerize){
@@ -358,12 +404,12 @@ if(includePfisher){
 	# Fisher exact tests of allele and genotype frequencies using ALLELE (not genotype) frequencies
 
 	# Set to NA non-polymorphic sites with sufficiently many genotypes
-	gtstats$pfisher <- rep(NA, length(gtstats$alleleFreqByGroup))
-	names(gtstats$pfisher) <- names(gtstats$alleleFreqByGroup)
+	gtstats$pfisher <- rep(NA, length(alleleFreqByGroup))
+	names(gtstats$pfisher) <- names(alleleFreqByGroup)
 	
 	cat("\nCalculating Fisher exact test p-values for group allele freq differences (maximum of 3 ALT alleles assumed)\n")
 	# Loci that are not divergent will have a pfisher = 1
-	gtstats$pfisher[gtstats$status == "v"] <- sapply(gtstats$alleleFreqByGroup[gtstats$status == "v"], function(x){
+	gtstats$pfisher[gtstats$status == "v"] <- sapply(alleleFreqByGroup[gtstats$status == "v"], function(x){
 		pfisher <- fisher.test(x)$p.value
 		})
 	
@@ -387,7 +433,13 @@ if(includePfisher){
 	# cat("\nTransition-transversion ratio for pfisher < 0.01\n")
 	}
 
+
+rm(alleleFreqByGroup)
 gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  4786411 255.7   20248149 1081.4  25310187 1351.8
+# Vcells 39402049 300.7  126588348  965.8 245339434 1871.8
+
 
 # --------------
 
@@ -528,6 +580,9 @@ if(includeFst){
 	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
 	# Ncells 13136759 701.6   25310187 1351.8  25310187 1351.8
 	# Vcells 65349107 498.6  158235436 1207.3 245339434 1871.8
+	
+	cat("\nSize of the fst object in memory\n")
+	print(object.size(gtstats$fst))
 
 	# pdf(file = paste(project, ".", chrname, ".FstPlot", ".pdf", sep=""))
 	# Plot Fst
@@ -555,25 +610,82 @@ if(includePsd){
 	
 	cat("\nCalculating 'percent sequence divergence' between each pair of individuals at each variant
 		(indels are treated simply as alleles)\n")
+		
+	# Revised method that bypasses g$psd
+	geno <- gtstats$genotypes[gtstats$status == "v", ]
+	# geno <- geno[1:1000,]
 	
-	z <- g$psd(gtstats$genotypes[gtstats$status == "v", ], groups)
-	
-	# nrow(z)
-	# head(z)
-	
-	# initialize
-	psd <- as.data.frame( matrix(nrow = nrow(gtstats$genotypes), ncol = ncol(z)), stringsAsFactors = FALSE )
-	rownames(psd) <- rownames(gtstats$genotypes)
-	
-	psd[ rownames(z) , ] <- z
-	colnames(psd) <- colnames(z) # duplicate names were ok
+	pop <- as.character(groups)  # population names
+	gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
+	# gtpairs
+		  # [1] "2,2" "2,2" "2,2" "2,2" "2,1" "2,1" "2,1" "2,1" "2,1" "2,2" "2,2" "2,2"
+		 # [13] "2,2" "2,2" "2,2" "2,1" "2,1" "2,1" "2,1" "2,1" "2,1" "2,2" "2,2" "2,2"
+		 # [25] "2,1" "2,1" "2,1" "2,1" "2,1" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,1"
+		 # [37] "2,1" "2,1" "2,1" "2,1" "2,1" "2,2" "2,2" "2,1" "2,1" "2,1" "2,1" "2,1"
+		 # [49] "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,1" "2,1" "2,1" "2,1" "2,1" "2,1"
+		 # [61] "2,2" "2,1" "2,1" "2,1" "2,1" "2,1" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2"
+		 # ......
+		# [229] "1,1" "1,1" "1,1"
+		
+	# Initialize results data frame
+	gtstats$psd <- as.data.frame( matrix(nrow = nrow(gtstats$genotypes), ncol = length(gtpairs),
+				dimnames = list(rownames(gtstats$genotypes), gtpairs)), stringsAsFactors = FALSE )
+
+	colpairs <- combn(1:ncol(geno), 2)
+	# colpairs
+		     # [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13] [,14]
+		# [1,]    1    1    1    1    1    1    1    1    1     1     1     1     1     1
+		# [2,]    2    3    4    5    6    7    8    9   10    11    12    13    14    15
+		     # [,15] [,16] [,17] [,18] [,19] [,20] [,21] [,22] [,23] [,24] [,25] [,26]
+		# [1,]     1     1     1     1     1     1     1     2     2     2     2     2
+		# [2,]    16    17    18    19    20    21    22     3     4     5     6     7
+		     # [,27] [,28] [,29] [,30] [,31] [,32] [,33] [,34] [,35] [,36] [,37] [,38]
+		# [1,]     2     2     2     2     2     2     2     2     2     2     2     2
+		# [2,]     8     9    10    11    12    13    14    15    16    17    18    19
+		# .....
+
+	# system.time(
+		# psd <- combn(geno[1:10,], 2, function(x){g$geno.diff(x[1],x[2])}, simplify = FALSE)
+		# ) # 9.185
+	# # is identical but much slower than:
+	# system.time(
+		# psd <- apply(colpairs, 2, function(z){
+			# psd <- g$geno.diff(geno[1:10 ,z[1] ], geno[1:10 ,z[2] ])
+			# }) # 0.135 wow, so much faster!
+		# )
+		
+	z <- apply(colpairs, 2, function(z){
+		z <- g$geno.diff(geno[ ,z[1] ], geno[ ,z[2] ])
+		})
+	z <- as.data.frame(z, stringsAsFactors = FALSE)
+	gtstats$psd[gtstats$status == "v", ] <- z
 	rm(z)
+	rm(geno)
+	
+	# object.size(psd)
+	# 1680201160 bytes
+	
+	# z <- g$psd(gtstats$genotypes[gtstats$status == "v", ], groups)
+	# # nrow(z)
+	# # head(z)
+	# # initialize
+	# psd <- as.data.frame( matrix(nrow = nrow(gtstats$genotypes), ncol = ncol(z)), stringsAsFactors = FALSE )
+	# rownames(psd) <- rownames(gtstats$genotypes)
+	# psd[ rownames(z) , ] <- z
+	# colnames(psd) <- colnames(z) # duplicate names were ok
+	# rm(z)
 	
 	cat("\nDone calculating percent sequence divergence\n")
 	gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells   4790296  255.9   12958815  692.1  25310187 1351.8
+	# Vcells 240638787 1836.0  429653911 3278.0 428995044 3273.0
 
-	gtstats$psd <- psd
-	rm(psd)
+	# gtstats$psd <- psd
+	# rm(psd)
+
+	cat("\nSize of the psd object in memory\n")
+	print(object.size(gtstats$psd))
 
 	} # end if(includePsd)
 	

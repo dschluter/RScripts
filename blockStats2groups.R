@@ -49,10 +49,11 @@ blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "b
 
 load(gtstatsfile) # object is gtstats
 # names(gtstats)
- # [1] "vcf"               "groupnames"        "groups"           
- # [4] "nInd"              "nMin"              "control"          
- # [7] "genotypes"         "alleleFreqByGroup" "status"           
-# [10] "newPos"            "fst"               "psd"
+ # [1] "vcf"        "groupnames" "groups"     "nInd"       "nMin"      
+ # [6] "control"    "genotypes"  "status"     "newPos"     "fst"       
+# [11] "psd"      
+
+# object.size(gtstats) 
 
 control <- gtstats$control
 Glazerize <- control$Glazerize
@@ -64,6 +65,8 @@ nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
 status <- gtstats$status
 fst <- gtstats$fst # will be NULL if absent
 psd <- gtstats$psd # will be NULL if absent
+
+gc()
 
 if(Glazerize){
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
@@ -92,6 +95,8 @@ gc()
 # [1] 871120 871120
 
 load(goodInvariantsFile) # object is goodInvariants
+
+# object.size(goodInvariants) 
 
 # Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
 names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
@@ -247,6 +252,11 @@ if( !is.null(fst) ){
 		
 	cat("\nBeginning Fst calculations\n")
 
+	# fst is a matrix, needs to be a data.frame of split will screw up
+	fst <- as.data.frame(fst, stringsAsFactors = FALSE)
+	# colnames(fst) 
+	# [1] "lsiga" "lsigb" "lsigw" "fst"   "fis"
+
 	# break the data frame into the bins
 	fstBinned <- split(fst, snpBins) 
 	
@@ -326,9 +336,12 @@ if( !is.null(psd) ){
 	# 2. Assign average pairwise distance to missing pairwise distance values at every marker separately
 	
 	cat("\nAssigning averages to missing pairwise distances\n")
-	# # This is slightly wasteful because it still includes monomorphic sites
+
+	# This is slightly wasteful because it still includes monomorphic sites
 
 	saveColNames <- colnames(psd) # maybe not needed - it was in case of problems with duplicate row names
+	
+	# transposing costs some memory
 	psd <- as.data.frame(t(psd), rownames = NULL, stringsAsFactors = FALSE) # best if snps are columns not rows
 	
 	# levels(as.factor(psdGroups)) # this will be the order in which the means are given below

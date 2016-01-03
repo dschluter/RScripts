@@ -534,6 +534,7 @@ if(includeFst){
 	z <- do.call("rbind", z)
 	fst[gtstats$status == "v", ] <- z
 	rm(geno)
+	rm(z)
 	
 	gc() # when trueSnpOnly = FALSE
 	          # used  (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -541,10 +542,6 @@ if(includeFst){
 	# Vcells 61577380 469.8  158235436 1207.3 245339434 1871.8
 
 	cat("\nWhole-chromosome Fst:\n")
-	# print(z$FST)
-	#[1] 0.4119456
-
-	rm(z)
 	
 	z <- colSums(fst, na.rm = TRUE)
 	FST <- z["lsiga"]/sum(c(z["lsiga"], z["lsigb"], z["lsigw"]))
@@ -578,12 +575,7 @@ if(includeFst){
 			
 	gtstats$fst <- fst
 	rm(fst)
-	
-	gc()
-	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells 13136759 701.6   25310187 1351.8  25310187 1351.8
-	# Vcells 65349107 498.6  158235436 1207.3 245339434 1871.8
-	
+		
 	cat("\nSize of the fst object in memory\n")
 	print(object.size(gtstats$fst))
 
@@ -604,8 +596,6 @@ if(includeFst){
 	} # end if(includeFst}
 
 # load(file = gtstatsfile) # object is "gtstats"
-
-gc()
 
 # --------------
 
@@ -656,7 +646,9 @@ if(includePsd){
 			# psd <- g$geno.diff(geno[1:10 ,z[1] ], geno[1:10 ,z[2] ])
 			# }) # 0.135 wow, so much faster!
 		# )
-		
+	gc()
+	cat("\nComputing psd\n")
+	
 	z <- apply(colpairs, 2, function(z){
 		z <- g$geno.diff(geno[ ,z[1] ], geno[ ,z[2] ])
 		})
@@ -664,10 +656,7 @@ if(includePsd){
 	gtstats$psd[gtstats$status == "v", ] <- z
 	rm(z)
 	rm(geno)
-	
-	# object.size(psd)
-	# 1680201160 bytes
-	
+
 	# z <- g$psd(gtstats$genotypes[gtstats$status == "v", ], groups)
 	# # nrow(z)
 	# # head(z)

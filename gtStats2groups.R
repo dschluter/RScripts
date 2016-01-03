@@ -13,7 +13,7 @@
 # Answer: they did not call indels
 
 # Obtains stats on one pair of populations
-# qsub -I -l walltime=02:00:00 -l mem=4gb # work interactively; use "exit" to exit
+# qsub -I -l walltime=04:00:00 -l mem=4gb # work interactively; use "exit" to exit
 # module load R/3.1.2
 # R
 
@@ -506,7 +506,9 @@ if(includeFst){
 	geno <- gtstats$genotypes[gtstats$status == "v", ]
 	# geno <- geno[1:1000,]
 
-	blocks <- cut(1:nrow(geno), 100) # break up the cases into many smaller blocks and run on each
+	# Break up the cases into smaller blocks and run on each
+	# Not too many blocks: chrM has only 94 variants in the paxl paxb comparison!
+	blocks <- cut(1:nrow(geno), 10) 
 	# z <- by(geno, blocks, FUN=function(x){
 	# system.time({
 	z <- list()
@@ -532,7 +534,6 @@ if(includeFst){
 	z <- do.call("rbind", z)
 	fst[gtstats$status == "v", ] <- z
 	rm(geno)
-	rm(z)
 	
 	gc() # when trueSnpOnly = FALSE
 	          # used  (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -542,6 +543,8 @@ if(includeFst){
 	cat("\nWhole-chromosome Fst:\n")
 	# print(z$FST)
 	#[1] 0.4119456
+
+	rm(z)
 	
 	z <- colSums(fst, na.rm = TRUE)
 	FST <- z["lsiga"]/sum(c(z["lsiga"], z["lsigb"], z["lsigw"]))

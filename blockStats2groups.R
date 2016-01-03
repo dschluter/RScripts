@@ -47,6 +47,8 @@ cat("\nProject, chrname, groupnames, stepsize", project, chrname, groupnames, st
 gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")	# object is gtstats
 blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
 
+cat("\nLoading gtstats file\n")
+
 load(gtstatsfile) # object is gtstats
 # names(gtstats)
  # [1] "vcf"        "groupnames" "groups"     "nInd"       "nMin"      
@@ -84,6 +86,7 @@ if(Glazerize){
 	}
 
 rm(gtstats)
+cat("\nRemoving gtstats file from memory after extracting relevant elements\n")
 
 gc()
 
@@ -93,6 +96,8 @@ gc()
 # All start positions are unique, snps and indels at the same start POS are just different alleles
 # c( length(pos), length(unique(pos)) )
 # [1] 871120 871120
+
+cat("\nLoading good invariants file\n")
 
 load(goodInvariantsFile) # object is goodInvariants
 
@@ -108,6 +113,8 @@ if(Glazerize){
 	} else{
 	goodInvariants <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
 	}
+	
+cat("\nDropping invariants not meeting the minimum number of genotypes\n")
 
 # Drop invariants that do not meet the minimum number of genotypes required
 # This adds a lot of memory use, maybe try data.table instead
@@ -117,9 +124,14 @@ z <- apply(goodInvariants[, groupnames], 1, function(x){
 goodInvariants <- goodInvariants[z, ]
 rm(z)
 
+gc()
+
+cat("\nLoading masked genome\n")
+
 # chrvec is a vector of the whole MASKED chromosome, all nucleotides as distinct elements, obtained by:
 #       Masked bases are indicates with an "M"
 load(chrvecfile) # object is chrvec
+
 
 gc()
 

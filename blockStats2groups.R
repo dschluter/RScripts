@@ -56,6 +56,7 @@ load(gtstatsfile) # object is gtstats
 # [11] "psd"      
 
 # object.size(gtstats) 
+# 3111541328 bytes # 3Gb wow (chrXXI paxl paxb)
 
 control <- gtstats$control
 Glazerize <- control$Glazerize
@@ -69,6 +70,9 @@ fst <- gtstats$fst # will be NULL if absent
 psd <- gtstats$psd # will be NULL if absent
 
 gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  10092269  539.0   15229393  813.4  13517466  722.0
+# Vcells 255282872 1947.7  318779927 2432.1 303523740 2315.8
 
 if(Glazerize){
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")

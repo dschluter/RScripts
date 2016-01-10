@@ -56,7 +56,7 @@ load(gtstatsfile) # object is gtstats
 # [11] "psd"      
 
 # object.size(gtstats) 
-# 3111541328 bytes # 3Gb wow (chrXXI paxl paxb)
+# 3111541328 bytes # 3Gb wow (chrXXI paxl paxb) - will be less when not including alleleFreqByGroups (newer version)
 
 control <- gtstats$control
 Glazerize <- control$Glazerize
@@ -71,8 +71,8 @@ psd <- gtstats$psd # will be NULL if absent
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  10092269  539.0   15229393  813.4  13517466  722.0
-# Vcells 255282872 1947.7  318779927 2432.1 303523740 2315.8
+# Ncells  10093132  539.1   15229393  813.4  10101556  539.5
+# Vcells 255284629 1947.7  274105541 2091.3 255309030 1947.9
 
 if(Glazerize){
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
@@ -93,6 +93,9 @@ rm(gtstats)
 cat("\nRemoving gtstats file from memory after extracting relevant elements\n")
 
 gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells   2210143  118.1   12183514  650.7  13561929  724.3
+# Vcells 214063158 1633.2  318782554 2432.2 303526242 2315.8
 
 # head(pos)
 # [1] 1794949 1794951 1794957 1794962 1794969 1794974
@@ -101,52 +104,19 @@ gc()
 # c( length(pos), length(unique(pos)) )
 # [1] 871120 871120
 
-cat("\nLoading good invariants file\n")
 
-load(goodInvariantsFile) # object is goodInvariants
+# -------------
+# Get block window stats for group differences
 
-# object.size(goodInvariants) 
-
-# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
-names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
-
-if(Glazerize){
-	goodInvariants <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
-	# rename "newPos" to "POS"
-	names(goodInvariants)[names(goodInvariants) =="newPos"] <- "POS"
-	} else{
-	goodInvariants <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
-	}
-	
-cat("\nDropping invariants not meeting the minimum number of genotypes\n")
-
-# Drop invariants that do not meet the minimum number of genotypes required
-# This adds a lot of memory use, maybe try data.table instead
-z <- apply(goodInvariants[, groupnames], 1, function(x){
-	all(x >= nMin)
-	})
-goodInvariants <- goodInvariants[z, ]
-rm(z)
-
-gc()
-
+pop <- as.character(groups)
+k <- as.integer(stepsize) # this is the size of the block
+		
 cat("\nLoading masked genome\n")
 
 # chrvec is a vector of the whole MASKED chromosome, all nucleotides as distinct elements, obtained by:
 #       Masked bases are indicates with an "M"
 load(chrvecfile) # object is chrvec
 
-
-gc()
-
-# -------------
-# Get block window stats for group differences
-
-	
-# pop <- as.character(gtstats$groups)
-pop <- as.character(groups)
-k <- as.integer(stepsize) # this is the size of the block
-		
 # Establish the break points of the bins into which nucleotides will be grouped (e.g., k = 500 bases per bin)
 # The last bin goes from the final bin of fully k nucleotides to the last nucleotide. 
 # This last bin might be small.
@@ -183,6 +153,52 @@ rm(chrvec)
 # ----
 # 2) Count up the number of snp and number of invariants in each bin
 
+cat("\nLoading good invariants file\n")
+
+load(goodInvariantsFile) # object is goodInvariants
+
+# object.size(goodInvariants) 
+# 1560947856 bytes
+
+# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
+names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
+
+if(Glazerize){
+	z <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
+	# rename "newPos" to "POS"
+	names(z)[names(z) =="newPos"] <- "POS"
+	} else{
+	z <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
+	}
+	
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  13723751  733.0   14562966  777.8  13747671  734.3
+# Vcells 368495697 2811.4  544278102 4152.6 368564059 2812.0 # already up to 3.7
+
+# head(z)
+                  # POS paxl paxb
+# chrUn.3906912 1793078    4   11
+# chrUn.3906913 1793079    4   11
+# chrUn.3906914 1793082    4   11
+# chrUn.3906915 1793083    4   11
+# chrUn.3906916 1793085    4   11
+# chrUn.3906917 1793086    4   11
+	
+cat("\nDropping invariants not meeting the minimum number of genotypes\n")
+
+# Drop invariants that do not meet the minimum number of genotypes required
+
+i <- z[,2] >= nMin[1] & z[,3] >= nMin[2]
+goodInvariants <- z[i, ]
+rm(z)
+
+# The above steps to reduce goodInvariants costs a lot of memory. Try data.table?
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  13198304  704.9   15331114  818.8  13747671  734.3
+# Vcells 285788461 2180.4  544278102 4152.6 497684343 3797.1 # up to 5.0
+
 # Need to split SNP counts into same bins of stepsize k and then sum up
 
 # Count up the number of snp in each bin (cut works because ibase intervals are made as factors)
@@ -192,18 +208,6 @@ nSnp <- table( snpBins )
 # head(nSnp)
 	# [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001) 
 	#       0           0           0           0           0           0 
-    
-# Data still includes some invariants, those sites not polymorphic in these two populations
-# The following is now redundant -- I think this information is already in gtstats$status
-		# is.polymorphic <- sapply(gtstats$alleleFreqByGroup, function(x){
-		# z <- colSums(x, na.rm = TRUE)
-		# sum( z > 0 ) >= 2
-		# })
-		# table(is.polymorphic, gtstats$status)
-		# is.polymorphic      i      v
-		         # FALSE 627449      0
-		         # TRUE       0 243671
-		# is.monomorphic <- split(!is.polymorphic, snpBins)
 
 is.monomorphic <- split(status == "i", snpBins)
 nMonomorphic <- sapply(is.monomorphic, sum)
@@ -217,6 +221,7 @@ nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) )
     #       0           0           0           0           0           0 
     
 rm(goodInvariants)
+rm(status)
 
 # all the following items have the same length
 
@@ -236,6 +241,10 @@ rm(nInvariants)
 rm(nMonomorphic) 
 
 gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells   2318270  123.9   12264891  655.1  14271368  762.2
+# Vcells 236806899 1806.7  544278102 4152.6 497684343 3797.1
+
 
 # blockstats[110:130,]
 	    # ibase midbase nUnmasked nSnp nInvariants
@@ -308,7 +317,10 @@ if( !is.null(fst) ){
 	cat("\nDone Fst calculations\n")
 	
 	gc()
-	
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells   2391968  127.8    9811912  524.1  14271368  762.2
+	# Vcells 231727184 1768.0  544278102 4152.6 497684343 3797.1 # still 5.0
+
 	} # end fst
 
   			
@@ -318,7 +330,8 @@ if( !is.null(fst) ){
 if( !is.null(psd) ){
   		
 	cat("\nBeginning CSS calculations\n")
-
+	# psd is a data frame
+	
 	gtpairs <- names(psd)
 	# gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
 		
@@ -343,20 +356,52 @@ if( !is.null(psd) ){
 		# [199] "b" "b" "b" "b" "b" "w" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b" "b"
 		# [217] "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w" "w"
 	
+	# Identify the columns of psd according to psdMissingAction
+	# 
 	if(psdMissingAction == "meanBW") psdGroups <- wbPairs else
-		if(psdMissingAction == "meanAll") psdGroups <- rep(1, length(wbPairs)) else
+		if(psdMissingAction == "meanAll") psdGroups <- rep("a", length(wbPairs)) else
 			if(psdMissingAction == "meanGroup") psdGroups <- gtpairs else
 				stop("Unrecognizeable value for 'psdMissingAction'")
 
-
+	cat("\npsdGroups of all pairwise comparisons (determined by psdMissingAction)\n")
+	names(psd) <- psdGroups  
+	names(psd) # duplicate column names seem to be ok
+	
 	# 2. Assign average pairwise distance to missing pairwise distance values at every marker separately
 	
-	cat("\nAssigning averages to missing pairwise distances\n")
-
 	# This is slightly wasteful because it still includes monomorphic sites
 
-	saveColNames <- colnames(psd) # maybe not needed - it was in case of problems with duplicate row names
+	cat("\nAssigning averages to missing pairwise distances\n")
 	
+	lev <- levels(as.factor(psdGroups)) # this will be the order in which the means are given below
+	# [1] "b" "w"
+	
+	# Compute the means for each marker, separately for groups defined by level of psdGroups
+	# This is a bit slow and memory use not so great -> try data.table
+	
+	# Split psd into column groups according to psdGroups
+	x <- vector("list", length = length(lev))
+	names(x) <- lev
+	whichCols <- vector("list", length = length(lev)) # to save the original column numbers before split
+	names(whichCols) <- lev	
+	for(j in lev){
+		x[[j]] <- psd[ , names(psd) == j]  # pull out the columns with names corresponding to psdGroup level
+		whichCols[[j]] <- which(names(psd) == j) 
+		}
+		
+	# Obtain means of all non-missing pairwise values
+	z <- lapply(x, function(x){
+		apply(x, 1, mean, na.rm = TRUE) # means by row; yields NaN if row is all NA
+		})
+	
+
+
+
+
+
+
+
+
 	# transposing costs some memory
 	psd <- as.data.frame(t(psd), rownames = NULL, stringsAsFactors = FALSE) # best if snps are columns not rows
 	

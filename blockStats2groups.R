@@ -22,8 +22,8 @@
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxl")
-# args <- c("BenlimAllMarine", "chrXXI", 500, "paxl", "paxb")
 # args <- c("BenlimAllMarine", "chrXX", 500, "pril", "prib") # one of the smaller ones that crashed because of memory
+# args <- c("BenlimAllMarine", "chrXXI", 500, "paxl", "paxb")
 
 project <- args[1]
 chrname <- args[2]
@@ -58,6 +58,8 @@ load(gtstatsfile) # object is gtstats
 # object.size(gtstats) 
 # 3111541328 bytes # 3Gb wow (chrXXI paxl paxb) - will be less when not including alleleFreqByGroups (newer version)
 
+# library(data.table)
+
 control <- gtstats$control
 Glazerize <- control$Glazerize
 groups <- gtstats$groups
@@ -68,6 +70,7 @@ nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
 status <- gtstats$status
 fst <- gtstats$fst # will be NULL if absent
 psd <- gtstats$psd # will be NULL if absent
+
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -94,8 +97,8 @@ cat("\nRemoving gtstats file from memory after extracting relevant elements\n")
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2210143  118.1   12183514  650.7  13561929  724.3
-# Vcells 214063158 1633.2  318782554 2432.2 303526242 2315.8
+# Ncells   2209866  118.1   12183514  650.7  10144910  541.8
+# Vcells 214062711 1633.2  287890819 2196.5 255433791 1948.9
 
 # head(pos)
 # [1] 1794949 1794951 1794957 1794962 1794969 1794974
@@ -160,23 +163,57 @@ load(goodInvariantsFile) # object is goodInvariants
 # object.size(goodInvariants) 
 # 1560947856 bytes
 
+# Data.table!
+library(data.table)
+
+	# saveRowNames <- rownames(goodInvariants) # if needed
+goodInvariants <- as.data.table(goodInvariants) # this loses all the row names!
+
+# object.size(goodInvariants) 
+# 826386640 bytes # half the size of the data frame (but no rownames)
+
 # Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
-names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
+	# names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
+setnames(goodInvariants, names(goodInvariants), gsub("[.]", "-", names(goodInvariants))) # does not copy whole data and is faster
 
-if(Glazerize){
-	z <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
-	# rename "newPos" to "POS"
-	names(z)[names(z) =="newPos"] <- "POS"
-	} else{
-	z <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
-	}
+	# if(Glazerize){
+		# z <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
+		# # rename "newPos" to "POS"
+		# names(z)[names(z) =="newPos"] <- "POS"
+		# } else{
+		# z <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
+		# }
+	# gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  13724038  733.0   14562966  777.8  13752360  734.5
+	# Vcells 385853922 2943.9  551900647 4210.7 453484188 3459.9 # already up to 3.5 Gb!
+	# head(z)
 	
-gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13723751  733.0   14562966  777.8  13747671  734.3
-# Vcells 368495697 2811.4  544278102 4152.6 368564059 2812.0 # already up to 3.7
+	# cat("\nDropping invariants not meeting the minimum number of genotypes\n")
 
-# head(z)
+	# # Drop invariants that do not meet the minimum number of genotypes required
+	
+	# i <- z[,2] >= nMin[1] & z[,3] >= nMin[2]
+	# goodInvariants <- z[i, ]
+	# rm(z)
+
+	# The above steps to reduce goodInvariants costs a lot of memory. Try data.table?
+	# gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  13202126  705.1   15331114  818.8  13752360  734.5
+	# Vcells 303153327 2312.9  551900647 4210.7 515077748 3929.8
+
+	
+# data.table way
+if(Glazerize){
+	goodInvariants <- goodInvariants[ , c("newPos", groupnames), with = FALSE]
+	# rename "newPos" to "POS"
+	setnames(goodInvariants, old = "newPos", new = "POS")
+	} else{
+	goodInvariants <- goodInvariants[ , c("POS", groupnames), with = FALSE]
+	}
+
+# head(goodInvariants)
                   # POS paxl paxb
 # chrUn.3906912 1793078    4   11
 # chrUn.3906913 1793079    4   11
@@ -186,21 +223,19 @@ gc()
 # chrUn.3906917 1793086    4   11
 	
 cat("\nDropping invariants not meeting the minimum number of genotypes\n")
+group1name <- names(goodInvariants)[2]
+group2name <- names(goodInvariants)[3]
+i <- parse( text = paste( group1name, ">= nMin[1] &", group2name, ">= nMin[2]" ) )
+goodInvariants <- goodInvariants[ eval(i) ]
 
-# Drop invariants that do not meet the minimum number of genotypes required
-
-i <- z[,2] >= nMin[1] & z[,3] >= nMin[2]
-goodInvariants <- z[i, ]
-rm(z)
-
-# The above steps to reduce goodInvariants costs a lot of memory. Try data.table?
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13198304  704.9   15331114  818.8  13747671  734.3
-# Vcells 285788461 2180.4  544278102 4152.6 497684343 3797.1 # up to 5.0
+# Ncells   2352526  125.7    9320297  497.8  14562966  777.8
+# Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table!
+
 
 # Need to split SNP counts into same bins of stepsize k and then sum up
-
+# "pos" refers to the positions of the snp (not the invariants)
 # Count up the number of snp in each bin (cut works because ibase intervals are made as factors)
 snpBins <- cut(pos, breaks = ibase, right = FALSE)
 nSnp <- table( snpBins )
@@ -208,6 +243,8 @@ nSnp <- table( snpBins )
 # head(nSnp)
 	# [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001) 
 	#       0           0           0           0           0           0 
+
+* GOT TO HERE *
 
 is.monomorphic <- split(status == "i", snpBins)
 nMonomorphic <- sapply(is.monomorphic, sum)

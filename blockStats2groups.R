@@ -95,11 +95,6 @@ if(Glazerize){
 rm(gtstats)
 cat("\nRemoving gtstats file from memory after extracting relevant elements\n")
 
-gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2209866  118.1   12183514  650.7  10144910  541.8
-# Vcells 214062711 1633.2  287890819 2196.5 255433791 1948.9
-
 # head(pos)
 # [1] 1794949 1794951 1794957 1794962 1794969 1794974
 
@@ -139,6 +134,7 @@ midbase <- ibase + (stepsize)/2 # If want something to indicate midpoint of bloc
 # 1) Count number of non-M bases in each nucleotide bin of stepsize "k". 
 	
 # Break nucleotide index of chr into bins of stepsize k
+
 chrbins <- findInterval(1:nbases, ibase) # indicates in which "bin" of size k each base belongs
 										 # if none missing, there should be k 1's, k 2's, etc.
 # chrbins[499:505]
@@ -153,6 +149,19 @@ nUnmasked <- tapply(chrvec, chrbins, function(x){length(x[x %in% c("A","C","G","
 
 rm(chrvec)
 
+blockstats <- data.frame(
+			ibase = ibase[-length(ibase)], 
+			midbase = midbase[-length(midbase)], 
+			nUnmasked = nUnmasked
+			)
+rm(midbase)
+rm(nUnmasked)
+
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells   2246555  120.0    6237958  333.2  10158340  542.6
+# Vcells 222901563 1700.7  333521813 2544.6 317563348 2422.9
+
 # ----
 # 2) Count up the number of snp and number of invariants in each bin
 
@@ -163,80 +172,88 @@ load(goodInvariantsFile) # object is goodInvariants
 # object.size(goodInvariants) 
 # 1560947856 bytes
 
-# Data.table!
-library(data.table)
+cat("\nFinished loading good invariants file\n")
 
-	# saveRowNames <- rownames(goodInvariants) # if needed
-goodInvariants <- as.data.table(goodInvariants) # this loses all the row names!
-
-# object.size(goodInvariants) 
-# 826386640 bytes # half the size of the data frame (but no rownames)
-
-# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
-	# names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
-setnames(goodInvariants, names(goodInvariants), gsub("[.]", "-", names(goodInvariants))) # does not copy whole data and is faster
-
-	# if(Glazerize){
-		# z <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
-		# # rename "newPos" to "POS"
-		# names(z)[names(z) =="newPos"] <- "POS"
-		# } else{
-		# z <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
-		# }
-	# gc()
-	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells  13724038  733.0   14562966  777.8  13752360  734.5
-	# Vcells 385853922 2943.9  551900647 4210.7 453484188 3459.9 # already up to 3.5 Gb!
-	# head(z)
-	
-	# cat("\nDropping invariants not meeting the minimum number of genotypes\n")
-
-	# # Drop invariants that do not meet the minimum number of genotypes required
-	
-	# i <- z[,2] >= nMin[1] & z[,3] >= nMin[2]
-	# goodInvariants <- z[i, ]
-	# rm(z)
-
-	# The above steps to reduce goodInvariants costs a lot of memory. Try data.table?
-	# gc()
-	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells  13202126  705.1   15331114  818.8  13752360  734.5
-	# Vcells 303153327 2312.9  551900647 4210.7 515077748 3929.8
-
-	
-# data.table way
-if(Glazerize){
-	goodInvariants <- goodInvariants[ , c("newPos", groupnames), with = FALSE]
-	# rename "newPos" to "POS"
-	setnames(goodInvariants, old = "newPos", new = "POS")
-	} else{
-	goodInvariants <- goodInvariants[ , c("POS", groupnames), with = FALSE]
-	}
-
-# head(goodInvariants)
-                  # POS paxl paxb
-# chrUn.3906912 1793078    4   11
-# chrUn.3906913 1793079    4   11
-# chrUn.3906914 1793082    4   11
-# chrUn.3906915 1793083    4   11
-# chrUn.3906916 1793085    4   11
-# chrUn.3906917 1793086    4   11
-	
-cat("\nDropping invariants not meeting the minimum number of genotypes\n")
-group1name <- names(goodInvariants)[2]
-group2name <- names(goodInvariants)[3]
-i <- parse( text = paste( group1name, ">= nMin[1] &", group2name, ">= nMin[2]" ) )
-goodInvariants <- goodInvariants[ eval(i) ]
+	# Data.table -- this used more memory than the original data frame code
+	# library(data.table)
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2352526  125.7    9320297  497.8  14562966  777.8
-# Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table!
+# Ncells  13724134  733.0   14562966  777.8  13724225  733.0
+# Vcells 368496412 2811.5  551302887 4206.2 368496541 2811.5
+
+	# # saveRowNames <- rownames(goodInvariants) # if needed
+	# goodInvariants <- as.data.table(goodInvariants) # this loses all the row names!
+	
+	# gc()
+
+	# object.size(goodInvariants) 
+	# 826386640 bytes # half the size of the data frame (but no rownames)
+
+# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
+names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
+	# setnames(goodInvariants, names(goodInvariants), gsub("[.]", "-", names(goodInvariants)))
+
+if(Glazerize){
+	goodInvariants <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
+	# rename "newPos" to "POS"
+	names(goodInvariants)[names(goodInvariants) =="newPos"] <- "POS"
+	} else{
+	goodInvariants <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
+	}
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  13727699  733.2   15331114  818.8  13773601  735.6
+# Vcells 282421492 2154.8  551302887 4206.2 368607108 2812.3
+	
+cat("\nDropping invariants not meeting the minimum number of genotypes\n")
+
+# Drop invariants that do not meet the minimum number of genotypes required
+
+i <- goodInvariants[,2] >= nMin[1] & goodInvariants[,3] >= nMin[2]
+goodInvariants <- goodInvariants[i, ]
+rm(i)
+
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  13202278  705.1   16137669  861.9  13773601  735.6
+# Vcells 280057083 2136.7  551302887 4206.2 411610117 3140.4
+
+	# data.table way
+	# if(Glazerize){
+		# goodInvariants <- goodInvariants[ , c("newPos", groupnames), with = FALSE]
+		# # rename "newPos" to "POS"
+		# setnames(goodInvariants, old = "newPos", new = "POS")
+		# } else{
+		# goodInvariants <- goodInvariants[ , c("POS", groupnames), with = FALSE]
+		# }
+
+# head(goodInvariants)
+                  # POS paxl paxb
+# chrUn.3907275 1794692    5    7
+# chrUn.3907276 1794693    5    7
+# chrUn.3907277 1794694    5    7
+# chrUn.3907278 1794695    5    7
+# chrUn.3907279 1794697    5    7
+# chrUn.3907280 1794698    5    7
+
+	# Data table way
+	# cat("\nDropping invariants not meeting the minimum number of genotypes\n")
+	# group1name <- names(goodInvariants)[2]
+	# group2name <- names(goodInvariants)[3]
+	# i <- parse( text = paste( group1name, ">= nMin[1] &", group2name, ">= nMin[2]" ) )
+	# goodInvariants <- goodInvariants[ eval(i) ]
+	
+	# gc()
+	            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# # Ncells   2352526  125.7    9320297  497.8  14562966  777.8
+	# # Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table!
 
 
 # Need to split SNP counts into same bins of stepsize k and then sum up
 # "pos" refers to the positions of the snp (not the invariants)
 # Count up the number of snp in each bin (cut works because ibase intervals are made as factors)
+
 snpBins <- cut(pos, breaks = ibase, right = FALSE)
 nSnp <- table( snpBins )
 
@@ -244,13 +261,12 @@ nSnp <- table( snpBins )
 	# [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001) 
 	#       0           0           0           0           0           0 
 
-* GOT TO HERE *
-
 is.monomorphic <- split(status == "i", snpBins)
 nMonomorphic <- sapply(is.monomorphic, sum)
 
 # Count up the number of good invariants in each bin
 # Remember: newPos has been renamed to POS if Glazerize is true
+
 nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) ) 
 	
 # head(nInvariants)
@@ -260,27 +276,18 @@ nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) )
 rm(goodInvariants)
 rm(status)
 
-# all the following items have the same length
-
-blockstats <- data.frame(
-			ibase = ibase[-length(ibase)], 
-			midbase = midbase[-length(midbase)], 
-			nUnmasked = nUnmasked, 
-			nSnp = as.vector(nSnp) - nMonomorphic, 
-			nInvariants = as.vector(nInvariants) + nMonomorphic
-			)
+blockstats$nSnp = as.vector(nSnp) - nMonomorphic
+blockstats$nInvariants = as.vector(nInvariants) + nMonomorphic
 
 rm(ibase)
-rm(midbase)
-rm(nUnmasked)
 rm(nSnp)
 rm(nInvariants)
 rm(nMonomorphic) 
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2318270  123.9   12264891  655.1  14271368  762.2
-# Vcells 236806899 1806.7  544278102 4152.6 497684343 3797.1
+# Ncells   2323011  124.1   13587641  725.7  14198421  758.3
+# Vcells 231076456 1763.0  551302887 4206.2 424424252 3238.2
 
 
 # blockstats[110:130,]
@@ -314,7 +321,7 @@ if( !is.null(fst) ){
 		
 	cat("\nBeginning Fst calculations\n")
 
-	# fst is a matrix, needs to be a data.frame of split will screw up
+	# fst is a matrix, needs to be a data.frame or split will screw up
 	fst <- as.data.frame(fst, stringsAsFactors = FALSE)
 	# colnames(fst) 
 	# [1] "lsiga" "lsigb" "lsigw" "fst"   "fis"
@@ -355,8 +362,8 @@ if( !is.null(fst) ){
 	
 	gc()
 	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells   2391968  127.8    9811912  524.1  14271368  762.2
-	# Vcells 231727184 1768.0  544278102 4152.6 497684343 3797.1 # still 5.0
+	# Ncells   2392949  127.8   10870112  580.6  14198421  758.3
+	# Vcells 225989558 1724.2  551302887 4206.2 424424252 3238.2
 
 	} # end fst
 

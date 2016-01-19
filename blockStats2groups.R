@@ -23,6 +23,7 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxl")
 # args <- c("BenlimAllMarine", "chrXX", 500, "pril", "prib") # one of the smaller ones that crashed because of memory
+# args <- c("BenlimAllMarine", "chrM", 500, "paxl", "paxb")
 # args <- c("BenlimAllMarine", "chrXXI", 500, "paxl", "paxb")
 
 project <- args[1]
@@ -174,7 +175,7 @@ load(goodInvariantsFile) # object is goodInvariants
 
 cat("\nFinished loading good invariants file\n")
 
-	# Data.table -- this used more memory than the original data frame code
+	# Data.table way -- this used more memory than the original data frame code, so indented and commented out
 	# library(data.table)
 
 gc()
@@ -182,7 +183,7 @@ gc()
 # Ncells  13724134  733.0   14562966  777.8  13724225  733.0
 # Vcells 368496412 2811.5  551302887 4206.2 368496541 2811.5
 
-	# # saveRowNames <- rownames(goodInvariants) # if needed
+	# saveRowNames <- rownames(goodInvariants) # if needed
 	# goodInvariants <- as.data.table(goodInvariants) # this loses all the row names!
 	
 	# gc()
@@ -247,7 +248,7 @@ gc()
 	# gc()
 	            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
 	# # Ncells   2352526  125.7    9320297  497.8  14562966  777.8
-	# # Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table!
+	# # Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table
 
 
 # Need to split SNP counts into same bins of stepsize k and then sum up
@@ -322,7 +323,9 @@ if( !is.null(fst) ){
 	cat("\nBeginning Fst calculations\n")
 
 	# fst is a matrix, needs to be a data.frame or split will screw up
+
 	fst <- as.data.frame(fst, stringsAsFactors = FALSE)
+
 	# colnames(fst) 
 	# [1] "lsiga" "lsigb" "lsigw" "fst"   "fis"
 
@@ -408,44 +411,38 @@ if( !is.null(psd) ){
 				stop("Unrecognizeable value for 'psdMissingAction'")
 
 	cat("\npsdGroups of all pairwise comparisons (determined by psdMissingAction)\n")
+
 	names(psd) <- psdGroups  
-	names(psd) # duplicate column names seem to be ok
+	# names(psd) # duplicate column names seem to be ok
 	
 	# 2. Assign average pairwise distance to missing pairwise distance values at every marker separately
 	
 	# This is slightly wasteful because it still includes monomorphic sites
 
 	cat("\nAssigning averages to missing pairwise distances\n")
-	
-	lev <- levels(as.factor(psdGroups)) # this will be the order in which the means are given below
-	# [1] "b" "w"
-	
-	# Compute the means for each marker, separately for groups defined by level of psdGroups
-	# This is a bit slow and memory use not so great -> try data.table
-	
-	# Split psd into column groups according to psdGroups
-	x <- vector("list", length = length(lev))
-	names(x) <- lev
-	whichCols <- vector("list", length = length(lev)) # to save the original column numbers before split
-	names(whichCols) <- lev	
-	for(j in lev){
-		x[[j]] <- psd[ , names(psd) == j]  # pull out the columns with names corresponding to psdGroup level
-		whichCols[[j]] <- which(names(psd) == j) 
-		}
+
+		# Tried to do without transposing, but didn't finish
+		# lev <- levels(as.factor(psdGroups)) # this will be the order in which the means are given below
+		# # [1] "b" "w"
 		
-	# Obtain means of all non-missing pairwise values
-	z <- lapply(x, function(x){
-		apply(x, 1, mean, na.rm = TRUE) # means by row; yields NaN if row is all NA
-		})
+		# # Compute the means for each marker, separately for groups defined by level of psdGroups
+		# # This is a bit slow and memory use not so great -> try data.table
+		
+		# # Split psd into column groups according to psdGroups
+		# x <- vector("list", length = length(lev))
+		# names(x) <- lev
+		# whichCols <- vector("list", length = length(lev)) # to save the original column numbers before split
+		# names(whichCols) <- lev	
+		# for(j in lev){
+			# x[[j]] <- psd[ , names(psd) == j]  # pull out the columns with names corresponding to psdGroup level
+			# whichCols[[j]] <- which(names(psd) == j) 
+			# }
+			
+		# # Obtain means of all non-missing pairwise values
+		# z <- lapply(x, function(x){
+			# apply(x, 1, mean, na.rm = TRUE) # means by row; yields NaN if row is all NA
+			# })
 	
-
-
-
-
-
-
-
-
 	# transposing costs some memory
 	psd <- as.data.frame(t(psd), rownames = NULL, stringsAsFactors = FALSE) # best if snps are columns not rows
 	
@@ -544,7 +541,8 @@ if( !is.null(psd) ){
 	# [223] 0.04901961 0.50000000 0.50000000 0.04901961 0.04901961 0.04901961
 	# [229] 0.04901961 0.04901961 0.00000000
 	
-	psd <- as.data.frame(t(psd), stringsAsFactors = FALSE)
+	# don't forget to put the "z" results back to "psd"
+	psd <- as.data.frame(t(z), stringsAsFactors = FALSE)
 
 	cat("\nDone assigning averages to missing pairwise distances\n")
 	
@@ -564,7 +562,10 @@ if( !is.null(psd) ){
 			# z <- x#[!i,]
 			# return(z)
 			# }, SIMPLIFY = FALSE)
+
 	# This worked instead
+	# It removes markers (rows of psdBins) in each block that are monomorphic
+	
 	z <- list()
 	for(i in 1:length(psdBins)){
 		z[[i]] <- psdBins[[i]][!is.monomorphic[[i]],]
@@ -578,7 +579,8 @@ if( !is.null(psd) ){
 	
 	# Sum the psd's within bins or blocks
 	# colSum yields a value of 0 if there's no data! Fix? Or just pay attention to nSnp in blockstats
-	psdSum <- lapply(psdBins, colSums)
+
+	psdSum <- lapply(psdBins, colSums, na.rm = TRUE)
 	psdSum <- as.data.frame( do.call("rbind", psdSum), stringsAsFactors = FALSE )
 
 	# psdSum[120:125,]
@@ -598,7 +600,7 @@ if( !is.null(psd) ){
 		# 125 3.583692 0.500000 3.1202266 2.9264464 3.4200000 1.50000000 3.5490323
 		# ....
 
-	names(psdSum) <- paste("psd", names(psdSum), sep = ".")
+	names(psdSum) <- paste("psd", gtpairs, sep = ".")
 
 	blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
   	cat("\nEnding CSS calculations\n")

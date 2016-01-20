@@ -421,27 +421,62 @@ if( !is.null(psd) ){
 
 	cat("\nAssigning averages to missing pairwise distances\n")
 
-		# Tried to do without transposing, but didn't finish
-		# lev <- levels(as.factor(psdGroups)) # this will be the order in which the means are given below
-		# # [1] "b" "w"
+if(FALSE){
+	
+	# Data table way
+	library(data.table)
+	psd <- as.data.table(psd)
+	
+	psdUnique <- unique(names(psd)) # this assumes that we have many duplicate names -- haven't changed
+	# [1] "w" "b"
+	
+	for(p in psdUnique){
+		# p <- psdUnique[1]
 		
-		# # Compute the means for each marker, separately for groups defined by level of psdGroups
-		# # This is a bit slow and memory use not so great -> try data.table
+		doCols <- c(grep(p, names(psd))) # which columns are of interest on this iteration of loop?
+		# doCols
+		  # [1]   1   2   3   4  10  11  12  13  14  15  22  23  24  30  31  32  33  34  35  42  43  49  50  51  52  53
+		 # [27]  54  61  67  68  69  70  71  72  84  85  86  87  88  89  96  97  98  99 106 107 108 109 110 111 112 113
+		 # [53] 114 121 122 123 124 125 126 127 128 135 136 137 138 139 140 141 148 149 150 151 152 153 160 161 162 163
+		 # [79] 164 165 166 167 168 169 170 177 178 179 180 187 188 189 196 197 204 217 218 219 220 221 222 223 224 225
+		# [105] 226 227 228 229 230 231
 		
-		# # Split psd into column groups according to psdGroups
-		# x <- vector("list", length = length(lev))
-		# names(x) <- lev
-		# whichCols <- vector("list", length = length(lev)) # to save the original column numbers before split
-		# names(whichCols) <- lev	
-		# for(j in lev){
-			# x[[j]] <- psd[ , names(psd) == j]  # pull out the columns with names corresponding to psdGroup level
-			# whichCols[[j]] <- which(names(psd) == j) 
-			# }
-			
-		# # Obtain means of all non-missing pairwise values
-		# z <- lapply(x, function(x){
-			# apply(x, 1, mean, na.rm = TRUE) # means by row; yields NaN if row is all NA
-			# })
+		saveNames <- names(psd)[doCols]
+		
+		# Give the columns a temporary standard name to help next step
+		setnames(psd, doCols, paste("column", doCols, sep = ""))
+		# names(psd)
+		  # [1] "column1"   "column2"   "column3"   "column4"   "b"         "b"         "b"         "b"        
+		  # [9] "b"         "column10"  "column11"  "column12"  "column13"  "column14"  "column15"  "b"        
+		 # [17] "b"         "b"         "b"         "b"         "b"         "column22"  "column23"  "column24" 
+			# ....		
+		useCols <- names(psd)[doCols] # [1] "column1"   "column2"   "column3"   "column4"   "column10" ....
+		
+		psd[ , rowMean := apply(.SD, 1, mean, na.rm=TRUE),, .SDcols = doCols ]
+		psd[ is.nan(rowMean ), `:=`(rowMean = NA)]
+
+		for(k in useCols){
+			# k <- useCols[1]
+			i <- parse( text = paste("is.na(", k, ")") )
+			j <- parse( text = paste("`:=`(", k, "= rowMean)") )
+			psd[eval(i), eval(j)]
+			}
+		setnames(psd, doCols, saveNames)
+		
+		}
+
+	# Delete rowMean
+	psd[ , c("rowMean") := NULL]
+	
+	gc()
+	
+	psd$snpBins <- snpBins
+
+	psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), by = snpBins]
+	
+	blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
+
+}
 	
 	# transposing costs some memory
 	psd <- as.data.frame(t(psd), rownames = NULL, stringsAsFactors = FALSE) # best if snps are columns not rows

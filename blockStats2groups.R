@@ -70,7 +70,9 @@ nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
 # control$psdMissingAction <- psdMissingAction # not used right now
 status <- gtstats$status
 fst <- gtstats$fst # will be NULL if absent
+# library(data.table)
 psd <- gtstats$psd # will be NULL if absent
+# psd <- as.data.table(gtstats$psd) # will be NULL if absent
 
 
 gc()
@@ -424,8 +426,14 @@ if( !is.null(psd) ){
 if(FALSE){
 	
 	# Data table way
-	library(data.table)
+	library(data.table) # doesn't use as much memory if do here rather than use "as.data.table(gtstats$psd)" at start
 	psd <- as.data.table(psd)
+	
+	cat("\nConverted psd to data table\n")
+	gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells   2411082  128.8    8262486  441.3  14189900  757.9
+	# Vcells 230305282 1757.1  551359436 4206.6 433308962 3305.9
 	
 	psdUnique <- unique(names(psd)) # this assumes that we have many duplicate names -- haven't changed
 	# [1] "w" "b"
@@ -444,6 +452,7 @@ if(FALSE){
 		saveNames <- names(psd)[doCols]
 		
 		# Give the columns a temporary standard name to help next step
+
 		setnames(psd, doCols, paste("column", doCols, sep = ""))
 		# names(psd)
 		  # [1] "column1"   "column2"   "column3"   "column4"   "b"         "b"         "b"         "b"        
@@ -454,6 +463,11 @@ if(FALSE){
 		
 		psd[ , rowMean := apply(.SD, 1, mean, na.rm=TRUE),, .SDcols = doCols ]
 		psd[ is.nan(rowMean ), `:=`(rowMean = NA)]
+
+		# gc()
+		            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+		# Ncells   2426601  129.6    8262486  441.3  14189900  757.9
+		# Vcells 231207554 1764.0  670525648 5115.8 670253610 5113.7 # whoa! this is from p <- psdUnique[1]
 
 		for(k in useCols){
 			# k <- useCols[1]
@@ -469,11 +483,28 @@ if(FALSE){
 	psd[ , c("rowMean") := NULL]
 	
 	gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells   2429347  129.8    8262486  441.3  14189900  757.9
+	# Vcells 231211996 1764.1  704131930 5372.2 703966666 5370.9 # whoa!
 	
 	psd$snpBins <- snpBins
 
-	psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), by = snpBins]
-	
+	psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), keyby = snpBins] # keyby orders the snpBins but adds column
+		# head(psdSum)
+	         # snpBins         w         w         w         w          b          b
+	# 1: [11501,12001) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
+	# 2: [12001,12501) 6.8913043 6.8913043 6.8913043 6.8913043 7.40000000 7.40000000
+	# 3: [12501,13001) 1.2434409 1.2434409 1.2434409 1.2434409 4.06031746 4.06031746
+	# 4: [15001,15501) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
+	# 5: [16001,16501) 0.2585139 0.2585139 0.2585139 0.2585139 0.24735450 0.24735450
+	# 6: [42501,43001) 0.0000000 0.0000000 0.0000000 0.0000000 0.07142857 0.07142857
+	# .....
+
+	# nrow(psdSum) # **** is missing some bins **** doesn't behave like a normal factor
+	# [1] 30342
+	# nrow(blockstats)
+	# [1] 34716
+
 	blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
 
 }

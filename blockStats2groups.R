@@ -332,6 +332,7 @@ if( !is.null(fst) ){
 	# [1] "lsiga" "lsigb" "lsigw" "fst"   "fis"
 
 	# break the data frame into the bins
+	# Note: snpBins is a factor, so the resulting list is in the correct order
 	fstBinned <- split(fst, snpBins) 
 	
 	# Sum Fst components for each bin
@@ -416,26 +417,110 @@ if( !is.null(psd) ){
 
 	names(psd) <- psdGroups  
 	# names(psd) # duplicate column names seem to be ok
-	
-	# 2. Assign average pairwise distance to missing pairwise distance values at every marker separately
-	
-	# This is slightly wasteful because it still includes monomorphic sites
+		
+	# head(psd)
+	# Note that many loci have all NA's even though alleles with insufficient numbers of individuals genotyped
+	# were dropped in "gtstats2groups.R". However, psd was calculated and saved only for loci with status == "v",
+	# which means that psd for all the invariants are NA rather than 0.
 
 	cat("\nAssigning averages to missing pairwise distances\n")
 
-if(FALSE){
+	# This is slightly wasteful because it still includes monomorphic sites
 	
-	# Data table way
-	library(data.table) # doesn't use as much memory if do here rather than use "as.data.table(gtstats$psd)" at start
-	psd <- as.data.table(psd)
+		# if(FALSE){ # Data table way - requires more memory than data frame way
+		
+		# library(data.table) # doesn't use as much memory if do here rather than use "as.data.table(gtstats$psd)" at start
+		# psd <- as.data.table(psd)
+		
+		# cat("\nConverted psd to data table\n")
+		# gc()
+		            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+		# # Ncells   2411082  128.8    8262486  441.3  14189900  757.9
+		# # Vcells 230305282 1757.1  551359436 4206.6 433308962 3305.9
+		
+		# psdUnique <- unique(names(psd)) # this assumes that we have many duplicate names -- haven't changed
+		# # [1] "w" "b"
+		
+		# for(p in psdUnique){
+			# # p <- psdUnique[1]
+			
+			# doCols <- c(grep(p, names(psd))) # which columns are of interest on this iteration of loop?
+			# # doCols
+			  # # [1]   1   2   3   4  10  11  12  13  14  15  22  23  24  30  31  32  33  34  35  42  43  49  50  51  52  53
+			 # # [27]  54  61  67  68  69  70  71  72  84  85  86  87  88  89  96  97  98  99 106 107 108 109 110 111 112 113
+			 # # [53] 114 121 122 123 124 125 126 127 128 135 136 137 138 139 140 141 148 149 150 151 152 153 160 161 162 163
+			 # # [79] 164 165 166 167 168 169 170 177 178 179 180 187 188 189 196 197 204 217 218 219 220 221 222 223 224 225
+			# # [105] 226 227 228 229 230 231
+			
+			# saveNames <- names(psd)[doCols]
+			
+			# # Give the columns a temporary standard name to help next step
 	
-	cat("\nConverted psd to data table\n")
-	gc()
-	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells   2411082  128.8    8262486  441.3  14189900  757.9
-	# Vcells 230305282 1757.1  551359436 4206.6 433308962 3305.9
+			# setnames(psd, doCols, paste("column", doCols, sep = ""))
+			# # names(psd)
+			  # # [1] "column1"   "column2"   "column3"   "column4"   "b"         "b"         "b"         "b"        
+			  # # [9] "b"         "column10"  "column11"  "column12"  "column13"  "column14"  "column15"  "b"        
+			 # # [17] "b"         "b"         "b"         "b"         "b"         "column22"  "column23"  "column24" 
+				# # ....		
+			# useCols <- names(psd)[doCols] # [1] "column1"   "column2"   "column3"   "column4"   "column10" ....
+			
+			# psd[ , rowMean := apply(.SD, 1, mean, na.rm=TRUE),, .SDcols = doCols ]
+			# psd[ is.nan(rowMean ), `:=`(rowMean = NA)]
 	
-	psdUnique <- unique(names(psd)) # this assumes that we have many duplicate names -- haven't changed
+			# # gc()
+			            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+			# # Ncells   2426601  129.6    8262486  441.3  14189900  757.9
+			# # Vcells 231207554 1764.0  670525648 5115.8 670253610 5113.7 # whoa! this is from p <- psdUnique[1]
+	
+			# for(k in useCols){
+				# # k <- useCols[1]
+				# i <- parse( text = paste("is.na(", k, ")") )
+				# j <- parse( text = paste("`:=`(", k, "= rowMean)") )
+				# psd[eval(i), eval(j)]
+				# }
+			# setnames(psd, doCols, saveNames)
+			
+			# }
+	
+		# # Delete rowMean
+		# psd[ , c("rowMean") := NULL]
+		
+		# gc()
+		            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+		# # Ncells   2429347  129.8    8262486  441.3  14189900  757.9
+		# # Vcells 231211996 1764.1  704131930 5372.2 703966666 5370.9 # whoa!
+		
+		# psd$snpBins <- snpBins
+	
+		# psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), keyby = snpBins] # keyby orders the snpBins but adds column
+			# # head(psdSum)
+		         # # snpBins         w         w         w         w          b          b
+		# # 1: [11501,12001) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
+		# # 2: [12001,12501) 6.8913043 6.8913043 6.8913043 6.8913043 7.40000000 7.40000000
+		# # 3: [12501,13001) 1.2434409 1.2434409 1.2434409 1.2434409 4.06031746 4.06031746
+		# # 4: [15001,15501) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
+		# # 5: [16001,16501) 0.2585139 0.2585139 0.2585139 0.2585139 0.24735450 0.24735450
+		# # 6: [42501,43001) 0.0000000 0.0000000 0.0000000 0.0000000 0.07142857 0.07142857
+		# # .....
+	
+		# # nrow(psdSum) 
+		# # [1] 30342
+		# # nrow(blockstats)
+		# # [1] 34716
+		
+		# ** Not finished yet **
+		# ** Need to match column 1 of psdSum to blockstats **
+	
+		# blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
+		
+		# rm(psd)
+		# rm(psdSum)
+		# gc()
+	
+		# } # End modified data.table way
+	
+
+	psdUnique <- unique(names(psd))
 	# [1] "w" "b"
 	
 	for(p in psdUnique){
@@ -449,227 +534,70 @@ if(FALSE){
 		 # [79] 164 165 166 167 168 169 170 177 178 179 180 187 188 189 196 197 204 217 218 219 220 221 222 223 224 225
 		# [105] 226 227 228 229 230 231
 		
-		saveNames <- names(psd)[doCols]
+		rowMean <- apply(psd[ , doCols], 1, mean, na.rm=TRUE)
+		rowMean[is.nan(rowMean)] <- NA
 		
-		# Give the columns a temporary standard name to help next step
-
-		setnames(psd, doCols, paste("column", doCols, sep = ""))
-		# names(psd)
-		  # [1] "column1"   "column2"   "column3"   "column4"   "b"         "b"         "b"         "b"        
-		  # [9] "b"         "column10"  "column11"  "column12"  "column13"  "column14"  "column15"  "b"        
-		 # [17] "b"         "b"         "b"         "b"         "b"         "column22"  "column23"  "column24" 
-			# ....		
-		useCols <- names(psd)[doCols] # [1] "column1"   "column2"   "column3"   "column4"   "column10" ....
-		
-		psd[ , rowMean := apply(.SD, 1, mean, na.rm=TRUE),, .SDcols = doCols ]
-		psd[ is.nan(rowMean ), `:=`(rowMean = NA)]
-
-		# gc()
-		            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-		# Ncells   2426601  129.6    8262486  441.3  14189900  757.9
-		# Vcells 231207554 1764.0  670525648 5115.8 670253610 5113.7 # whoa! this is from p <- psdUnique[1]
-
-		for(k in useCols){
-			# k <- useCols[1]
-			i <- parse( text = paste("is.na(", k, ")") )
-			j <- parse( text = paste("`:=`(", k, "= rowMean)") )
-			psd[eval(i), eval(j)]
-			}
-		setnames(psd, doCols, saveNames)
-		
+		for(k in doCols){
+			# k <- doCols[1]
+			# unname(rowMean[is.na(psd[ , k])])
+			psd[is.na(psd[ , k]) , k] <- rowMean[is.na(psd[ , k])]
+			}			
 		}
 
 	# Delete rowMean
-	psd[ , c("rowMean") := NULL]
+	rm(rowMean)
 	
 	gc()
 	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells   2429347  129.8    8262486  441.3  14189900  757.9
-	# Vcells 231211996 1764.1  704131930 5372.2 703966666 5370.9 # whoa!
+	# Ncells   2394738  127.9    6609988  353.1  14294633  763.5
+	# Vcells 225994189 1724.2  579007407 4417.5 578877838 4416.5 # yikes! but is less than with data.table
 	
-	psd$snpBins <- snpBins
+	cat("\nDone assigning averages to missing pairwise distances\n")
+	
+	cat("\nSplitting psd by snpBins\n")
+	# snpBins is a factor so the resulting list will be in the correct order:
+	psdBins <- split(psd, snpBins)
+	rm(psd)
+	
+	gc()
+		
+	cat("\nDone splitting psd by snpBins\n")
 
-	psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), keyby = snpBins] # keyby orders the snpBins but adds column
-		# head(psdSum)
-	         # snpBins         w         w         w         w          b          b
-	# 1: [11501,12001) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
-	# 2: [12001,12501) 6.8913043 6.8913043 6.8913043 6.8913043 7.40000000 7.40000000
-	# 3: [12501,13001) 1.2434409 1.2434409 1.2434409 1.2434409 4.06031746 4.06031746
-	# 4: [15001,15501) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
-	# 5: [16001,16501) 0.2585139 0.2585139 0.2585139 0.2585139 0.24735450 0.24735450
-	# 6: [42501,43001) 0.0000000 0.0000000 0.0000000 0.0000000 0.07142857 0.07142857
-	# .....
-
-	# nrow(psdSum) # **** is missing some bins **** doesn't behave like a normal factor
-	# [1] 30342
+	psdSum <- lapply(psdBins, colSums, na.rm=TRUE)
+	# length(psdSum)
+	# [1] 34716
 	# nrow(blockstats)
 	# [1] 34716
 
-	blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
-
-}
+	psdSum <- do.call("rbind", psdSum)
+	colnames(psdSum) <- paste("psd", gtpairs, sep = ".")
 	
-	# transposing costs some memory
-	psd <- as.data.frame(t(psd), rownames = NULL, stringsAsFactors = FALSE) # best if snps are columns not rows
-	
-	# levels(as.factor(psdGroups)) # this will be the order in which the means are given below
-	# [1] "b" "w" 
-	
-	# z <- aggregate(psd, by = list(psdGroups), FUN = mean) # takes forever
-	
-	# the following seems to be faster than aggregate
-	psdGroupMeans <- list()
-	for(i in 1:length(levels( as.factor(psdGroups) ))){
-		# i <- 1 # "b"
-		psdGroupMeans[[i]] <- sapply( psd[psdGroups == levels( as.factor(psdGroups) )[i],], mean, na.rm = TRUE )
-		psdGroupMeans[[i]][is.nan(psdGroupMeans[[i]])] <- NA
-		}
-	names(psdGroupMeans) <- levels(as.factor(psdGroups))
-	psdGroupMeans <- as.data.frame(do.call("rbind", psdGroupMeans), stringsAsFactors = FALSE)
-	# psdGroupMeans[,1:4]
-	  # chrUn:5108405_C/A chrUn:5108407_C/G chrUn:5108413_C/T chrUn:5108418_C/A
-	# b                NA        0.08333333                NA                NA
-	# w                NA        0.04901961                NA                NA
-
-	# psd[,2] # this column selected for testing because it isn't all NAs
-	  # [1]  NA 0.0 0.0  NA 0.0 0.0  NA 0.0  NA 0.0 0.0 0.0 0.0 0.0 0.0  NA 0.5  NA
-	 # [19]  NA 0.0 0.0  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA
-	 # [37]  NA  NA  NA  NA  NA 0.0  NA 0.0 0.0  NA 0.0  NA 0.0 0.0 0.0 0.0 0.0 0.0
-	 # [55]  NA 0.5  NA  NA 0.0 0.0  NA 0.0 0.0  NA 0.0  NA 0.0 0.0 0.0 0.0 0.0 0.0
-	 # [73]  NA 0.5  NA  NA 0.0 0.0  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA
-	 # [91]  NA  NA  NA  NA  NA 0.0  NA 0.0  NA 0.0 0.0 0.0 0.0 0.0 0.0  NA 0.5  NA
-	# [109]  NA 0.0 0.0  NA 0.0  NA 0.0 0.0 0.0 0.0 0.0 0.0  NA 0.5  NA  NA 0.0 0.0
-	# [127]  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA  NA 0.0 0.0 0.0
-	# [145] 0.0 0.0 0.0  NA 0.5  NA  NA 0.0 0.0  NA  NA  NA  NA  NA  NA  NA  NA  NA
-	# [163]  NA  NA  NA 0.0 0.0 0.0 0.0 0.0  NA 0.5  NA  NA 0.0 0.0 0.0 0.0 0.0 0.0
-	# [181]  NA 0.5  NA  NA 0.0 0.0 0.0 0.0 0.0  NA 0.5  NA  NA 0.0 0.0 0.0 0.0  NA
-	# [199] 0.5  NA  NA 0.0 0.0 0.0  NA 0.5  NA  NA 0.0 0.0  NA 0.5  NA  NA 0.0 0.0
-	# [217]  NA  NA  NA  NA  NA  NA  NA 0.5 0.5  NA  NA  NA  NA  NA 0.0
-
-	# position here indicates whether the rows of psd are matched to "b" (1) or "w" (2)
-	position <- match(psdGroups, levels(as.factor(psdGroups))) 
-	# position    
-	  # [1] 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1
-	 # [38] 1 1 1 1 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1 2 1 1 1 1 1 2 2 2 2 2 2 1 1
-	 # [75] 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1 2 2 2 2 1 1 1 1 1 1 2 2 2 2 2 2
-	# [112] 2 2 2 1 1 1 1 1 1 2 2 2 2 2 2 2 2 1 1 1 1 1 1 2 2 2 2 2 2 2 1 1 1 1 1 1 2
-	# [149] 2 2 2 2 2 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 2 2 2 2 1 1 1 1 1
-	# [186] 1 2 2 2 1 1 1 1 1 1 2 2 1 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2
-	# [223] 2 2 2 2 2 2 2 2 2
-
-	# Replace the NAs with the group means. This step is slow but hopefully doesn't require too much memory?
-	# 	psd[2,][is.na(psd[2,])] <- z[position][is.na(psd[2,])] 
-	z <- mapply(psd, psdGroupMeans, FUN = function(x, y){
-		# x <- psd[,2]; y <- psdGroupMeans[,2]
-		x[is.na(x)] <- y[position][is.na(x)]
-		z <- x
-		z
-		})
-
-	# z[,2] # The NAs above have been replaced with the means
-	  # [1] 0.04901961 0.00000000 0.00000000 0.04901961 0.00000000 0.00000000
-	  # [7] 0.08333333 0.00000000 0.08333333 0.00000000 0.00000000 0.00000000
-	 # [13] 0.00000000 0.00000000 0.00000000 0.08333333 0.50000000 0.08333333
-	 # [19] 0.08333333 0.00000000 0.00000000 0.04901961 0.04901961 0.04901961
-	 # [25] 0.08333333 0.08333333 0.08333333 0.08333333 0.08333333 0.04901961
-	 # [31] 0.04901961 0.04901961 0.04901961 0.04901961 0.04901961 0.08333333
-	 # [37] 0.08333333 0.08333333 0.08333333 0.08333333 0.08333333 0.00000000
-	 # [43] 0.04901961 0.00000000 0.00000000 0.08333333 0.00000000 0.08333333
-	 # [49] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
-	 # [55] 0.08333333 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000
-	 # [61] 0.04901961 0.00000000 0.00000000 0.08333333 0.00000000 0.08333333
-	 # [67] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
-	 # [73] 0.08333333 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000
-	 # [79] 0.08333333 0.08333333 0.08333333 0.08333333 0.08333333 0.04901961
-	 # [85] 0.04901961 0.04901961 0.04901961 0.04901961 0.04901961 0.08333333
-	 # [91] 0.08333333 0.08333333 0.08333333 0.08333333 0.08333333 0.00000000
-	 # [97] 0.04901961 0.00000000 0.04901961 0.00000000 0.00000000 0.00000000
-	# [103] 0.00000000 0.00000000 0.00000000 0.04901961 0.50000000 0.04901961
-	# [109] 0.04901961 0.00000000 0.00000000 0.04901961 0.00000000 0.04901961
-	# [115] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
-	# [121] 0.04901961 0.50000000 0.04901961 0.04901961 0.00000000 0.00000000
-	# [127] 0.04901961 0.04901961 0.08333333 0.08333333 0.08333333 0.08333333
-	# [133] 0.08333333 0.08333333 0.04901961 0.04901961 0.04901961 0.04901961
-	# [139] 0.04901961 0.04901961 0.04901961 0.00000000 0.00000000 0.00000000
-	# [145] 0.00000000 0.00000000 0.00000000 0.04901961 0.50000000 0.04901961
-	# [151] 0.04901961 0.00000000 0.00000000 0.08333333 0.08333333 0.08333333
-	# [157] 0.08333333 0.08333333 0.08333333 0.04901961 0.04901961 0.04901961
-	# [163] 0.04901961 0.04901961 0.04901961 0.00000000 0.00000000 0.00000000
-	# [169] 0.00000000 0.00000000 0.08333333 0.50000000 0.08333333 0.08333333
-	# [175] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
-	# [181] 0.08333333 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000
-	# [187] 0.00000000 0.00000000 0.00000000 0.08333333 0.50000000 0.08333333
-	# [193] 0.08333333 0.00000000 0.00000000 0.00000000 0.00000000 0.08333333
-	# [199] 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000 0.00000000
-	# [205] 0.08333333 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000
-	# [211] 0.08333333 0.50000000 0.08333333 0.08333333 0.00000000 0.00000000
-	# [217] 0.04901961 0.04901961 0.04901961 0.04901961 0.04901961 0.04901961
-	# [223] 0.04901961 0.50000000 0.50000000 0.04901961 0.04901961 0.04901961
-	# [229] 0.04901961 0.04901961 0.00000000
-	
-	# don't forget to put the "z" results back to "psd"
-	psd <- as.data.frame(t(z), stringsAsFactors = FALSE)
-
-	cat("\nDone assigning averages to missing pairwise distances\n")
-	
-	gc()
-
-	psdBins <- split(psd, snpBins)
-	rm(psd)
-  	cat("\nEnded assigning average pairwise distances\n")
-		
-  	cat("\nDropping monomorphic sites\n")
-  	
-	# 3. Drop the monomorphic sites to minimize confusion
-	
-	# Can't get this mapply to work
-		# z <- mapply(is.monomorphic, psdBins, FUN = function(i, x){
-			# # x <- psdBins[[10000]]; i <- is.monomorphic[[10000]]
-			# z <- x#[!i,]
-			# return(z)
-			# }, SIMPLIFY = FALSE)
-
-	# This worked instead
-	# It removes markers (rows of psdBins) in each block that are monomorphic
-	
-	z <- list()
-	for(i in 1:length(psdBins)){
-		z[[i]] <- psdBins[[i]][!is.monomorphic[[i]],]
-		}
-	psdBins <- z
-	rm(z)
-	
-	gc()
-
- 	cat("\nSumming the psd's within bins\n")
-	
-	# Sum the psd's within bins or blocks
-	# colSum yields a value of 0 if there's no data! Fix? Or just pay attention to nSnp in blockstats
-
-	psdSum <- lapply(psdBins, colSums, na.rm = TRUE)
-	psdSum <- as.data.frame( do.call("rbind", psdSum), stringsAsFactors = FALSE )
-
 	# psdSum[120:125,]
-		          # 2,2       2,2       2,2       2,2      2,1       2,1       2,1
-		# 120 4.1061111 3.8134125 5.6071429 4.6071429 6.000000 5.6071429 4.0000000
-		# 121 0.7600000 0.6052842 0.6052842 0.6052842 0.750000 0.5238095 0.5863095
-		# 122 0.3838589 0.2116101 0.2116101 1.3838589 0.225000 0.3678571 0.2250000
-		# 123 0.4913219 2.0363636 0.4913219 0.3286713 1.100000 1.1000000 1.1000000
-		# 124 0.3929746 0.9286889 0.9286889 0.3284585 1.963333 2.5633333 2.5633333
-		# 125 3.5000000 2.8092589 2.8092589 2.5000000 2.000000 3.7000000 2.5000000
-		         # 2,1      2,1       2,2       2,2       2,2        2,2       2,2
-		# 120 6.500000 4.868056 6.5149063 4.2113717 5.6220492 6.00000000 4.6000000
-		# 121 0.750000 0.750000 0.7600000 0.6052842 0.7600000 0.76000000 0.6052842
-		# 122 1.225000 0.725000 0.4747680 0.1207010 0.4747680 0.12070099 1.1207010
-		# 123 1.100000 1.100000 1.0363636 0.4913219 1.3286713 0.03636364 0.3286713
-		# 124 1.563333 1.463333 0.3284585 0.3284585 0.3284585 0.32845850 0.9286889
-		# 125 3.583692 0.500000 3.1202266 2.9264464 3.4200000 1.50000000 3.5490323
-		# ....
-
-	names(psdSum) <- paste("psd", gtpairs, sep = ".")
+	                # psd.2,2   psd.2,2   psd.2,2   psd.2,2  psd.2,1   psd.2,1
+	# [59501,60001) 4.1061111 3.8134125 5.6071429 4.6071429 6.000000 5.6071429
+	# [60001,60501) 0.7600000 0.6052842 0.6052842 0.6052842 0.750000 0.5238095
+	# [60501,61001) 0.3838589 0.2116101 0.2116101 1.3838589 0.225000 0.3678571
+	# [61001,61501) 0.4913219 2.0363636 0.4913219 0.3286713 1.100000 1.1000000
+	# [61501,62001) 0.3929746 0.9286889 0.9286889 0.3284585 1.963333 2.5633333
+	# [62001,62501) 3.5000000 2.8092589 2.8092589 2.5000000 2.000000 3.7000000
+	                # psd.2,1  psd.2,1  psd.2,1   psd.2,2   psd.2,2   psd.2,2
+	# [59501,60001) 4.0000000 6.500000 4.868056 6.5149063 4.2113717 5.6220492
+	# [60001,60501) 0.5863095 0.750000 0.750000 0.7600000 0.6052842 0.7600000
+	# [60501,61001) 0.2250000 1.225000 0.725000 0.4747680 0.1207010 0.4747680
+	# [61001,61501) 1.1000000 1.100000 1.100000 1.0363636 0.4913219 1.3286713
+	# [61501,62001) 2.5633333 1.563333 1.463333 0.3284585 0.3284585 0.3284585
+	# [62001,62501) 2.5000000 3.583692 0.500000 3.1202266 2.9264464 3.4200000
 
 	blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
+	rm(psdSum)
+	
   	cat("\nEnding CSS calculations\n")
+  	
+  	# gc()
+	  	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  10588039  565.5   15375065  821.2  15375065  821.2
+	# Vcells 244937212 1868.8  670525648 5115.8 578877838 4416.5
+
 	}
 
 # -------------

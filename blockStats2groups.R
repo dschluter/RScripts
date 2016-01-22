@@ -151,6 +151,7 @@ nUnmasked <- tapply(chrvec, chrbins, function(x){length(x[x %in% c("A","C","G","
  # 0  0  0  9  0  0  0  0  0  0  0  0  0  0  4  0  0 11  0  0
 
 rm(chrvec)
+rm(chrbins)
 
 blockstats <- data.frame(
 			ibase = ibase[-length(ibase)], 
@@ -162,8 +163,8 @@ rm(nUnmasked)
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2246555  120.0    6237958  333.2  10158340  542.6
-# Vcells 222901563 1700.7  333521813 2544.6 317563348 2422.9
+# Ncells   2247472  120.1    6237958  333.2  10162262  542.8
+# Vcells 214258536 1634.7  333521806 2544.6 317563341 2422.9
 
 # ----
 # 2) Count up the number of snp and number of invariants in each bin
@@ -173,25 +174,15 @@ cat("\nLoading good invariants file\n")
 load(goodInvariantsFile) # object is goodInvariants
 
 # object.size(goodInvariants) 
-# 1560947856 bytes
+# 1560947856 bytes # 1.6 Gb
 
 cat("\nFinished loading good invariants file\n")
 
-	# Data.table way -- this used more memory than the original data frame code, so indented and commented out
-	# library(data.table)
-
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13724134  733.0   14562966  777.8  13724225  733.0
-# Vcells 368496412 2811.5  551302887 4206.2 368496541 2811.5
+# Ncells  13724133  733.0   14562966  777.8  13724272  733.0
+# Vcells 359852242 2745.5  518283907 3954.2 359852403 2745.5
 
-	# saveRowNames <- rownames(goodInvariants) # if needed
-	# goodInvariants <- as.data.table(goodInvariants) # this loses all the row names!
-	
-	# gc()
-
-	# object.size(goodInvariants) 
-	# 826386640 bytes # half the size of the data frame (but no rownames)
 
 # Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
 names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
@@ -204,32 +195,21 @@ if(Glazerize){
 	} else{
 	goodInvariants <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
 	}
-gc()
+
+# gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13727699  733.2   15331114  818.8  13773601  735.6
-# Vcells 282421492 2154.8  551302887 4206.2 368607108 2812.3
+# Ncells  13724116  733.0   15331114  818.8  13751976  734.5
+# Vcells 273770656 2088.8  518283907 3954.2 359931884 2746.1
 	
 cat("\nDropping invariants not meeting the minimum number of genotypes\n")
 
 # Drop invariants that do not meet the minimum number of genotypes required
+# names(goodInvariants)
+# [1] "POS"  "paxl" "paxb" # counts needed are in columns 2 and 3
 
 i <- goodInvariants[,2] >= nMin[1] & goodInvariants[,3] >= nMin[2]
 goodInvariants <- goodInvariants[i, ]
 rm(i)
-
-gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13202278  705.1   16137669  861.9  13773601  735.6
-# Vcells 280057083 2136.7  551302887 4206.2 411610117 3140.4
-
-	# data.table way
-	# if(Glazerize){
-		# goodInvariants <- goodInvariants[ , c("newPos", groupnames), with = FALSE]
-		# # rename "newPos" to "POS"
-		# setnames(goodInvariants, old = "newPos", new = "POS")
-		# } else{
-		# goodInvariants <- goodInvariants[ , c("POS", groupnames), with = FALSE]
-		# }
 
 # head(goodInvariants)
                   # POS paxl paxb
@@ -240,24 +220,29 @@ gc()
 # chrUn.3907279 1794697    5    7
 # chrUn.3907280 1794698    5    7
 
-	# Data table way
-	# cat("\nDropping invariants not meeting the minimum number of genotypes\n")
-	# group1name <- names(goodInvariants)[2]
-	# group2name <- names(goodInvariants)[3]
-	# i <- parse( text = paste( group1name, ">= nMin[1] &", group2name, ">= nMin[2]" ) )
-	# goodInvariants <- goodInvariants[ eval(i) ]
-	
-	# gc()
-	            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# # Ncells   2352526  125.7    9320297  497.8  14562966  777.8
-	# # Vcells 247328724 1887.0  550594679 4200.8 546871463 4172.3 # whoa, this is even more than without data.table
+cat("\nBinning the good invariants\n")
 
+# Count up the number of good invariants in each bin
+# Remember: newPos has been renamed to POS if Glazerize is true
 
-# Need to split SNP counts into same bins of stepsize k and then sum up
-# "pos" refers to the positions of the snp (not the invariants)
+invariantBins <- cut(goodInvariants$POS, breaks = ibase, right = FALSE)
+nInvariants <- table( invariantBins ) 
+rm(goodInvariants)
+rm(invariantBins)
+
+# head(nInvariants)
+    # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001)  
+    #       0           0           0           0           0           0 
+
 # Count up the number of snp in each bin (cut works because ibase intervals are made as factors)
+# "pos" refers to the positions of the snp
+
+cat("\nBinning the good snps\n")
 
 snpBins <- cut(pos, breaks = ibase, right = FALSE)
+# is.factor(snpBins)
+# [1] TRUE
+
 nSnp <- table( snpBins )
 
 # head(nSnp)
@@ -267,17 +252,7 @@ nSnp <- table( snpBins )
 is.monomorphic <- split(status == "i", snpBins)
 nMonomorphic <- sapply(is.monomorphic, sum)
 
-# Count up the number of good invariants in each bin
-# Remember: newPos has been renamed to POS if Glazerize is true
-
-nInvariants <- table( cut(goodInvariants$POS, breaks = ibase, right = FALSE) ) 
-	
-# head(nInvariants)
-    # [1,501)  [501,1001) [1001,1501) [1501,2001) [2001,2501) [2501,3001)  
-    #       0           0           0           0           0           0 
-    
-rm(goodInvariants)
-rm(status)
+# rm(status)
 
 blockstats$nSnp = as.vector(nSnp) - nMonomorphic
 blockstats$nInvariants = as.vector(nInvariants) + nMonomorphic
@@ -289,8 +264,8 @@ rm(nMonomorphic)
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2323011  124.1   13587641  725.7  14198421  758.3
-# Vcells 231076456 1763.0  551302887 4206.2 424424252 3238.2
+# Ncells   2318481  123.9   12264891  655.1  14568721  778.1
+# Vcells 223260813 1703.4  518283907 3954.2 515655976 3934.2
 
 
 # blockstats[110:130,]
@@ -322,7 +297,7 @@ gc()
 
 if( !is.null(fst) ){
 		
-	cat("\nBeginning Fst calculations\n")
+	cat("\nBinning the Fst values\n")
 
 	# fst is a matrix, needs to be a data.frame or split will screw up
 
@@ -355,7 +330,7 @@ if( !is.null(fst) ){
 
 	z <- as.data.frame(do.call("rbind", z))
 	
-	# Drop the NaN's
+	# Change NaN's to NA
 	z$fst[ is.nan(z$fst) ] <- NA
 	
 	# Put results into the blockstats data frame. 
@@ -364,7 +339,7 @@ if( !is.null(fst) ){
 	rm(fstBinned)
 	rm(fst)
 
-	cat("\nDone Fst calculations\n")
+	cat("\nDone Fst binning\n")
 	
 	gc()
 	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -379,7 +354,7 @@ if( !is.null(fst) ){
   
 if( !is.null(psd) ){
   		
-	cat("\nBeginning CSS calculations\n")
+	cat("\nCalculating quantities for CSS score\n")
 	# psd is a data frame
 	
 	gtpairs <- names(psd)
@@ -413,8 +388,6 @@ if( !is.null(psd) ){
 			if(psdMissingAction == "meanGroup") psdGroups <- gtpairs else
 				stop("Unrecognizeable value for 'psdMissingAction'")
 
-	cat("\npsdGroups of all pairwise comparisons (determined by psdMissingAction)\n")
-
 	names(psd) <- psdGroups  
 	# names(psd) # duplicate column names seem to be ok
 		
@@ -423,7 +396,6 @@ if( !is.null(psd) ){
 	# were dropped in "gtstats2groups.R". However, psd was calculated and saved only for loci with status == "v",
 	# which means that psd for all the invariants are NA rather than 0.
 
-	cat("\nAssigning averages to missing pairwise distances\n")
 
 	# This is slightly wasteful because it still includes monomorphic sites
 	
@@ -523,6 +495,16 @@ if( !is.null(psd) ){
 	psdUnique <- unique(names(psd))
 	# [1] "w" "b"
 	
+	# Try reducing psd just to variant rows
+	# nrow(psd)
+
+	cat("\nReducing psd just to variant cases\n")
+	psd <- psd[status != "i", ]
+
+	# nrow(psd)
+
+	cat("\nAssigning averages to missing pairwise distances\n")
+
 	for(p in psdUnique){
 		# p <- psdUnique[1]
 		
@@ -535,7 +517,18 @@ if( !is.null(psd) ){
 		# [105] 226 227 228 229 230 231
 		
 		rowMean <- apply(psd[ , doCols], 1, mean, na.rm=TRUE)
-		rowMean[is.nan(rowMean)] <- NA
+
+		# THese steps carried out before psd reduced to variant rows:
+		# Check that all NaN's correspond to status = "i"
+		# all( status[is.nan(rowMean)] == "i" )
+		# [1] TRUE
+		# all( status[!is.nan(rowMean)] == "v" )
+		# [1] TRUE
+		
+		cat("\nTest that no Nan's remain in rowMeans (TRUE is correct)\n")
+		print( length(rowMean[is.nan(rowMean)]) == 0 )
+
+		# rowMean[is.nan(rowMean)] <- NA
 		
 		for(k in doCols){
 			# k <- doCols[1]
@@ -547,21 +540,27 @@ if( !is.null(psd) ){
 	# Delete rowMean
 	rm(rowMean)
 	
+	cat("\nDone assigning averages to missing pairwise distances\n")
+
 	gc()
 	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
 	# Ncells   2394738  127.9    6609988  353.1  14294633  763.5
 	# Vcells 225994189 1724.2  579007407 4417.5 578877838 4416.5 # yikes! but is less than with data.table
 	
-	cat("\nDone assigning averages to missing pairwise distances\n")
 	
-	cat("\nSplitting psd by snpBins\n")
+	cat("\nBinning psd by snpBins\n")
 	# snpBins is a factor so the resulting list will be in the correct order:
-	psdBins <- split(psd, snpBins)
+
+	# Modify if we analyzed only rows with variants
+	# psdBins <- split(psd, snpBins)
+
+	psdBins <- split(psd, snpBins[status != "i"])
+		
 	rm(psd)
 	
 	gc()
 		
-	cat("\nDone splitting psd by snpBins\n")
+	cat("\nDone binning psd values\n")
 
 	psdSum <- lapply(psdBins, colSums, na.rm=TRUE)
 	# length(psdSum)

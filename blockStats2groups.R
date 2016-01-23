@@ -343,8 +343,8 @@ if( !is.null(fst) ){
 	
 	gc()
 	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells   2392949  127.8   10870112  580.6  14198421  758.3
-	# Vcells 225989558 1724.2  551302887 4206.2 424424252 3238.2
+	# Ncells   2388682  127.6    9320297  497.8  14562966  777.8
+	# Vcells 218174273 1664.6  518283907 3954.2 518191814 3953.5
 
 	} # end fst
 
@@ -543,9 +543,9 @@ if( !is.null(psd) ){
 	cat("\nDone assigning averages to missing pairwise distances\n")
 
 	gc()
-	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells   2394738  127.9    6609988  353.1  14294633  763.5
-	# Vcells 225994189 1724.2  579007407 4417.5 578877838 4416.5 # yikes! but is less than with data.table
+	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  1764518  94.3    5964989  318.6  14562966  777.8
+	# Vcells 70026999 534.3  331701700 2530.7 518283862 3954.2
 	
 	
 	cat("\nBinning psd by snpBins\n")
@@ -559,7 +559,10 @@ if( !is.null(psd) ){
 	rm(psd)
 	
 	gc()
-		
+	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  9957363 531.8   13263914  708.4  14562966  777.8
+	# Vcells 90438778 690.0  265361360 2024.6 518283862 3954.2
+
 	cat("\nDone binning psd values\n")
 
 	psdSum <- lapply(psdBins, colSums, na.rm=TRUE)

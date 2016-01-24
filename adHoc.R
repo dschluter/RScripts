@@ -21,6 +21,6 @@ windowNmin = 100 # minimum number of good bases in window
 			# stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
 			# Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv")
 
-g$plotSlidewinInterestingPairsByChr(method = "fst", project, chrname, interestingPairs)
+# g$plotSlidewinInterestingPairsByChr(method = "fst", project, chrname, interestingPairs)
 
-# g$plotSlidewinInterestingPairsByChr(method = "css", project, chrname, interestingPairs)
+g$plotSlidewinInterestingPairsByChr(method = "css", project, chrname, interestingPairs)

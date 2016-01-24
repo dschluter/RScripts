@@ -1,6 +1,6 @@
 g<-list()
 
-g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, interestingPairs,
+g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, interestingPairs, ymax = 0,
 			stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
 			Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
 	# Carries out sliding window analysis and plots the results to a pdf file, one chromosome per page.
@@ -12,7 +12,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 	# methods: 
 	# 	"vara" is totVarA, variance among, per base
 	# 	"fst" is weir-cockerham Fst
-	# 	"css" is my slightly moodified version of felicity's CSS score, per base
+	# 	"css" is my slightly modified version of felicity's CSS score, per base
 	
 	# stepsize is the size of the block in the corresponding blockstats file
 	# nsteps.per.window 	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
@@ -20,6 +20,7 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 	
 	# Glazerize = TRUE results in line segments being included in plot to locate the old assembly of that chr
 	# 		"glazerFileS4 NewScaffoldOrder.csv" must be in local directory
+
 	if(Glazerize) x <- read.csv(scafFile)
 
 	# Order the chromosomes by their numeric values, leaving out the specially named ones
@@ -53,24 +54,27 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 			# groupnames <- interestingPairs[[1]]
 			blockstatsfile 	<- paste(project, i, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
 			load(blockstatsfile) # object name is blockstats
-			header <- paste(c(groupnames, "/", i), collapse = " ")
+			header <- paste(c(groupnames, "      /      ", i), collapse = " ")
 	
 			if(tolower(method) == "vara"){
 				FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
 					windowNmin = windowNmin)
 				# Need to convert raw variances to *per-base*
 				VarPerBase <- FSTwin$totVARa/FSTwin$nbases
+				if(ymax > 0) VarPerBase[VarPerBase > ymax] <- ymax
 				ibaseMillions <- FSTwin$ibase/10^6
-				plot(VarPerBase ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase, na.rm=TRUE), col = "blue")
+				plot(VarPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
 				} else
 	
 			if(tolower(method) == "fst"){
 				FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
 					windowNmin = windowNmin)
+				Fst <- FSTwin$fst
 				ibaseMillions <- FSTwin$ibase/10^6
-				plot(fst ~ ibaseMillions, data = FSTwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue")
+				if(ymax > 0) Fst[Fst > ymax] <- ymax
+				plot(Fst ~ ibaseMillions, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue", lwd = 2)
 				} else
 	
 			if(tolower(method) == "css"){
@@ -78,8 +82,9 @@ g$plotSlidewinInterestingPairsByChr <- function(method, project, chrname, intere
 					windowNmin = windowNmin)
 				cssPerBase <- CSSwin$CSS/CSSwin$nbases
 				ibaseMillions <- CSSwin$ibase/10^6
-				plot(cssPerBase ~ ibaseMillions, data = CSSwin, type="l", lwd = 0.5, main = header)
-				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase, na.rm=TRUE), col = "blue")
+				if(ymax > 0) cssPerBase[cssPerBase > ymax] <- ymax
+				plot(cssPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header)
+				if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
 				} else stop("Method must be vara, fst, or css")
 					
 			})

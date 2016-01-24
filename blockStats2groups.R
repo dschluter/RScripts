@@ -558,7 +558,7 @@ if( !is.null(psd) ){
 		
 	rm(psd)
 	
-	gc()
+	print(gc())
 	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
 	# Ncells  9957363 531.8   13263914  708.4  14562966  777.8
 	# Vcells 90438778 690.0  265361360 2024.6 518283862 3954.2

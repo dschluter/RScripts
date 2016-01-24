@@ -19,7 +19,7 @@ Glazerize <- TRUE
 scafFile <- "glazerFileS4 NewScaffoldOrder.csv"
 
 args <- commandArgs(TRUE) # project chrname method stepsize nsteps.per.window windowNmin ymax interestingPairs[list]
-# args <- c( "BenlimAllMarine", "chrXXI", "vara", 500, 5, 100, 0, list(c("paxl", "paxb"), c("pril", "prib")) )
+# args <- c( "BenlimAllMarine", "chrXXI", "vara", 500, 5, 100, 0.03, list(c("paxl", "paxb"), c("pril", "prib")) )
 
 interestingPairs <- args[8:length(args)]
 args <- unlist(args[1:7])
@@ -30,7 +30,7 @@ method <- args[3]
 stepsize <- as.integer(args[4])
 nsteps.per.window <- as.integer(args[5])
 windowNmin <- as.integer(args[6])
-ymax <- as.integer(args[7]) # set ymax to zero to ignore this argument
+ymax <- as.numeric(args[7]) # set ymax to zero to ignore this argument
 
 # Check that all blockstats files are present
 z <- sapply(interestingPairs, paste, collapse = ".")

@@ -36,6 +36,10 @@ g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, intere
 	npairs <- length(interestingPairs)
 	pdf( paste(project, "slidewin", method, "pdf", sep = "."), height = max(11, round(npairs * 1.5)) )
 	par(mfrow = c(npairs, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+	
+	# If ymax is set, include in header
+	ymaxHeader <- ""
+	if(ymax > 0) ymaxHeader <- paste("(ymax ", ymax, ")", sep = "")
 
 	for(i in chrname){
 		# i <- "chrXXI"
@@ -54,7 +58,7 @@ g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, intere
 			# groupnames <- interestingPairs[[1]]
 			blockstatsfile 	<- paste(project, i, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
 			load(blockstatsfile) # object name is blockstats
-			header <- paste(c(groupnames, "      /      ", i), collapse = " ")
+			header <- paste(c(groupnames, "      /      ", i, ymaxHeader), collapse = " ")
 	
 			if(tolower(method) == "vara"){
 				FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 

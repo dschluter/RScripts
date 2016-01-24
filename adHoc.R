@@ -4,7 +4,8 @@
 # Takes no arguments.
 
 project <- "BenlimAllMarine"
-chrname <- c("chrXXI")
+chrname <- gsub("[.]fa", "", list.files( pattern=glob2rx( "chr*.fa"), ignore.case=TRUE ))
+
 interestingPairs <- list(
 	c("paxl", "paxb"), c("pril", "prib"), c("qryl", "qryb"), c("ensl", "ensb"),
 	c("marine-pac", "paxb"), c("marine-pac", "paxl"), 
@@ -16,6 +17,10 @@ stepsize <- 500
 nsteps.per.window <- 5 	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
 windowNmin = 100 # minimum number of good bases in window
 
-g$plotSlidewinInterestingPairsByChr(method = "vara", project, chrname, interestingPairs,
-			stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
-			Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv")
+# g$plotSlidewinInterestingPairsByChr(method = "vara", project, chrname, interestingPairs,
+			# stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
+			# Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv")
+
+g$plotSlidewinInterestingPairsByChr(method = "fst", project, chrname, interestingPairs)
+
+# g$plotSlidewinInterestingPairsByChr(method = "css", project, chrname, interestingPairs)

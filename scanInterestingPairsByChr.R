@@ -32,18 +32,18 @@
 # set ymax to zero to ignore this argument
 
 args <- commandArgs(TRUE) 
-# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all")
+# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
 
 project <- args[1]
 pairs <- args[2]
 method <- args[3]
 chromosomes <- args[4]
+ymax <- args[5]
 
 # these are defaults, not arguments
 stepsize = 500
 nsteps.per.window = 5  	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
 windowNmin = 100 		# windowNmin is minimum number of good bases in window
-ymax = 0.03
 orderChr <- TRUE
 Glazerize <- TRUE
 scafFile <- "glazerFileS4 NewScaffoldOrder.csv"

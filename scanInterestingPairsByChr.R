@@ -53,11 +53,22 @@ if(pairs == "species-pairs")
 		c("paxl", "paxb"), c("pril", "prib"), c("qryl", "qryb"), c("ensl", "ensb")
 		)
 
+if(pairs == "marinepac-pairs") 
+	interestingPairs <- list(
+		c("marine-pac", "paxb"), c("marine-pac", "prib"), c("marine-pac", "qryb"), c("marine-pac", "ensb"),
+		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
+		)
+
+if(pairs == "solitary-benthic") 
+	interestingPairs <- list(
+		c("solitary", "paxb"), c("solitary", "prib"), c("solitary", "qryb"), c("solitary", "ensb")
+		)
+
 # chrname must be a single chromosome (e.g., "chrXXI") or "all"
 # chrname <- c("chrXXI", "chrXX")
 if(chromosomes == "all") 
 	chrname <- gsub("[.]fa", "", list.files( pattern=glob2rx( "chr*.fa"), ignore.case=TRUE )) else 
-	chrname <- chromosome[1]
+	chrname <- chromosomes[1]
 
 # Check that all blockstats files are present
 z <- sapply(interestingPairs, paste, collapse = ".")

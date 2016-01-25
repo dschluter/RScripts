@@ -33,6 +33,7 @@
 
 args <- commandArgs(TRUE) 
 # args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
+# args <- c( "BenlimAllMarine", "species-pairs", "fst", "all", 0)
 
 project <- args[1]
 pairs <- args[2]
@@ -139,10 +140,7 @@ for(i in chrname){
 			Fst <- FSTwin$fst
 			ibaseMillions <- FSTwin$ibase/10^6
 			ylim = range(Fst, na.rm=TRUE)
-			if(ymax > 0){
-				Fst[Fst > ymax] <- ymax
-				ylim[2] <- ymax
-				}
+			ylim[2] <- 1
 			plot(Fst ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
 			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue", lwd = 2)
 			} else

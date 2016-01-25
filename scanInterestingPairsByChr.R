@@ -33,7 +33,9 @@
 
 args <- commandArgs(TRUE) 
 # args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
-# args <- c( "BenlimAllMarine", "species-pairs", "fst", "all", 0)
+# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
+# args <- c( "BenlimAllMarine", "species-pairs", "css", "chrVIIpitx1", 0.04)
+# args <- c( "BenlimAllMarine", "species-pairs", "css", "all", 0.04)
 # args <- c( "BenlimAllMarine", "species-pairs", "fst", "chrXXI", 1)
 
 project <- args[1]

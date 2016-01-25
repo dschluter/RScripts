@@ -38,7 +38,7 @@ project <- args[1]
 pairs <- args[2]
 method <- args[3]
 chromosomes <- args[4]
-ymax <- args[5]
+ymax <- as.numeric(args[5])
 
 # these are defaults, not arguments
 stepsize = 500

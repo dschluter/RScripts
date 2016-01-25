@@ -63,7 +63,7 @@ if(pairs == "marinepac-pairs")
 
 if(pairs == "solitary-benthic") 
 	interestingPairs <- list(
-		c("solitary", "paxb"), c("solitary", "prib"), c("solitary", "qryb"), c("solitary", "ensb")
+		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")
 		)
 
 # chrname must be a single chromosome (e.g., "chrXXI") or "all"

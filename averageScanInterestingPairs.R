@@ -1,23 +1,11 @@
 #!/usr/bin/Rscript
 
-# Carries out sliding window analysis and plots the results to a pdf file, one chromosome per page.
-# All interestingPairs are plotted on the same page, whose length is adjusted according to their number
+# Averages sliding window results of multiple pairwise genome scans and plots the results to a pdf file.
+# Separate sliding windows are carried out for each pair, and then an unweighted average is calculated.
 
-# args are: project, pairtype, method, chrname, ymax)
+# args are project, pairtype, method, chrname, ymax)
 
-# pairtype:
-# "species-pairs", "marinepac-pairs" "solitary-benthic"
-
-# method: 
-# 	"vara" is totVarA, variance among, per base
-# 	"fst" is weir-cockerham Fst
-# 	"css" is my slightly modified version of felicity's CSS score, per base
-
-# chrname:
-# "chrXXI" or "all" (i.e., must be a single chromosome or all chromosomes)
-
-# ymax:
-# 0  # number indicating maximum y to plot (0 = ignore)
+# see "scanInterestingPairsByChr.R" for information on arguments
 
 # Analyses files named " project.chr.pop1.pop2.blockstats.stepsize.rdd "
 
@@ -43,18 +31,10 @@ method <- args[3]
 chromosomes <- args[4]
 ymax <- as.numeric(args[5])
 
-# stepsize is 
-# nsteps.per.window 	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
-# windowNmin	 		# minimum number of good bases in window 
-
-# Glazerize = TRUE results in line segments being included in plot to locate the old assembly of that chr
-# 		"glazerFileS4 NewScaffoldOrder.csv" must be in local directory
-
-
 # these are defaults, not arguments
-stepsize = 500 			# the size of the block in the corresponding blockstats file
+stepsize = 500
 nsteps.per.window = 5  	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
-windowNmin = 100 		# minimum number of good bases in window to include; otherwise window not included
+windowNmin = 100 		# windowNmin is minimum number of good bases in window
 orderChr <- TRUE
 Glazerize <- TRUE
 scafFile <- "glazerFileS4 NewScaffoldOrder.csv"
@@ -74,6 +54,8 @@ if(pairtype == "solitary-benthic")
 	interestingPairs <- list(
 		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")
 		)
+
+npairs <- length(interestingPairs)
 
 # chrname must be a single chromosome (e.g., "chrXXI") or "all"
 # chrname <- c("chrXXI", "chrXX")
@@ -100,11 +82,11 @@ if(orderChr){
 	chrname <- chrname[ order(chrNumeric) ]
 	if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
 	}
-		
-# Adjust page size according to the number of interestingPairs
-npairs <- length(interestingPairs)
-pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), height = max(11, round(npairs * 1.5)) )
-par(mfrow = c(npairs, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+
+# Plot 3 scans per page
+plotsPerPage <- 3
+pdf( paste(project, pairtype, method, "meanscan", "pdf", sep = ".") )
+par(mfrow = c(plotsPerPage, 1), mar = c(2, 2, 1.5, 1) + 0.1)
 
 # If ymax is set, include in header
 ymaxHeader <- ""
@@ -126,52 +108,43 @@ for(i in chrname){
 		drawOldAssembly <- TRUE
 		}
 
-	lapply(interestingPairs, function(groupnames){
-		# groupnames <- interestingPairs[[1]]
-		blockstatsfile 	<- paste(project, i, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
+	# Read all the blockstats files into a list
+	blockstatsList <- vector("list", length=npairs)
+	names(blockstatsList) <- sapply(interestingPairs, paste, collapse = ".")
+	for(k in 1:npairs){
+		# k <- 1
+		blockstatsfile 	<- paste(project, i, names(blockstatsList)[k], "blockstats", stepsize, "rdd", sep = ".")
 		load(blockstatsfile) # object name is blockstats
-		header <- paste(c(groupnames, "      /      ", i, ymaxHeader), collapse = " ")
+		blockstatsList[[k]] <- blockstats
+		}
+	rm(blockstats)
+		
+	# Another list for the sliding window results
+	slideWinList <- vector("list", length=npairs)
+	names(slideWinList) <- sapply(interestingPairs, paste, collapse = ".")
 
-		if(tolower(method) == "vara"){
-			FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
-				windowNmin = windowNmin)
+	if(tolower(method) == "vara"){
+		for(k in 1:npairs){
+			# k <- 1
+			FSTwin <- g$slidewin(blockstatsList[[k]], method = c("FST"), 
+						nsteps.per.window = nsteps.per.window, windowNmin = windowNmin)
 			# Need to convert raw variances to *per-base*
 			VarPerBase <- FSTwin$totVARa/FSTwin$nbases
-			ibaseMillions <- FSTwin$ibase/10^6
-			ylim = range(VarPerBase, na.rm=TRUE)
-			if(ymax > 0){
-				VarPerBase[VarPerBase > ymax] <- ymax
-				ylim[2] <- ymax
-				}
-			plot(VarPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
-			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(VarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
-			} else
-
-		if(tolower(method) == "fst"){
-			FSTwin <- g$slidewin(blockstats, method = c("FST"), nsteps.per.window = nsteps.per.window, 
-				windowNmin = windowNmin)
-			Fst <- FSTwin$fst
-			ibaseMillions <- FSTwin$ibase/10^6
-			ylim = range(Fst, na.rm=TRUE)
-			ylim[2] <- 1
-			plot(Fst ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
-			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue", lwd = 2)
-			} else
-
-		if(tolower(method) == "css"){
-			CSSwin <- g$slidewin(blockstats, method = c("CSS"), nsteps.per.window = nsteps.per.window, 
-				windowNmin = windowNmin)
-			cssPerBase <- CSSwin$CSS/CSSwin$nbases
-			ibaseMillions <- CSSwin$ibase/10^6
-			ylim = range(cssPerBase, na.rm=TRUE)
-			if(ymax > 0){
-				cssPerBase[cssPerBase > ymax] <- ymax
-				ylim[2] <- ymax
-				}
-			plot(cssPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
-			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(cssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
-			} else stop("Method must be vara, fst, or css")
-				
-		})
+			slideWinList[[k]] <- VarPerBase	
+			}
+		ibaseMillions <- FSTwin$ibase/10^6
+		z <- do.call("cbind.data.frame", slideWinList)
+		meanVarPerBase <- apply(z, 1, mean, na.rm = TRUE)
+		meanVarPerBase[is.nan(meanVarPerBase)] <- NA
+		ylim = range(meanVarPerBase, na.rm=TRUE)
+		if(ymax > 0){
+			meanVarPerBase[meanVarPerBase > ymax] <- ymax
+			ylim[2] <- ymax
+			}
+		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
+		plot(meanVarPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanVarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
+		}
+	
 	}
 dev.off()

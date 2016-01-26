@@ -50,6 +50,16 @@ if(pairtype == "marinepac-pairs")
 		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
 		)
 
+if(pairtype == "marinepac-benthic") 
+	interestingPairs <- list(
+		c("marine-pac", "paxb"), c("marine-pac", "prib"), c("marine-pac", "qryb"), c("marine-pac", "ensb")
+		)
+
+if(pairtype == "marinepac-limnetic") 
+	interestingPairs <- list(
+		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
+		)
+
 if(pairtype == "solitary-benthic") 
 	interestingPairs <- list(
 		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")
@@ -144,7 +154,49 @@ for(i in chrname){
 		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
 		plot(meanVarPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
 		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanVarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
-		}
+		} else
+
+	if(tolower(method) == "fst"){
+		for(k in 1:npairs){
+			# k <- 1
+			FSTwin <- g$slidewin(blockstatsList[[k]], method = c("FST"), 
+						nsteps.per.window = nsteps.per.window, windowNmin = windowNmin)
+			slideWinList[[k]] <- FSTwin$fst
+			}
+		ibaseMillions <- FSTwin$ibase/10^6
+		z <- do.call("cbind.data.frame", slideWinList)
+		meanFst <- apply(z, 1, mean, na.rm = TRUE)
+		meanFst[is.nan(meanFst)] <- NA
+		ylim = range(meanFst, na.rm=TRUE)
+		if(ymax > 0){
+			ylim[2] <- ymax
+			}
+		plot(meanFst ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue", lwd = 2)
+		} else
+
+	if(tolower(method) == "css"){
+		for(k in 1:npairs){
+			# k <- 1
+			CSSwin <- g$slidewin(blockstatsList[[k]], method = c("CSS"), 
+						nsteps.per.window = nsteps.per.window, windowNmin = windowNmin)
+			# Need to convert to *per-base*
+			cssPerBase <- CSSwin$CSS/CSSwin$nbases
+			slideWinList[[k]] <- VarPerBase	
+			}			
+		ibaseMillions <- CSSwin$ibase/10^6
+		z <- do.call("cbind.data.frame", slideWinList)
+		meanCssPerBase <- apply(z, 1, mean, na.rm = TRUE)
+		meanCssPerBase[is.nan(meanCssPerBase)] <- NA
+		ylim = range(meanCssPerBase, na.rm=TRUE)
+		if(ymax > 0){
+			# meanCssPerBase[meanCssPerBase > ymax] <- ymax
+			ylim[2] <- ymax
+			}
+		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
+		plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanVarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
+		} else stop("Method must be vara, fst, or css")
 	
 	}
 dev.off()

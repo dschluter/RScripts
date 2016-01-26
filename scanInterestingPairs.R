@@ -5,7 +5,25 @@
 
 # args are project, pairtype, method, chrname, ymax)
 
-# see "scanInterestingPairsByChr.R" for information on arguments
+# Carries out sliding window analysis and plots the results to a pdf file, one chromosome per page.
+# All interestingPairs are plotted on the same page, whose length is adjusted according to their number
+# Unweighted average of multiple sliding window scans is provided at the bottom of each page.
+
+# args are: project, pairtype, method, chrname, ymax)
+
+# pairtype:
+# "species-pairs", "marinepac-pairs" "solitary-benthic"
+
+# method: 
+# 	"vara" is totVarA, variance among, per base
+# 	"fst" is weir-cockerham Fst
+# 	"css" is my slightly modified version of felicity's CSS score, per base
+
+# chrname:
+# "chrXXI" or "all" (i.e., must be a single chromosome or all chromosomes)
+
+# ymax:
+# 0  # number indicating maximum y to plot (0 = ignore)
 
 # Analyses files named " project.chr.pop1.pop2.blockstats.stepsize.rdd "
 
@@ -19,11 +37,11 @@
 # set ymax to zero to ignore this argument
 
 args <- commandArgs(TRUE) 
-# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0.03)
 # args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
 # args <- c( "BenlimAllMarine", "species-pairs", "css", "chrVIIpitx1", 0.04)
 # args <- c( "BenlimAllMarine", "species-pairs", "css", "all", 0.04)
 # args <- c( "BenlimAllMarine", "species-pairs", "fst", "chrXXI", 1)
+# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0.03)
 
 project <- args[1]
 pairtype <- args[2]
@@ -94,9 +112,14 @@ if(orderChr){
 	}
 
 # Plot 3 scans per page
-plotsPerPage <- 3
-pdf( paste(project, pairtype, method, "meanscan", "pdf", sep = ".") )
-par(mfrow = c(plotsPerPage, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+# plotsPerPage <- 3
+# pdf( paste(project, pairtype, method, "meanscan", "pdf", sep = ".") )
+# par(mfrow = c(plotsPerPage, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+
+# Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
+npairs <- length(interestingPairs)
+pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), height = max(11, round((npairs + 1) * 1.5)) )
+par(mfrow = c(npairs+1, 1), mar = c(2, 2, 1.5, 1) + 0.1)
 
 # If ymax is set, include in header
 ymaxHeader <- ""
@@ -129,7 +152,7 @@ for(i in chrname){
 		}
 	rm(blockstats)
 		
-	# Another list for the sliding window results
+	# Store the sliding window results for each pair of species in another list
 	slideWinList <- vector("list", length=npairs)
 	names(slideWinList) <- sapply(interestingPairs, paste, collapse = ".")
 
@@ -146,13 +169,21 @@ for(i in chrname){
 		z <- do.call("cbind.data.frame", slideWinList)
 		meanVarPerBase <- apply(z, 1, mean, na.rm = TRUE)
 		meanVarPerBase[is.nan(meanVarPerBase)] <- NA
-		ylim = range(meanVarPerBase, na.rm=TRUE)
-		if(ymax > 0){
-			# meanVarPerBase[meanVarPerBase > ymax] <- ymax
-			ylim[2] <- ymax
+		
+		# Plot individual pairs
+		for(k in 1:npairs){
+			# k <- 1
+			ylim = range(slideWinList[[k]], na.rm=TRUE)
+			if(ymax > 0) ylim[2] <- ymax
+			header <- paste(c(names(slideWinList)[k], "  /  ", i, ymaxHeader), collapse = " ")
+			plot(slideWinList[[k]] ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
+					col = "blue", lwd = 2)
 			}
-		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
-		plot(meanVarPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+		# plot average scan
+		ylim = range(meanVarPerBase, na.rm=TRUE)
+		if(ymax > 0) ylim[2] <- ymax
+		plot(meanVarPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
 		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanVarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
 		} else
 
@@ -167,12 +198,22 @@ for(i in chrname){
 		z <- do.call("cbind.data.frame", slideWinList)
 		meanFst <- apply(z, 1, mean, na.rm = TRUE)
 		meanFst[is.nan(meanFst)] <- NA
-		ylim = range(meanFst, na.rm=TRUE)
-		if(ymax > 0){
-			ylim[2] <- ymax
+
+		# Plot individual pairs
+		for(k in 1:npairs){
+			# k <- 1
+			ylim = range(slideWinList[[k]], na.rm=TRUE)
+			if(ymax > 0) ylim[2] <- ymax
+			header <- paste(c(names(slideWinList)[k], "  /  ", i, ymaxHeader), collapse = " ")
+			plot(slideWinList[[k]] ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
+					col = "blue", lwd = 2)
 			}
-		plot(meanFst ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
-		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(FSTwin$fst, na.rm=TRUE), col = "blue", lwd = 2)
+		# plot average scan
+		ylim = range(meanFst, na.rm=TRUE)
+		if(ymax > 0) ylim[2] <- ymax
+		plot(meanFst ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanFst, na.rm=TRUE), col = "blue", lwd = 2)
 		} else
 
 	if(tolower(method) == "css"){
@@ -188,14 +229,22 @@ for(i in chrname){
 		z <- do.call("cbind.data.frame", slideWinList)
 		meanCssPerBase <- apply(z, 1, mean, na.rm = TRUE)
 		meanCssPerBase[is.nan(meanCssPerBase)] <- NA
-		ylim = range(meanCssPerBase, na.rm=TRUE)
-		if(ymax > 0){
-			# meanCssPerBase[meanCssPerBase > ymax] <- ymax
-			ylim[2] <- ymax
+		# Plot individual pairs
+		for(k in 1:npairs){
+			# k <- 1
+			ylim = range(slideWinList[[k]], na.rm=TRUE)
+			if(ymax > 0) ylim[2] <- ymax
+			header <- paste(c(names(slideWinList)[k], "  /  ", i, ymaxHeader), collapse = " ")
+			plot(slideWinList[[k]] ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
+			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
+					col = "blue", lwd = 2)
 			}
+		# plot average scan
+		ylim = range(meanCssPerBase, na.rm=TRUE)
+		if(ymax > 0) ylim[2] <- ymax
 		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
-		plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, main = header, ylim = ylim)
-		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanVarPerBase, na.rm=TRUE), col = "blue", lwd = 2)
+		plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanCssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
 		} else stop("Method must be vara, fst, or css")
 	
 	}

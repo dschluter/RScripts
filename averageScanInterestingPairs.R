@@ -19,7 +19,7 @@
 # set ymax to zero to ignore this argument
 
 args <- commandArgs(TRUE) 
-# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
+# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0.03)
 # args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
 # args <- c( "BenlimAllMarine", "species-pairs", "css", "chrVIIpitx1", 0.04)
 # args <- c( "BenlimAllMarine", "species-pairs", "css", "all", 0.04)
@@ -138,7 +138,7 @@ for(i in chrname){
 		meanVarPerBase[is.nan(meanVarPerBase)] <- NA
 		ylim = range(meanVarPerBase, na.rm=TRUE)
 		if(ymax > 0){
-			meanVarPerBase[meanVarPerBase > ymax] <- ymax
+			# meanVarPerBase[meanVarPerBase > ymax] <- ymax
 			ylim[2] <- ymax
 			}
 		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")

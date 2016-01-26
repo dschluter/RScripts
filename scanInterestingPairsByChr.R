@@ -70,6 +70,16 @@ if(pairtype == "marinepac-pairs")
 		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
 		)
 
+if(pairtype == "marinepac-benthic") 
+	interestingPairs <- list(
+		c("marine-pac", "paxb"), c("marine-pac", "prib"), c("marine-pac", "qryb"), c("marine-pac", "ensb")
+		)
+
+if(pairtype == "marinepac-limnetic") 
+	interestingPairs <- list(
+		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
+		)
+
 if(pairtype == "solitary-benthic") 
 	interestingPairs <- list(
 		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")

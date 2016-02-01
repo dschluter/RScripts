@@ -1,17 +1,10 @@
 #!/usr/bin/Rscript
 
-# Makes vcfresults, containing all snp results
-
-# Run in Unix as " Rscript readSaveDnpdByGroup.R ... "
-
-# ALT alleles of "<*:DEL>" are set to variant type NA
-
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
 # This code assumes that we are working only with ONE chromosome at a time
 # Note: At most 3 ALT alleles permitted per snp in this version
-# NOTE: windowmaskerSdust start position is 0-based, so added 1 (end position is 1-based!)
 
 # setwd("~/Desktop")
 # git("genome.r")
@@ -25,154 +18,105 @@ args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
 # args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
 
-project <- args[1]
-chrname <- args[2]
-groupnames <- args[3:length(args)]
+project 		<- args[1]
+chrname 		<- args[2]
+groupnames 	<- args[3:length(args)]
+
+pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
+
+Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
 cat("\nProject, chrname, groupnames:\n")
 cat(project, chrname, groupnames,"\n")
 
-dropRareAlleles	<- FALSE
-saveBiAllelic 	<- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
-plotQualMetrics <- FALSE
+if(Glazerize){
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
+	} else {
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
-# convert snp to Glazer assembly coordinates **** Not done yet here -- I'm using old chr ****
-Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+# vcfresultsfile
+# [1] "BenlimAllMarine.chrXXI.vcfresultsNew.rdd"
 
-GTminFrac 		<- 2/3
+cat("\nLoading vcfresults file\n")
+load(file = vcfresultsfile)   # object is "vcfresults"
 
-# load "chrvec" for the current chromosome
-chrno 				<- gsub("^chr", "", chrname)
-chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
+# object.size(vcfresults)
+# 2,392,863,888 bytes
 
-fastaname		<- paste(chrname, "fa", sep = ".")
-vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
-pcaResFile		<- paste(project, chrname, "pcaRes.rdd", sep = ".")
+dropRareAlleles	<- vcfresults$control$snpOptions["dropRareAlleles"]
+saveBiAllelic 	<- vcfresults$control$snpOptions["saveBiAllelic"]
+nMaxAlt			<- vcfresults$control$nMaxAlt
 
-GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
-nMaxAlt			<- 3	# maximum number of ALT alleles
-
-control <- list()
-control$nMaxAlt <- nMaxAlt
-control$snpOptions <- c(dropRareAlleles = dropRareAlleles, saveBiAllelic = saveBiAllelic)
-control$GTminFrac <- GTminFrac
-
-cat("\nControl settings on this run\n")
-print(control)
+gc()
+            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  14201705  758.5   17756025  948.3  16864700  900.7
+# Vcells 146561218 1118.2  211583004 1614.3 159676022 1218.3
 
 library(VariantAnnotation, quietly = TRUE)
 
-load(chrmaskfile) 	# object is named "chrvec"
-which.chrvec.M <- which(chrvec == "M")
+if(Glazerize){  # grab fish names
+	fishnames <- samples(header(vcfresults$vcf[[1]]))
+	} else {
+	fishnames <- samples(header(vcfresults$vcf))
+	}
 
-# object.size(chrvec)
-#  93,740,176 bytes # chrXXI
-# 500,401,968 bytes # chrUn
-
-rm(chrvec)
-
-# Garbage collection -- current memory consumption
-# gcinfo(TRUE) # sends messages about memory garbage collection
-gc()
-          # used  (Mb) gc trigger  (Mb) max used  (Mb)
-# Ncells 2998785 160.2    4418719 236.0  3493455 186.6
-# Vcells 3675701  28.1   32139972 245.3 38033273 290.2
-
-# ---------------------
-# Alternatives to reading whole vcf file
-
-# 1. Make tabix and use data ranges
-# compressedVcfname <- paste(project, chrname, "var.vcf.bgz", sep = ".")
-# zipped <- bgzip(vcfname, compressedVcfname)
-# idx <- indexTabix(zipped, "vcf")
-# vcfTabix <- TabixFile(zipped, idx)
-# vcf <- readVcf(vcfTabix, chrname, IRanges(c(1, 100000))) # not working yet
-
-# 2. Read a subset of fields
-# vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
-
-# ---------------------
-# Read variant VCF file
-
-vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
-
-# object.size(vcf)
-#  50,514,280 bytes # chrXXI
-# 210,524,096 bytes # chrUn
-
-cat("\nSuccessfully read vcf file\n")
-
-# -----
-# fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
-fishnames <- samples(header(vcf))
-cat("\nfishnames:\n")
-print(fishnames)
-
-groupcodes <- vector(length = length(fishnames), mode = "integer")
+groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
 	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
 	groupcodes[x] <- i
 	}
 cat("\ngroupcodes:\n")
-print(groupcodes)  # 
+print(groupcodes)
  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
 # [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
 # [51]  3  3  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12 12 12 12 12  2
 # [76]  2  2  2  2  2  1  1  1  1  1  1
- 
 
-# ------
-# Drop masked SNP (variants whose start position is masked in the chromosome)
-# ** applied to CHRIV, this step removes base "12811481", the putative site of the Eda mutation **
-# 	In windowsmaskerSdust.chrIV, the site is marked as masked.
+groups <- groupcodes[groupcodes > 0]
+# groups
 
-keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
-vcf <- vcf[keep]
-cat("\nCompleted removal of snp corresponding to masked bases\n\n")
+# -----
+cat("\nExtracting genotypes and deleting vcfresults\n")
+# Pull out genotypes 
+if(Glazerize){
+	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT[ , groupcodes > 0]})
+	genotypes <- do.call("rbind", genotypes)
+	pos <- vcfresults$newPos
+	} else {
+	genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
+	pos <- start(rowData(vcfresults$vcf))
+	}
 
-rm(keep)
-rm(which.chrvec.M) # remove later
+# Don't need this any more
+rm(vcfresults)
 
-# object.size(vcf)
-# 36,360,752 bytes # chrXXI
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  3695203 197.4    7700734  411.3   6910418  369.1
-# Vcells 66303599 505.9  177407159 1353.6 177175701 1351.8
+# Ncells  3916383 209.2   18306168  977.7  18683826  997.9
+# Vcells 86723924 661.7  319657529 2438.8 362764926 2767.7
 
-cat("\nNumber of snp remaining\n")
-print(nrow(geno(vcf)$GT))
-# [1] 648522
 
-# ------
-# set missing genotypes to NA instead of "."
-geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
+cat("\nNumber of snp\n")
+print(nrow(genotypes))
+# [1] 915040
+
 
 # -----
 # Keep only snp with all non-missing genotypes
-# "genotype" is all character data
 
-genotypes <- na.omit( geno(vcf)$GT )
-rm(vcf)
-gc()
-           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  3673555 196.2    7700734  411.3   6910418  369.1
-# Vcells 33818067 258.1  230920621 1761.8 261518340 1995.3
+z <- apply(genotypes, 1, function(x){sum(is.na(x))})
+genotypes <- genotypes[ z == 0, ]
+pos <- pos [z == 0]
 
 cat("\nDropped all snp with any genotypes missing\n")
 cat("\nNumber of snp remaining\n")
 print(nrow(genotypes))
-# [1] 310935
+# [1] 405478
 
-# -----
-# Drop snp containing rare alleles if dropRareAlleles is TRUE
-#  -- we are using ** RULE2 ** otherwise we get lots of rare alleles when many genotypes are missing
-# RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
-# RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
-
-if(dropRareAlleles){
-	cat("\nSorry: drop snp with rare alleles not implemented yet\n")
-	}
+gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  3918636 209.3   14644934  782.2  18683826  997.9
+# Vcells 43513899 332.0  255726023 1951.1 362764926 2767.7
 
 
 # -----
@@ -189,16 +133,15 @@ cat("\nKeeping only snp with exactly two alleles\n")
 z <- sapply(alleleFreq, dim) 
 # table(z) # number of alleles per snp
      # 1      2      3      4 
- # 80350 215258  14688    639
-
-# Keep those with exactly 2 alleles
+# 105190 279159  20209    920 
 
 genotypes <- genotypes[ z == 2, ]
 alleleFreq <- alleleFreq[ z == 2 ]
+pos <- pos[ z == 2 ]
 
 cat("\nNumber of snp remaining\n")
 print(nrow(genotypes))
-# [1] 215258
+# [1] 279159
 
 # Grab the name of the second allele -- then count how many such alleles each genotype has as a score
 
@@ -214,9 +157,9 @@ z <- sapply(alleleFreq, function(x){dimnames(x)[[1]][2]})
 cat("\nTransposing genotypes array\n")
 genotypes <- as.data.frame( t(genotypes), stringsAsFactors = FALSE)
 gc()
-           # used  (Mb) gc trigger  (Mb)  max used   (Mb)
-# Ncells  5608538 299.6    9040660 482.9   9040660  482.9
-# Vcells 25609286 195.4   94585084 721.7 261518340 1995.3
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  6353862 339.4   14644934  782.2  18683826  997.9
+# Vcells 32324264 246.7  204580818 1560.9 362764926 2767.7
 
 cat("\nConverting genotypes to 0 1 2 scores (for number of '1' alleles)\n")
 # Count the number of alleles of the type "second allele" (stored in z)
@@ -227,8 +170,8 @@ genoScore <- mapply(genotypes, z, FUN = function(x,z){
 # genoScore[ , 1:3]
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  5608543 299.6   20248149 1081.4  24336408 1299.8
-# Vcells 50594068 386.1  175086369 1335.9 261518340 1995.3
+# Ncells  6353894 339.4   25047118 1337.7  30641133 1636.5
+# Vcells 60056889 458.2  219761608 1676.7 362764926 2767.7
 
 rm(genotypes)
 
@@ -238,9 +181,6 @@ cat("\nPrincipal components analysis\n")
 # zscore <- prep(genoScore, scale="none", center=TRUE)
 # resPCA <- pca(zscore, method="svd", center=FALSE, nPcs=5)
 # gc()
-           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  5497641 293.7   16198519  865.1  24336408 1299.8
-# Vcells 79760177 608.6  175086369 1335.9 261518340 1995.3
 
 # sDev(pcaRes)
 
@@ -254,13 +194,13 @@ z <- prcomp(genoScore, center = TRUE)
 cat("\nProportion of variance accounted for by each PC\n")
 pcaVarProp <- 100*(z$sdev^2)/sum(z$sdev^2)
 print( round( pcaVarProp, 2) )
- # [1] 27.24 17.95  7.38  4.27  3.01  2.83  1.86  1.62  1.42  1.26  1.20  1.04
-# [13]  0.94  0.90  0.84  0.81  0.74  0.72  0.67  0.65  0.59  0.56  0.54  0.53
-# [25]  0.51  0.49  0.48  0.48  0.47  0.46  0.46  0.46  0.45  0.43  0.43  0.42
-# [37]  0.41  0.40  0.39  0.39  0.38  0.38  0.37  0.36  0.36  0.35  0.35  0.34
-# [49]  0.34  0.34  0.34  0.34  0.33  0.33  0.32  0.32  0.32  0.31  0.31  0.31
-# [61]  0.31  0.30  0.30  0.29  0.29  0.29  0.28  0.28  0.28  0.28  0.27  0.27
-# [73]  0.27  0.26  0.26  0.25  0.25  0.25  0.24  0.24  0.22  0.21  0.21  0.21
+ # [1] 25.81 17.40  7.49  4.60  3.35  2.81  1.98  1.70  1.44  1.31  1.23  1.07
+# [13]  0.97  0.94  0.89  0.84  0.75  0.72  0.68  0.66  0.62  0.58  0.56  0.54
+# [25]  0.53  0.50  0.48  0.48  0.47  0.47  0.47  0.45  0.45  0.45  0.44  0.43
+# [37]  0.42  0.41  0.40  0.39  0.39  0.38  0.38  0.38  0.38  0.37  0.37  0.36
+# [49]  0.36  0.36  0.35  0.35  0.35  0.34  0.34  0.33  0.33  0.32  0.32  0.32
+# [61]  0.32  0.32  0.31  0.31  0.30  0.30  0.30  0.30  0.29  0.28  0.28  0.28
+# [73]  0.28  0.27  0.27  0.27  0.26  0.26  0.25  0.25  0.23  0.22  0.22  0.21
 # [85]  0.19  0.00
 
 pcaRes <- cbind.data.frame(fishnames, groupnames[groupcodes], stringsAsFactors = FALSE)

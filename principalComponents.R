@@ -333,8 +333,8 @@ if( "marine-jap" %in% groupnames ){
 				groupnames = groups[groups != "marine-jap"], stringsAsFactors = FALSE)
 	pcaRes2 <- cbind.data.frame(pcaRes2, z$x)
 	
-	pcaResList$$pcaRes2 <- pcaRes2
-	pcaResList$$pcaVarProp2 <- pcaVarProp2
+	pcaResList$pcaRes2 <- pcaRes2
+	pcaResList$pcaVarProp2 <- pcaVarProp2
 
 	# Plots
 	plot(PC2 ~ PC1, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
@@ -356,7 +356,7 @@ if( "marine-jap" %in% groupnames ){
 	dimnames(x) <- list(fishnames[groups != "marine-jap"], fishnames[groups != "marine-jap"])
 	pcaDist2 <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
 	
-	pcaResList$$pcaDist2 <- pcaDist2
+	pcaResList$pcaDist2 <- pcaDist2
 
 	# NJ tree using distances
 	library(ape)

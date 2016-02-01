@@ -212,16 +212,16 @@ pcaResList$pcaVarProp <- pcaVarProp
 # PCA axis plots and phylogram based on distances
 pdf(file = paste(project, chrname, "pcaRes.pdf", sep = "."))
 
-plot(PC2 ~ PC1, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+plot(PC2 ~ PC1, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 text(PC2 ~ PC1, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
-plot(PC3 ~ PC2, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+plot(PC3 ~ PC2, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 text(PC3 ~ PC2, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
-plot(PC4 ~ PC3, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+plot(PC4 ~ PC3, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 text(PC4 ~ PC3, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
-plot(PC5 ~ PC4, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+plot(PC5 ~ PC4, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 text(PC5 ~ PC4, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
 # Calculate the distances between all pairs of individuals
@@ -239,7 +239,7 @@ pcaPhylo <- nj(pcaDist)
 
 # plot(pcaPhylo, cex = 0.3)
 # plot(pcaPhylo, cex = 0.3, type = "fan")
-plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial")
+plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial", main = chrname)
 # plot(pcaPhylo, cex = 0.3, type = "radial")
 
 # dev.off()
@@ -277,16 +277,16 @@ if( "marine-jap" %in% groupnames ){
 	pcaResList$pcaVarProp2 <- pcaVarProp2
 
 	# Plots
-	plot(PC2 ~ PC1, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+	plot(PC2 ~ PC1, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 	text(PC2 ~ PC1, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 	
-	plot(PC3 ~ PC2, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+	plot(PC3 ~ PC2, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 	text(PC3 ~ PC2, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 	
-	plot(PC4 ~ PC3, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+	plot(PC4 ~ PC3, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 	text(PC4 ~ PC3, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 	
-	plot(PC5 ~ PC4, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)) )
+	plot(PC5 ~ PC4, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 	text(PC5 ~ PC4, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
 
@@ -305,7 +305,7 @@ if( "marine-jap" %in% groupnames ){
 	
 	# plot(pcaPhylo, cex = 0.3)
 	# plot(pcaPhylo, cex = 0.3, type = "fan")
-	plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial")
+	plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial", main = chrname)
 	# plot(pcaPhylo, cex = 0.3, type = "radial"])
 	
 	# dev.off()

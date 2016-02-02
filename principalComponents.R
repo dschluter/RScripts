@@ -3,6 +3,9 @@
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
+# All files will be named "*.pcaRes.rdd" and "*.pcaRes.pdf" regardless of args
+# So RENAME files after running to distinguish different runs using different subsets of fish.
+
 # This code assumes that we are working only with ONE chromosome at a time
 # Note: At most 3 ALT alleles permitted per snp in this version
 
@@ -16,6 +19,7 @@
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
 # args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb", "marine-pac")
 # args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
+# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb")
 # args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
 
 project 		<- args[1]
@@ -140,12 +144,14 @@ alleleFreq <- alleleFreq[ z == 2 ]
 pos <- pos[ z == 2 ]
 
 cat("\nNumber of snp remaining\n")
-print(nrow(genotypes))
+nBiallelicSnpComplete <- nrow(genotypes)
+print(nBiallelicSnpComplete)
 # [1] 279159
 
 # Grab the name of the second allele -- then count how many such alleles each genotype has as a score
 
 z <- sapply(alleleFreq, function(x){dimnames(x)[[1]][2]})
+
 # head(z)
       # chrXXI:58916_C/A       chrXXI:58947_G/A       chrXXI:58965_G/T 
                    # "1"                    "1"                    "1" 
@@ -206,6 +212,8 @@ print( round( pcaVarProp, 2) )
 pcaRes <- cbind.data.frame(fishnames, groupnames[groupcodes], stringsAsFactors = FALSE)
 pcaRes <- cbind.data.frame(pcaRes, z$x)
 
+pcaResList$nBiallelicSnpComplete <- nBiallelicSnpComplete
+
 pcaResList$pcaRes <- pcaRes
 pcaResList$pcaVarProp <- pcaVarProp
 
@@ -242,80 +250,77 @@ pcaPhylo <- nj(pcaDist)
 plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial", main = chrname)
 # plot(pcaPhylo, cex = 0.3, type = "radial")
 
-# dev.off()
-
 # Improved NJ (?)
 # pcaPhylo <- bionj(pcaDist/10) # can't have any values greater than 100
 # plot(pcaPhylo, cex = 0.3)
-# dev.off()
 
+	# -----
+	# redo without Sea of Japan
+	# Decided to blank this out - redo run without this in args because the loci included might change
 
-# -----
-# redo without Sea of Japan
-
-if( "marine-jap" %in% groupnames ){
-	groups <- groupnames[groupcodes]
-	genoScore2 <- genoScore[ groups != "marine-jap", ]
-
-	z <- prcomp(genoScore2, center = TRUE)
-	cat("\nProportion of variance accounted for by each PC\n")
-	pcaVarProp2 <- 100*(z$sdev^2)/sum(z$sdev^2)
-	print( round( pcaVarProp2, 2) )
-	 # [1] 29.54  9.82  5.63  3.96  3.73  2.45  2.13  1.87  1.67  1.58  1.37  1.24
-	# [13]  1.18  1.11  1.06  0.98  0.95  0.88  0.85  0.78  0.74  0.72  0.70  0.67
-	# [25]  0.65  0.63  0.61  0.60  0.60  0.57  0.56  0.55  0.54  0.52  0.52  0.51
-	# [37]  0.50  0.50  0.49  0.48  0.47  0.47  0.46  0.45  0.45  0.45  0.45  0.44
-	# [49]  0.44  0.43  0.43  0.42  0.42  0.41  0.41  0.41  0.40  0.40  0.39  0.38
-	# [61]  0.38  0.38  0.37  0.37  0.37  0.36  0.36  0.36  0.35  0.35  0.34  0.34
-	# [73]  0.33  0.32  0.32  0.31  0.29  0.28  0.27  0.27  0.24  0.00
+	# if( "marine-jap" %in% groupnames ){
+		# groups <- groupnames[groupcodes]
+		# genoScore2 <- genoScore[ groups != "marine-jap", ]
 	
-	pcaRes2 <- cbind.data.frame(fishnames = fishnames[groups != "marine-jap"], 
-				groupnames = groups[groups != "marine-jap"], stringsAsFactors = FALSE)
-	pcaRes2 <- cbind.data.frame(pcaRes2, z$x)
+		# z <- prcomp(genoScore2, center = TRUE)
+		# cat("\nProportion of variance accounted for by each PC\n")
+		# pcaVarProp2 <- 100*(z$sdev^2)/sum(z$sdev^2)
+		# print( round( pcaVarProp2, 2) )
+		 # # [1] 29.54  9.82  5.63  3.96  3.73  2.45  2.13  1.87  1.67  1.58  1.37  1.24
+		# # [13]  1.18  1.11  1.06  0.98  0.95  0.88  0.85  0.78  0.74  0.72  0.70  0.67
+		# # [25]  0.65  0.63  0.61  0.60  0.60  0.57  0.56  0.55  0.54  0.52  0.52  0.51
+		# # [37]  0.50  0.50  0.49  0.48  0.47  0.47  0.46  0.45  0.45  0.45  0.45  0.44
+		# # [49]  0.44  0.43  0.43  0.42  0.42  0.41  0.41  0.41  0.40  0.40  0.39  0.38
+		# # [61]  0.38  0.38  0.37  0.37  0.37  0.36  0.36  0.36  0.35  0.35  0.34  0.34
+		# # [73]  0.33  0.32  0.32  0.31  0.29  0.28  0.27  0.27  0.24  0.00
+		
+		# pcaRes2 <- cbind.data.frame(fishnames = fishnames[groups != "marine-jap"], 
+					# groupnames = groups[groups != "marine-jap"], stringsAsFactors = FALSE)
+		# pcaRes2 <- cbind.data.frame(pcaRes2, z$x)
+		
+		# pcaResList$pcaRes2 <- pcaRes2
+		# pcaResList$pcaVarProp2 <- pcaVarProp2
 	
-	pcaResList$pcaRes2 <- pcaRes2
-	pcaResList$pcaVarProp2 <- pcaVarProp2
-
-	# Plots
-	plot(PC2 ~ PC1, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
-	text(PC2 ~ PC1, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
+		# # Plots
+		# plot(PC2 ~ PC1, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
+		# text(PC2 ~ PC1, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
+		
+		# plot(PC3 ~ PC2, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
+		# text(PC3 ~ PC2, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
+		
+		# plot(PC4 ~ PC3, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
+		# text(PC4 ~ PC3, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
+		
+		# plot(PC5 ~ PC4, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
+		# text(PC5 ~ PC4, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 	
-	plot(PC3 ~ PC2, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
-	text(PC3 ~ PC2, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 	
-	plot(PC4 ~ PC3, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
-	text(PC4 ~ PC3, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
+		# # Calculate the distances between all pairs of individuals
+		# # Euclidean
+		# x <- z$x
+		# dimnames(x) <- list(fishnames[groups != "marine-jap"], fishnames[groups != "marine-jap"])
+		# pcaDist2 <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
+		
+		# pcaResList$pcaDist2 <- pcaDist2
 	
-	plot(PC5 ~ PC4, data = pcaRes2, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
-	text(PC5 ~ PC4, data = pcaRes2, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
-
-
-	# Calculate the distances between all pairs of individuals
-	# Euclidean
-	x <- z$x
-	dimnames(x) <- list(fishnames[groups != "marine-jap"], fishnames[groups != "marine-jap"])
-	pcaDist2 <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
+		# # NJ tree using distances
+		# library(ape)
+		
+		# pcaPhylo <- nj(pcaDist2)
+		
+		# # plot(pcaPhylo, cex = 0.3)
+		# # plot(pcaPhylo, cex = 0.3, type = "fan")
+		# plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial", main = chrname)
+		# # plot(pcaPhylo, cex = 0.3, type = "radial"])
+		
+		# # dev.off()
+		
+		# # Improved NJ (?)
+		# # pcaPhylo <- bionj(pcaDist/10) # can't have any values greater than 100
+		# # plot(pcaPhylo, cex = 0.3)
+		# # dev.off()
 	
-	pcaResList$pcaDist2 <- pcaDist2
-
-	# NJ tree using distances
-	library(ape)
-	
-	pcaPhylo <- nj(pcaDist2)
-	
-	# plot(pcaPhylo, cex = 0.3)
-	# plot(pcaPhylo, cex = 0.3, type = "fan")
-	plot(pcaPhylo, cex = 0.3, type = "unrooted", lab4ut = "axial", main = chrname)
-	# plot(pcaPhylo, cex = 0.3, type = "radial"])
-	
-	# dev.off()
-	
-	# Improved NJ (?)
-	# pcaPhylo <- bionj(pcaDist/10) # can't have any values greater than 100
-	# plot(pcaPhylo, cex = 0.3)
-	# dev.off()
-
-	}
+		# }
 
 dev.off()
 

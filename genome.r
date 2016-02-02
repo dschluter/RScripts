@@ -1,5 +1,26 @@
 g<-list()
 
+g$mergePDF <- function(..., file, gsversion = NULL, in.file = NULL) {
+	# Found on github
+	# Uses ghostscript
+    if (is.null(in.file)) {
+      in.file <- substitute(...())
+    } 
+    infiles <- paste(unlist(lapply(in.file, function(y) as.character(y))), 
+        collapse = " ")
+    if (is.null(gsversion)) {
+      gsversion <- names(which(Sys.which(c("gs", "gswin32c", "gswin64c")) != ""))
+      if (length(gsversion) == 0) 
+        stop("Please install Ghostscript and ensure it is in your PATH")
+      if (length(gsversion) > 1)
+        stop("More than one Ghostscript executable was found:", 
+             paste(gsversion, collapse = " "), 
+             ". Please specify which version should be used with the gsversion argument")
+    }   
+    pre = " -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="
+    system(paste(paste(gsversion, pre, file, sep = ""), infiles, collapse = " "))
+}
+
 g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, interestingPairs, ymax = 0,
 			stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
 			Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){

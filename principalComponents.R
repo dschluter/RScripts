@@ -77,7 +77,9 @@ print(groupcodes)
 # [76]  2  2  2  2  2  1  1  1  1  1  1
 
 groups <- groupcodes[groupcodes > 0]
+fish <- fishnames[groupcodes > 0]
 # groups
+# fish
 
 # -----
 cat("\nExtracting genotypes and deleting vcfresults\n")
@@ -209,13 +211,21 @@ print( round( pcaVarProp, 2) )
 # [73]  0.28  0.27  0.27  0.27  0.26  0.26  0.25  0.25  0.23  0.22  0.22  0.21
 # [85]  0.19  0.00
 
-pcaRes <- cbind.data.frame(fishnames, groupnames[groupcodes], stringsAsFactors = FALSE)
+pcaRes <- cbind.data.frame(fish, groupnames[groups], stringsAsFactors = FALSE)
 pcaRes <- cbind.data.frame(pcaRes, z$x)
 
 pcaResList$nBiallelicSnpComplete <- nBiallelicSnpComplete
 
 pcaResList$pcaRes <- pcaRes
 pcaResList$pcaVarProp <- pcaVarProp
+
+# Calculate Euclidean distances between all pairs of individuals
+x <- z$x
+dimnames(x) <- list(fishnames, fishnames)
+pcaDist <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
+
+pcaResList$pcaDist <- pcaDist
+
 
 # PCA axis plots and phylogram based on distances
 pdf(file = paste(project, chrname, "pcaRes.pdf", sep = "."))
@@ -232,13 +242,6 @@ text(PC4 ~ PC3, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex =
 plot(PC5 ~ PC4, data = pcaRes, col = as.numeric(factor(groupnames)), pch = as.numeric(factor(groupnames)), main = chrname )
 text(PC5 ~ PC4, data = pcaRes, labels = groupnames, pos = 4, offset = 0.5, cex = 0.7, xpd = NA)
 
-# Calculate the distances between all pairs of individuals
-# Euclidean
-x <- z$x
-dimnames(x) <- list(fishnames, fishnames)
-pcaDist <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
-
-pcaResList$pcaDist <- pcaDist
 
 # NJ tree using distances
 library(ape)

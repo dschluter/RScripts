@@ -144,20 +144,27 @@ g$chrname2numeric <- function(chrname){
 	chrNumeric
 	}
 
-g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
+g$glazerConvertOld2New <- function(chrname, pos, scafFile = NULL){
 	# Converts coordinates for a single chromosome from 'old' to 'new'
 	# 'Old' is the Jones et al 2012 'old' genome assembly 
 	# 'New' is the Glazer et al 2015 'new' assembly coordinates
+	# Function is extensively modified from file "glazerconvertCoordinate.R" to allow pos to be vector
 	
-	# Requires access to the "glazerFileS4 NewScaffoldOrder.csv"
-	# Command is extensively modified from file "glazerconvertCoordinate.R" to allow pos to be vector
+	# Requires access to the "glazerFileS4NewScaffoldOrder.csv"
 	# Returns a list of [newChr, newPos]
 
 	# Inputs:
 	# chrname is an element string e.g. "chrXXI" or "chrUn"
-	# pos is a number of the starting position.
-	# direction is either 'old2new' or 'new2old'.
-	# scafFile gives the path and file name to the file 'FileS4 NewScaffoldOrder.csv'
+	# pos is a vector indicating nucleotide positions to be converted.
+	# scafFile gives the path and file name to the file 'glazerFileS4NewScaffoldOrder.csv'
+	# 	if NULL, then the file is grabbed from my github.
+
+	if(is.null(scafFile)){
+		library(RCurl)
+		scafFile <- getURL( "https://raw.githubusercontent.com/dschluter/genomeScripts/master/glazerFileS4NewScaffoldOrder.csv")
+		scafTable <- read.csv(text = scafFile, stringsAsFactors = FALSE)
+		} else
+	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
   
 	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)
 	chrno <- gsub("^chr", "", chrname)
@@ -175,8 +182,6 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = "glazerFileS4 NewSca
 	    	}
 	    	return(pos2)
 	  		}
-	 
-	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
 	
 	# Find those rows in the table that correspond to the current chromosome
 	oldChrRows <- which( as.character(scafTable$OldChr) == as.character(chrNumeric) )

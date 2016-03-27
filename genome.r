@@ -1,5 +1,31 @@
 g<-list()
 
+g$fasta2vec <- function(fastafile){
+	# Reads a single chromosome fast file and converts to a vector
+	# z <- g$fasta2vec("chrVIIpitx1.fa")
+	chr <- scan(fastafile, what=character())  
+	chr <- chr[-1]  # drops the line with ">chr??"
+	chr <- paste(chr, collapse="") # combined all the lines into a single word
+	chrvec <- strsplit(chr, split="")[[1]] # break apart genome into individual bases
+	}
+	
+g$fasta2list <- function(fastafile){
+	# Reads a fast file and converts to a list of vectors, one element per chromosome
+	# Alternatives
+	# ape:
+	#	chrlist <- read.dna(fastafile, format="fasta", as.character=TRUE, as.matrix=FALSE) # returns a list
+	# 	write.dna(chrlist, fastafile, format="fasta", colsep = "") # beware of blanks between columns
+	# 	chr <- read.FASTA(fastafile) # returns a list of class "DNAbin"
+	# sequinr:
+	#	chrlist <- read.fasta(fastafile) # returns a list
+	#	write.fasta(chrlist, fastafile)
+	# Biostrings: (see "chrVIIpitx1.r" for examples of how to use)
+	# 	chr <- read.DNAStringSet(fastafile, "fasta") # returns an object of class "DNAStringSet"
+	# 	write.XStringSet(chr, file = fastafile)
+	library(ape)
+	chrlist <- read.dna(fastafile, format="fasta", as.character=TRUE, as.matrix=FALSE)
+	}
+
 g$mergePDF <- function(..., file, gsversion = NULL, in.file = NULL) {
 	# Found on github
 	# Uses ghostscript

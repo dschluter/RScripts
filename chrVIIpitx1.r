@@ -84,50 +84,71 @@ table(z1[[1]], useNA = "always")
      # A      C      G      T   <NA> 
  # 99205  89429  88981 100189      0 
  
-# Try sequinr commands
-library(seqinr)
+# Try sequinr and ape commands
+# library(seqinr)
+# # ignore warning
+# z1 <- read.fasta("SALR.Pitx1.118G22-164F21.Combined.fa", forceDNAtolower = FALSE) # returns list
+# table(z1[[1]])
+     # # A      C      G      T 
+ # # 99205  89429  88981 100189
+# # rename and write to new fasta file
+# names(z1)[1] <- "chrVIIpitx1new"
+# write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
 
-# ignore warning
-z1 <- read.fasta("SALR.Pitx1.118G22-164F21.Combined.fa", forceDNAtolower = FALSE) # returns list
+# # Combine with whole genome
+# y1 <- read.dna("gasAcu1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE)
+# object.size(y1)
+# # 3,706,843,648 bytes # wow! Much larger than Biostrings
+# # To upper case
+# y1 <- lapply(y1, toupper)
+# names(y1)
+ # # [1] "chrI"     "chrII"    "chrIII"   "chrIV"    "chrIX"    "chrUn"    "chrV"     "chrVI"   
+ # # [9] "chrVII"   "chrVIII"  "chrX"     "chrXI"    "chrXII"   "chrXIII"  "chrXIV"   "chrXIX"  
+# # [17] "chrXV"    "chrXVI"   "chrXVII"  "chrXVIII" "chrXX"    "chrXXI"   "chrM"    
+# z1 <- c(y1, z1)
+# # reshape to put chrVIIpitx1new after chrVII
+# names(z1)[c(1:9, 24, 10:23)]
+# z1 <- z1[c(1:9, 24, 10:23)]
+# # Write it to a new file - contains gasAcu1 with pitx1new BAC. 
+# # Didn't work on my Mac! Use Biostrings
+# # write.dna(z1, "gasAcu1pitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
 
-table(z1[[1]])
-     # A      C      G      T 
- # 99205  89429  88981 100189
- 
-# rename and write to new fasta file
-names(z1)[1] <- "chrVIIpitx1new"
-write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
+library(Biostrings)
+# This is much faster than read.fasta from seqinr
 
-# Combine with whole genome
-y1 <- read.dna("gasAcu1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE)
+z1 <- readDNAStringSet("chrVIIpitx1new.fa", "fasta") # has class "DNAStringSet"
+names(z1)
+# [1] "chrVIIpitx1new"
+alphabetFrequency(z1)
+         # A     C     G      T M R W S Y K V H D B N - + .
+# [1,] 99205 89429 88981 100189 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+y1 <- readDNAStringSet("gasAcu1.fa", "fasta")
 object.size(y1)
-# 3706843648 bytes
+# 463,359,952 bytes
 
-# To upper case
-y1 <- lapply(y1, toupper)
+# combine them ( c() works!)
+z <- c(y1,z1)
 
-names(y1)
- # [1] "chrI"     "chrII"    "chrIII"   "chrIV"    "chrIX"    "chrUn"    "chrV"     "chrVI"   
- # [9] "chrVII"   "chrVIII"  "chrX"     "chrXI"    "chrXII"   "chrXIII"  "chrXIV"   "chrXIX"  
-# [17] "chrXV"    "chrXVI"   "chrXVII"  "chrXVIII" "chrXX"    "chrXXI"   "chrM"    
-
-z1 <- c(y1, z1)
+names(z)
+ # [1] "chrI"           "chrII"          "chrIII"         "chrIV"          "chrIX"         
+ # [6] "chrUn"          "chrV"           "chrVI"          "chrVII"         "chrVIII"       
+# [11] "chrX"           "chrXI"          "chrXII"         "chrXIII"        "chrXIV"        
+# [16] "chrXIX"         "chrXV"          "chrXVI"         "chrXVII"        "chrXVIII"      
+# [21] "chrXX"          "chrXXI"         "chrM"           "chrVIIpitx1new"
 
 # reshape to put chrVIIpitx1new after chrVII
-names(z1)[c(1:9, 24, 10:23)]
-z1 <- z1[c(1:9, 24, 10:23)]
+z <- z[c(1:9,24,10:23)]
 
-# Write it to a new file - contains gasAcu1 with pitx1new BAC. Didn't work on my Mac!
-write.dna(z1, "gasAcu1pitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
+# Write it to a new file - contains gasAcu1 plus pitx1 BAC
+writeXStringSet(z, file="gasAcu1pitx1new.fa") # very fast
+
 
 # ---------------------------------------------------------
 library(Biostrings)
 # Read fasta file as a set of DNAString's
 # This is much faster than read.fasta from seqinr
 # This also converts all letters to upper case
-
-# z <- readFASTA("chrVIIpitx1.fa") deprecated
-# z <- read.DNAStringSet("chrVIIpitx1.fa", "fasta") # function has been renamed!
 
 z <- readDNAStringSet("GU130435.1.fa", "fasta") # has class "DNAStringSet"
 

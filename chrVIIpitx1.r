@@ -13,6 +13,24 @@ setwd("/Users/schluter/Documents/Research/genomics/reference genomes")
 # Feb 2, 2016, email: "Pel enhancer is located at 248kb. Pitx1 216->206kb"
 # 	(this is presumably the reverse direction position - this BAC is the complement compared to GU130435.1
 
+# For example, the snp "rs119103551" is on the forward strand of the original BAC (named chrVIIpitx1.fa)
+# temp.fa contains the leftFlank sequence for this snp:
+	# >rstemp
+	# AACAACACGC ATATTTCAGT AATATAACAA AGTCCCATCA AGGTACGGCA GATACGCTAA
+# running:
+# /global/software/blat-3.4/bin/blat chrVIIpitx1.fa temp.fa temp.out
+# yields:
+# strand = +, start = 60372, end = 60432, for a block count of 60
+# but running:
+# /global/software/blat-3.4/bin/blat SALR.Pitx1.118G22-164F21.Combined.fa temp.fa temp.out
+# gets the hit on the negative strand
+# strand = -, start = 317372, end = 317432
+# Reversing the order of the strand, taking the complement, and then saving to "chrVIIpitx1new.fa" and running: 
+# /global/software/blat-3.4/bin/blat chrVIIpitx1new.fa temp.fa temp.out
+# yields:
+# strand = +, start = 60372, end = 60432, for a block count of 60
+# (either of these steps alone, ie reversing or complementing) yielded nothing in blat
+
 library(ape)
 
 # WARNING: converts to lower case!
@@ -32,16 +50,17 @@ table(z1[[1]], useNA = "always")
      # A      C      G      T   <NA> 
  # 99205  89429  88981 100189      0 
  
+# write to new fasta file
+# write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
+
 # rename
 names(z1)[1] <- "chrVIIpitx1new"
- 
-# OBTAIN THE REVERSE to get back to the same orientation as the original BAC
+
+# OBTAIN THE REVERSE AND COMPLEMENTARY sequence
 z2 <- z1
-# z2[[1]] <- recode( z2[[1]], c("A","C","G","T"), c("T","G","C","A") )
 z2[[1]] <- rev(z2[[1]])
- 
-# write to new fasta file
-write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
+z2[[1]] <- recode( z2[[1]], c("A","C","G","T"), c("T","G","C","A") )
+write.dna(z2, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
 
 # # Combine with whole genome
 # y1 <- read.dna("gasAcu1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE)

@@ -145,7 +145,7 @@ head(x)
 
 # Save interim results
 # write.csv(x, "kingsley_snps.csv", row.names = FALSE) # if using the original pitx1 BAC
-write.csv(x, "kingsley_snpspitx1new.csv", row.names = FALSE) # if using Felicity's NEW pitx1 BAC
+# write.csv(x, "kingsley_snpspitx1new.csv", row.names = FALSE) # if using Felicity's NEW pitx1 BAC
 
 # ---------------
 # Use flanking sequence to get actual POS and REF allele for every snp using BLAT
@@ -277,7 +277,7 @@ for(i in unique(x$chr)){
 # Any missing?
 table(x$REF, useNA = "always")
    # A    C    G    T <NA> 
- # 379  438  416  406    1 
+ # 378  441  413  407    1 
  
 # Drop the one missing case (on pitx1)
 x <- x[!is.na(x$REF), ]
@@ -325,7 +325,7 @@ chrnames <- unique(x$chr)
 genomeDirName <- "../reference genomes/"
 
 for(i in chrnames){
-	# i <- "chrXXI"
+	# i <- "chrVIIpitx1new"
 	fastaName <- paste(i, ".fa", sep = "")
 	vcfname <- paste("knownSnp", i, "vcf", sep = ".")
 	chr <- scan(paste(genomeDirName, fastaName, sep = ""), what=character()) 

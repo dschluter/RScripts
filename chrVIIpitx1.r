@@ -3,61 +3,6 @@
 setwd("/Users/schluter/Documents/Research/genomics/reference genomes")
 
 # ---------------------------------------------------------
-# Read BAC pitx1 sequence from GenBank using accession number
-# According to Chan et al, the deletion in PAXB is 1868bp
-
-library(ape)
-
-# accession number for the Pitx1 BAC from Salmon River
-z <- read.GenBank("GU130435.1") # "DNAbin" object 
-z
-# 1 DNA sequence in binary format stored in a list.
-# Sequence length: 377852 
-# Label: GU130435.1 
-# Base composition:
-    # a     c     g     t 
-0.265 0.236 0.237 0.263 
-
-length(z[[1]])
-#[1] 377852
-names(z)
-[1] "GU130435.1"
-# names(z) <- "chrVIIpitx1"
-# write.dna(z, "chrVIIpitx1.fa", format="fasta", colsep = "") # beware of blanks between columns
-
-# is all lower case
-write.dna(z, "GU130435.1.fa", format="fasta", colsep = "") # beware of blanks between columns
-
-# Read in as a list - is all lower case
-z <- read.dna("GU130435.1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE) # reads as a vector
-
-head(z[[1]], 20)
-# [1] "g" "a" "a" "t" "t" "c" "t" "t" "t" "c" "c" "t" "t" "c" "c" "t" "c" "g" "t" "t"
-length(z[[1]])
-# [1] 377852
-table(z[[1]], useNA = "always")
-     # a      c      g      k      m      r      s      t      w      y   <NA> 
-# 100189  88982  89440      4      4      5      2  99216      7      3      0 
-
-# Convert to uppercase
-z[[1]] <- toupper(z[[1]])
-
-# eliminate the k's etc
-z[[1]] <- recode(z[[1]], c("G","A","T","C","S","W","K","M","Y","R"), c("G","A","T","C","N","N","N","N","N","N") )
-table(z[[1]], useNA = "always")
-     # A      C      G      N      T   <NA> 
-# 100189  88982  89440     25  99216      0 
-
-# rename
-names(z)[1] <- "chrVIIpitx1"
-
-# write to new fasta file
-write.dna(z, "test.fa", format="fasta", colsep = "") # beware of blanks between columns
-
-
-# z <- read.FASTA("chrVIIpitx1.fa") # always returns a list of class "DNAbin".
-
-# ---------------------------------------------------------
 # Read Felicity's new pitx1 contig
 
 # When running these analyses in January [2016], I realised that Jane Grimwood had updated the BAC sequences 
@@ -66,8 +11,11 @@ write.dna(z, "test.fa", format="fasta", colsep = "") # beware of blanks between 
 # You will see it as the file named:  SALR.Pitx1.118G22-164F21.Combined.fa
 
 # Feb 2, 2016, email: "Pel enhancer is located at 248kb. Pitx1 216->206kb"
-# 	(this is presumably the reverse direction position - this BAC is reversed compared to GU130435.1
-#	WARNING: converts to lower case!
+# 	(this is presumably the reverse direction position - this BAC is the complement compared to GU130435.1
+
+library(ape)
+
+# WARNING: converts to lower case!
 z1 <- read.dna("SALR.Pitx1.118G22-164F21.Combined.fa", format="fasta", as.character=TRUE, 
 		as.matrix=FALSE)
 names(z1)
@@ -84,16 +32,16 @@ table(z1[[1]], useNA = "always")
      # A      C      G      T   <NA> 
  # 99205  89429  88981 100189      0 
  
-# Try sequinr and ape commands
-# library(seqinr)
-# # ignore warning
-# z1 <- read.fasta("SALR.Pitx1.118G22-164F21.Combined.fa", forceDNAtolower = FALSE) # returns list
-# table(z1[[1]])
-     # # A      C      G      T 
- # # 99205  89429  88981 100189
-# # rename and write to new fasta file
-# names(z1)[1] <- "chrVIIpitx1new"
-# write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
+# rename
+names(z1)[1] <- "chrVIIpitx1new"
+ 
+# OBTAIN THE REVERSE to get back to the same orientation as the original BAC
+z2 <- z1
+# z2[[1]] <- recode( z2[[1]], c("A","C","G","T"), c("T","G","C","A") )
+z2[[1]] <- rev(z2[[1]])
+ 
+# write to new fasta file
+write.dna(z1, "chrVIIpitx1new.fa", format="fasta", colsep = "") # beware of blanks between columns
 
 # # Combine with whole genome
 # y1 <- read.dna("gasAcu1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE)
@@ -137,12 +85,66 @@ names(z)
 # [16] "chrXIX"         "chrXV"          "chrXVI"         "chrXVII"        "chrXVIII"      
 # [21] "chrXX"          "chrXXI"         "chrM"           "chrVIIpitx1new"
 
-# reshape to put chrVIIpitx1new after chrVII
+# reorder to put chrVIIpitx1new after chrVII
 z <- z[c(1:9,24,10:23)]
 
 # Write it to a new file - contains gasAcu1 plus pitx1 BAC
 writeXStringSet(z, file="gasAcu1pitx1new.fa") # very fast
 
+# ---------------------------------------------------------
+# Read original BAC pitx1 sequence from GenBank using accession number
+# According to Chan et al, the deletion in PAXB is 1868bp
+
+library(ape)
+
+# accession number for the Pitx1 BAC from Salmon River
+z <- read.GenBank("GU130435.1") # "DNAbin" object 
+z
+# 1 DNA sequence in binary format stored in a list.
+# Sequence length: 377852 
+# Label: GU130435.1 
+# Base composition:
+    # a     c     g     t 
+# 0.265 0.236 0.237 0.263 
+
+length(z[[1]])
+#[1] 377852
+names(z)
+[1] "GU130435.1"
+# names(z) <- "chrVIIpitx1"
+# write.dna(z, "chrVIIpitx1.fa", format="fasta", colsep = "") # beware of blanks between columns
+
+# is all lower case
+write.dna(z, "GU130435.1.fa", format="fasta", colsep = "") # beware of blanks between columns
+
+# Read in as a list - is all lower case
+z <- read.dna("GU130435.1.fa", format="fasta", as.character=TRUE, as.matrix=FALSE) # reads as a vector
+
+head(z[[1]], 20)
+# [1] "g" "a" "a" "t" "t" "c" "t" "t" "t" "c" "c" "t" "t" "c" "c" "t" "c" "g" "t" "t"
+length(z[[1]])
+# [1] 377852
+table(z[[1]], useNA = "always")
+     # a      c      g      k      m      r      s      t      w      y   <NA> 
+# 100189  88982  89440      4      4      5      2  99216      7      3      0 
+
+# Convert to uppercase
+z[[1]] <- toupper(z[[1]])
+
+# eliminate the k's etc
+z[[1]] <- recode(z[[1]], c("G","A","T","C","S","W","K","M","Y","R"), c("G","A","T","C","N","N","N","N","N","N") )
+table(z[[1]], useNA = "always")
+     # A      C      G      N      T   <NA> 
+# 100189  88982  89440     25  99216      0 
+
+# rename
+names(z)[1] <- "chrVIIpitx1"
+
+# write to new fasta file
+write.dna(z, "test.fa", format="fasta", colsep = "") # beware of blanks between columns
+
+
+# z <- read.FASTA("chrVIIpitx1.fa") # always returns a list of class "DNAbin".
 
 # ---------------------------------------------------------
 library(Biostrings)

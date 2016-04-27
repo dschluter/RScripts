@@ -161,7 +161,7 @@ g$chrname2numeric <- function(chrname){
 	# g$chrname2numeric("XX")
 	# [1] 20
 
-	chrno <- gsub("^chr", "", chrname)
+	chrno <- gsub("^chr|^group", "", chrname)
 	chrNumeric <- chrno
 	
 	# Convert to an actual number if name of chromosome is a roman numeral

@@ -1,5 +1,58 @@
 g<-list()
 
+g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL){
+	# Converts coordinates for a single scaffold number to 'old' chr coordinates (Jones et al 2012 genome assembly)
+	# Function is based on "g$glazerConvertOld2New" below
+	
+	# scafNumber is a single element string or number, e.g. "186" as given in the first column of "glazerFileS4NewScaffoldOrder.csv"
+	# pos is a vector indicating nucleotide positions to be converted.
+	# scafFile gives the path and file name to the file 'glazerFileS4NewScaffoldOrder.csv'
+	# 	if NULL, then the file is grabbed from my github.
+
+	# Requires access to the "glazerFileS4NewScaffoldOrder.csv"
+	# Returns a data frame of [oldChr, oldPos], ie the old coordinates
+
+	if(is.null(scafFile)){
+		library(RCurl)
+		scafFile <- getURL( "https://raw.githubusercontent.com/dschluter/genomeScripts/master/glazerFileS4NewScaffoldOrder.csv")
+		scafTable <- read.csv(text = scafFile, stringsAsFactors = FALSE)
+		} else
+	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
+  
+	chrNumeric <- as.integer(scafNumber)
+		
+	# Find those rows in the table that correspond to the scaffold
+	chrRows <- which( scafTable$Scaffold == chrNumeric )
+	
+	# scafTable[chrRows, ]
+	
+	# To deal with skips, all of which are 1000 bases (probably all NNNN) set all newPos that are skipped to NA
+	# So, to initiate
+    oldPos <- rep(NA, length(pos)) 
+    oldChr <- rep(NA, length(pos))
+
+	# Repeat the coversion using each row of scafTable corresponding to the old chromosome, one at a time
+	for(i in chrRows){
+		# i <- chrRows[1]
+		x <- scafTable[i, ]
+		k <- which( pos <= x$Length)
+		oldChr[k] <- x$OldChr
+		oldPos[k] <- x$OldStart + (pos - 1)
+		}
+	
+	# Put results in a new data frame
+	oldCoords <- data.frame(oldChr = oldChr, oldPos = oldPos, stringsAsFactors = FALSE)
+	nrowsBeforeNAdrop <- nrow(oldCoords)
+	
+	# Clean the data frame of NA's
+	oldCoords <- na.omit(oldCoords)
+	nrowsAfterNAdrop <- nrow(oldCoords)
+	
+	if(nrowsBeforeNAdrop != nrowsAfterNAdrop) cat("\nSome POS were dropped -- not included in scafTable -- probably all NNNNNN\n")
+
+	return(oldCoords)
+	}
+
 g$fasta2vec <- function(fastafile){
 	# Reads a single chromosome fast file and converts to a vector
 	# z <- g$fasta2vec("chrVIIpitx1.fa")

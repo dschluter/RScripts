@@ -13,7 +13,7 @@ g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL, scafTable = NULL
 
 	# Returns a data frame of [oldChr, oldPos], ie the old coordinates
 
-	if(is.null(scafTable)){
+	if(is.null(scafTable)) {
 		if(is.null(scafFile)){
 			library(RCurl)
 			scafFile <- getURL( "https://raw.githubusercontent.com/dschluter/genomeScripts/master/glazerFileS4NewScaffoldOrder.csv")

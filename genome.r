@@ -1,23 +1,26 @@
 g<-list()
 
-g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL){
+g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL, scafTable = NULL){
 	# Converts coordinates for a single scaffold number to 'old' chr coordinates (Jones et al 2012 genome assembly)
 	# Function is based on "g$glazerConvertOld2New" below
 	
 	# scafNumber is a single element string or number, e.g. "186" as given in the first column of "glazerFileS4NewScaffoldOrder.csv"
 	# pos is a vector indicating nucleotide positions to be converted.
 	# scafFile gives the path and file name to the file 'glazerFileS4NewScaffoldOrder.csv'
-	# 	if NULL, then the file is grabbed from my github.
+	# scafTable is scafFile read into a data frame
+	# If scafTable is provided, then this is used, otherwise scafFile is read from "glazerFileS4NewScaffoldOrder.csv"
+	# If scafFile NULL, then the file is grabbed from my github.
 
-	# Requires access to the "glazerFileS4NewScaffoldOrder.csv"
 	# Returns a data frame of [oldChr, oldPos], ie the old coordinates
 
-	if(is.null(scafFile)){
-		library(RCurl)
-		scafFile <- getURL( "https://raw.githubusercontent.com/dschluter/genomeScripts/master/glazerFileS4NewScaffoldOrder.csv")
-		scafTable <- read.csv(text = scafFile, stringsAsFactors = FALSE)
-		} else
-	scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
+	if(is.null(scafTable){
+		if(is.null(scafFile)){
+			library(RCurl)
+			scafFile <- getURL( "https://raw.githubusercontent.com/dschluter/genomeScripts/master/glazerFileS4NewScaffoldOrder.csv")
+			scafTable <- read.csv(text = scafFile, stringsAsFactors = FALSE)
+			} else
+		scafTable <- read.csv(scafFile, stringsAsFactors = FALSE)
+		}
   
 	chrNumeric <- as.integer(scafNumber)
 		

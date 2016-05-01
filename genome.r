@@ -226,6 +226,30 @@ g$chrname2numeric <- function(chrname){
 	chrNumeric
 	}
 
+g$numeric2chrname <- function(chrNumeric){
+	# Convert chromosome number (a number if it is a roman numeral, character otherwise) to roman
+	# Detects whether chrNumeric refers to an actual number by testing for characters
+	# Adds the "chr" prefix
+	
+	# g$chrname2numeric("chrXXI")
+	# [1] 21
+	# g$chrname2numeric("chrUn")
+	# [1] "Un"
+	# g$chrname2numeric("chrM")
+	# [1] "M"
+	# g$chrname2numeric("chrVIIpitx1")
+	# [1] "VIIpitx1"
+	# g$chrname2numeric("I")
+	# [1] 1
+	# g$chrname2numeric("XX")
+	# [1] 20
+
+	if( !grepl("[a-zMU]+", chrNumeric) ) chrname <- as.roman( as.integer(chrNumeric) ) else chrname <- chrNumeric
+	chrname <- paste("chr", chrname, sep = "")
+	
+	chrname
+	}
+
 g$glazerConvertOld2New <- function(chrname, pos, scafFile = NULL, scafTable = NULL){
 	# Converts coordinates for a single chromosome from 'old' to 'new'
 	# 'Old' is the Jones et al 2012 'old' genome assembly 

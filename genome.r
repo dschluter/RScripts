@@ -231,18 +231,12 @@ g$numeric2chrname <- function(chrNumeric){
 	# Detects whether chrNumeric refers to an actual number by testing for characters
 	# Adds the "chr" prefix
 	
-	# g$chrname2numeric("chrXXI")
-	# [1] 21
-	# g$chrname2numeric("chrUn")
-	# [1] "Un"
-	# g$chrname2numeric("chrM")
-	# [1] "M"
-	# g$chrname2numeric("chrVIIpitx1")
-	# [1] "VIIpitx1"
-	# g$chrname2numeric("I")
-	# [1] 1
-	# g$chrname2numeric("XX")
-	# [1] 20
+	# g$numeric2chrname(4)
+	# [1] "chrIV"
+	# g$numeric2chrname(21)
+	# [1] "chrXXI"
+	# g$numeric2chrname("Un")
+	# [1] "chrUn"
 
 	if( !grepl("[a-zMU]+", chrNumeric) ) chrname <- as.roman( as.integer(chrNumeric) ) else chrname <- chrNumeric
 	chrname <- paste("chr", chrname, sep = "")

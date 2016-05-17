@@ -203,6 +203,7 @@ g$chrname2numeric <- function(chrname){
 	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)
 	# Detects whether chrno refers to an actual number by ensuring there are no lower case letters, no U and no M
 	# chrno will work too (ie without the "chr" prefix)
+	# Modified to allow chrname to be a vector
 	
 	# g$chrname2numeric("chrXXI")
 	# [1] 21
@@ -222,7 +223,9 @@ g$chrname2numeric <- function(chrname){
 	
 	# Convert to an actual number if name of chromosome is a roman numeral
 	#	(detects by ensuring there are no lower case letters, no U and no M)
-	if( !grepl("[a-zMU]+", chrno) ) chrNumeric <- as.numeric( as.roman( chrNumeric ) )
+	isNumber <- !grepl("[a-zMU]+", chrno)
+	chrNumeric[isNumber] <- as.numeric( as.roman( chrNumeric[isNumber] ) )
+	# if( !grepl("[a-zMU]+", chrno) ) chrNumeric <- as.numeric( as.roman( chrNumeric ) )
 	chrNumeric
 	}
 
@@ -230,6 +233,8 @@ g$numeric2chrname <- function(chrNumeric){
 	# Convert chromosome number (a number if it is a roman numeral, character otherwise) to roman
 	# Detects whether chrNumeric refers to an actual number by testing for characters
 	# Adds the "chr" prefix
+
+	# Modified to allow chrNumeric to be a vector
 	
 	# g$numeric2chrname(4)
 	# [1] "chrIV"
@@ -238,7 +243,11 @@ g$numeric2chrname <- function(chrNumeric){
 	# g$numeric2chrname("Un")
 	# [1] "chrUn"
 
-	if( !grepl("[a-zMU]+", chrNumeric) ) chrname <- as.roman( as.integer(chrNumeric) ) else chrname <- chrNumeric
+	chrname <- chrNumeric
+	isNumber <- !grepl("[a-zMU]+", chrNumeric)
+	chrname[isNumber] <- as.character( as.roman( as.integer( chrname[isNumber] ) ) )
+
+	# if( !grepl("[a-zMU]+", chrNumeric) ) chrname <- as.roman( as.integer(chrNumeric) ) else chrname <- chrNumeric
 	chrname <- paste("chr", chrname, sep = "")
 	
 	chrname

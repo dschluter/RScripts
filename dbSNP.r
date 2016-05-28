@@ -306,8 +306,8 @@ x$ALT[x$strand == "-"] <- recode( x$ALT[x$strand == "-"], c("A","C","G","T"), c(
 
 # Save results
 names(x)[names(x) == "POSnew"] <- "POS"
-# write.csv(x, "kingsley_snps.csv", row.names = FALSE)  # Use this is using original pitx1 BAC
-write.csv(x, "kingsley_snpspitx1new.csv", row.names = FALSE) # Use this is using Felicity's new pitx1 BAC
+# write.csv(x, "kingsley_snps.csv", row.names = FALSE)  # This uses original pitx1 BAC
+write.csv(x, "kingsley_snpspitx1new.csv", row.names = FALSE) # This uses Felicity's new pitx1 BAC
 
 # -----------------
 # Generate the .vcf files for known snps
@@ -324,6 +324,7 @@ write.csv(x, "kingsley_snpspitx1new.csv", row.names = FALSE) # Use this is using
 chrnames <- unique(x$chr)
 genomeDirName <- "../reference genomes/"
 
+# One chromosome at a time
 for(i in chrnames){
 	# i <- "chrVIIpitx1new"
 	fastaName <- paste(i, ".fa", sep = "")
@@ -352,4 +353,36 @@ for(i in chrnames){
 	
 	}
 
+# All at once
+# This uses the genome with Felicity's new pitx1 bac
 
+fastaCompleteName <- "gasAcu1pitx1new.fa"
+chrnames <- unique(x$chr)
+genomeDirName <- "../reference genomes/"
+vcfname <- "knownSnpsPitx1new.vcf"
+header <- "##fileformat=VCFv4.1"
+for(i in chrnames){
+	# i <- "chrVIIpitx1new"
+	fastaName <- paste(i, ".fa", sep = "")
+	chr <- scan(paste(genomeDirName, fastaName, sep = ""), what=character()) 
+	z <- grepl(">", chr) # is there a ">chr??" at the top
+	chr <- chr[!z]  # drops it
+	chrlength <- sum(nchar(chr))
+	# chr <- paste(chr, collapse="") # combined all the lines into a single word
+	# chrvec <- strsplit(chr, split="")[[1]] # break apart genome into individual bases
+	# chrlength <- length(chrvec)
+	# rm(chrvec)
+	rm(chr)
+	header <- c(header, paste("##contig=<ID=", i, ",length=", chrlength, ">", sep = ""))
+	}
+	header <- c(header,
+				paste("##reference=file:///g01/home/schluter/", fastaCompleteName, sep = ""),
+				"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO")
+	write(header, file = vcfname)
+
+y <- x[, c("chr", "POS", "REF", "ALT")]
+y <- y[order(paste(y$chr, y$POS)),]
+z <- apply(y, 1, function(y){
+	paste(y[1], y[2], ".", y[3], y[4], ".", ".", ".", sep = "\t")
+	})
+write(z, file = vcfname, append = TRUE)

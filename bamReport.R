@@ -30,7 +30,9 @@ args <- c(fnames, args[-1])
 
 # grab chromosome name: provided as last argument or is embedded in file name of first argument
 chrname <- args[length(args)]
-if(!grepl("chr", chrname)){ # indicates no chr is provided as last argument
+if(grepl("chr", chrname)){ 		# if last arg is a chr
+	args <- args[-length(args)] # drop chr from vector of args
+	} else{
 	if(!grepl("^.*(chr[XVIUnMpitx1new]+).*$",args[1])) stop("Missing chr argument") else
 		chrname <- grepl("^.*(chr[XVIUnMpitx1new]+).*$",args[1])
 	}
@@ -112,14 +114,14 @@ for(i in 1:nargs){
 	cat("Median query width:", medianwidth, "\n")
 
 	cat("\nGenerating plots\n")
-	cat("Note that pos is the genomic coordinate at the start of the alignment\n")
+	cat("pos is the genomic coordinate at the start of the alignment\n")
 	cat("Coordinates are left-most, at the 5' end of read on '+' strand\n") 
 	cat("     and at the 3' end on '-' strand; and are 1-based.\n")
 	cat("Position excludes clipped nucleotides, though soft-clipped nucleotides\n")
 	cat("     are included in seq.\n")
 	cat("...........\n")
 
-	pdf(paste(root, "Report", "pdf", sep = "."))
+	pdf(paste(root, chrname, "Report", "pdf", sep = "."))
 	# Plot base quality by cycle
 	# These plots give guidance on where to trim (-q option in bwa aln)
 	# Mean quality scores >=30 are very good
@@ -134,7 +136,7 @@ for(i in 1:nargs){
 	#plot(colMeans(mplus), type="l", ylim=c(0,max(mplus)), xlim=c(0, medianwidth))
 	#lines(colMeans(mminus), col = "red", lty = 2)
 	
-	plot(colMeans(rbind(mplus, mminus)), type="l", ylim=c(0,max(mplus)), xlim=c(0, medianwidth),	
+	plot(colMeans(rbind(mplus, mminus)), type="l", ylim=c(0,max(30, mplus)), xlim=c(0, medianwidth),	
 		xlab = "Base position", ylab = "Base quality", main = "Base quality by cycle", col = "red", lwd = 2)
 	mtext(bamfile, side = 3)
 	lines(c(0, medianwidth), c(30,30), lty = 2, lwd = 1.5)
@@ -169,7 +171,7 @@ for(i in 1:nargs){
 	y <- tapply(cover, coverbins, median)
 	z$counts <- y
 	z$breaks <- z$breaks/10^6
-	plot(z, freq = TRUE, col = "red", ylab = "Median coverage", xlab="Position (million bases)", 
+	plot(z, freq = FALSE, col = "red", ylab = "Median coverage", xlab="Position (million bases)", 
 		main="Median coverage") # ignore warnings!
 	mtext(bamfile, side = 3)
 

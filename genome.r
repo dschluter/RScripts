@@ -117,57 +117,57 @@ g$sam2gvcf <- function(inputfish = "", chrname = "", mem = 4, walltime = 72, rec
 	fi
 	
 	# 1. SortSam
-	java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \
+	java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
 		SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 	
 	# 2. MarkDuplicates
-	java -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \
-		I=$sortedbam O=$mkdupbam M=$mkdupmetrics \
+	java -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
+		I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
 		VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 	
 	# 3. AddOrReplaceReadGroups
-	java -Xmx2g -jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \
-		RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \
+	java -Xmx2g -jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
+		RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \\
 		SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 	
 	# 4. RealignerTargetCreator
-	gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \
+	gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \\
 		--allow_potentially_misencoded_quality_scores
 	
 	# 5. IndelRealigner:
-	gatk.sh -Xmx4g -T IndelRealigner -R $fastafile -I $sortedbam -targetIntervals $intervals \
+	gatk.sh -Xmx4g -T IndelRealigner -R $fastafile -I $sortedbam -targetIntervals $intervals \\
 		-o $realignedbam -LOD 0.4 --allow_potentially_misencoded_quality_scores
 	', outfile)
 	
 	if(recalibrate){
 		writeLines('
 		# 6. BaseRecalibrator
-		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \
+		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 		', outfile)
 		
 		if(recalPlot){	
 			writeLines('
-			gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \
+			gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 				-knownSites knownSnpsAllchrPitx1new.vcf -BQSR $recaltable -o $afterrecaltable
-			gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \
+			gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 				-after $afterrecaltable -plots $recalplots
 			', outfile)
 			}
 		
 		writeLines('
 		# 7. HaplotypeCaller
-		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \
-		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
+		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		', outfile)
 	
 		} else{
 		writeLines('
 		# 7. HaplotypeCaller
-		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $realignedbam \
-		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $realignedbam \\
+		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		', outfile)
 		}

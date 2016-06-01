@@ -49,12 +49,12 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	}
 
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
-		hapcaller = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
+		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
 		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
-	# Optionally continues with HaplotypeCaller on the resulting bam file.
-	# [Instead, optionally converts bam to sam if want to split the sam file by chromosome before stopping.]
-	# Pipeline is based on "sam2haplotypeCallerWithRecalibration.pbs" -- including arguments, for simplicity
+	# If makegvcf = TRUE, program runs HaplotypeCaller on the resulting bam file.
+	# Instead, optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
+	# Pipeline is based on "sam2haplotypeCallerWithRecalibration.pbs"
 	# RGPU (see below) is fixed as "Benlim-q15"
 	# if recalPlot = TRUE, certain R libraries must be installed, see GATK help for AnalyzeCovariates.
 
@@ -99,6 +99,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		recaltable="${inputfish}.recal.table"
 		afterrecaltable="${inputfish}.after.recal.table"
 		recalplots="${inputfish}.recal.pdf"
+		realignedsam="${inputfish}.realigned.sam"
+		recalsam="${inputfish}.recal.sam"
 		'
 	if(genome != "gasAcu1pitx1new.fa"){
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
@@ -166,6 +168,9 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '
+	convertbam2sam <- '
+			samtools view -h -o $recalsam $recalbam
+			'
 		
 	writeLines(sortsam, outfile)
 	writeLines(markduplicates, outfile)
@@ -180,13 +185,19 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 			}
 		}
 	
-	if(hapcaller){
+	if(makegvcf){
 		if(recalibrate) writeLines(haplotypecaller, outfile) else{
 			haplotypecaller <- gsub("recalbam", "realignedbam", haplotypecaller)
+			writeLines(haplotypecaller, outfile)
 			}
 		}
 		
-	# Optionally, convert bam to sam before splitting (not coded yet)
+	if(bam2sam){
+		if(recalibrate) writeLines(convertbam2sam, outfile) else{
+			convertbam2sam <- gsub("recal", "realigned", convertbam2sam)
+			writeLines(convertbam2sam, outfile)
+			}
+		}
 		
 	writeLines('\nexit 0', outfile)
 	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)

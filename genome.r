@@ -62,7 +62,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
-	pbsfile <- paste("gatk-", inputfish, chrname, "-", hour, ".pbs", sep = "")
+	pbsfile <- paste("gatk-", inputfish, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 	
 	writeLines(			"#!/bin/bash", outfile)

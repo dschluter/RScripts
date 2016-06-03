@@ -4,42 +4,46 @@ g<-list()
 # module load R/3.1.2
 # R
 
-g$summaryFunction <- function(seqname, bamFile, ...) {
-	# S function that takes a single sequence name (chromosome) as input, 
-	# 	reads in specific information from the BAM file, and calculates coverage over that sequence
-	# Taken from Martin Morgan's "Exercises: An Introduction to Rsamtools, 29-30 July, 2010"
-	# "BAM files can be large, containing more information on more genomic regions than
-	# are of immediate interest or than can fit in memory. The first strategy for dealing
-	# with this is to select, using the what and which arguments to ScanBamParam, just
-	# those portions of the BAM file that are essential to the current analysis, e.g.,
-	# specifying what=c(‘rname’, ’qname’, ’pos’) when wishing to calculate coverage
-	# of ungapped reads.
-	# When selective input of BAM files is still too memory-intensive, the file can
-	# be processed in chunks, with each chunk distilled to the derived information of
-	# interest. Chromosomes will often be the natural chunk to process. For instance,
-	# here we write a summary function that takes a single sequence name (chromosome)
-	# as input, reads in specific information from the BAM file, and calculates
-	# coverage over that sequence."
-	library(Rsamtools)
-	param <- ScanBamParam(what = c("pos", "qwidth"),
-		which = GRanges(seqname, IRanges(1, 1e+07)),
-		flag = scanBamFlag(isUnmappedQuery = FALSE))
-	x <- scanBam(bamFile, ..., param = param)[[1]]
-	coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
-	}
-
-g$splitsam <- function(bamFileName, chrname){
-	# bamFileName <- "Marine-Pac-Salmon-01-Sara.recal.bam"; chrname <- "chrM"
-	library(Rsamtools)
-	root <- gsub("[.]bam$", "", bamFileName)
-	maxLen <- 10^8 # a number larger than the largest chromosome
+# g$summaryFunction <- function(seqname, bamFile, ...) {
+	# # S function that takes a single sequence name (chromosome) as input, 
+	# # 	reads in specific information from the BAM file, and calculates coverage over that sequence
+	# # Taken from Martin Morgan's "Exercises: An Introduction to Rsamtools, 29-30 July, 2010"
+	# # "BAM files can be large, containing more information on more genomic regions than
+	# # are of immediate interest or than can fit in memory. The first strategy for dealing
+	# # with this is to select, using the what and which arguments to ScanBamParam, just
+	# # those portions of the BAM file that are essential to the current analysis, e.g.,
+	# # specifying what=c(‘rname’, ’qname’, ’pos’) when wishing to calculate coverage
+	# # of ungapped reads.
+	# # When selective input of BAM files is still too memory-intensive, the file can
+	# # be processed in chunks, with each chunk distilled to the derived information of
+	# # interest. Chromosomes will often be the natural chunk to process. For instance,
+	# # here we write a summary function that takes a single sequence name (chromosome)
+	# # as input, reads in specific information from the BAM file, and calculates
+	# # coverage over that sequence."
+	# library(Rsamtools)
 	# param <- ScanBamParam(what = c("pos", "qwidth"),
-		# which = GRanges(chrname, IRanges(1, maxLen)), flag = scanBamFlag(isUnmappedQuery = FALSE))
-	param <- ScanBamParam(what=scanBamWhat(), which = GRanges(chrname, IRanges(1, maxLen)), 
-		flag = scanBamFlag(isUnmappedQuery = FALSE))
-	# x <- scanBam(bamFileName, param = param)[[1]]
-	x <- scanBam(bamFileName, param = param, destination = paste(root, chrname, "bam", sep = "."),
-			indexDestination = TRUE)
+		# which = GRanges(seqname, IRanges(1, 1e+07)),
+		# flag = scanBamFlag(isUnmappedQuery = FALSE))
+	# x <- scanBam(bamFile, ..., param = param)[[1]]
+	# coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
+	# }
+
+g$splitbam <- function(bamFileName, chrname){
+	# Extracts data for the single chromosome "chrname" from a bamfile
+	# Based on g$summaryFunction above
+	#
+	# bamFileName <- "Marine-Pac-Salmon-01-Sara.recal.bam"; chrname <- "chrM"
+
+	library(Rsamtools, quietly = TRUE)
+	root <- gsub("[.]bam$", "", bamFileName) # part of file name
+	
+	maxLen <- 10^8 # a number larger than the largest chromosome
+	
+	for(i in chrname){
+		param <- ScanBamParam(what=scanBamWhat(), which = GRanges(i, IRanges(1, maxLen)),
+			flag = scanBamFlag(isUnmappedQuery = FALSE))
+		x <- scanBam(bamFileName, param = param, destination = root, indexDestination = TRUE)
+		}
 	# object.size(x)
 		# 459037248 bytes # this is very small for chrUn, great
 	}

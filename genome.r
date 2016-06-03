@@ -28,26 +28,6 @@ g<-list()
 	# coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
 	# }
 
-g$splitbam <- function(bamFileName, chrname){
-	# Extracts data for the single chromosome "chrname" from a bamfile
-	# Based on g$summaryFunction above
-	#
-	# bamFileName <- "Marine-Pac-Salmon-01-Sara.recal.bam"; chrname <- "chrM"
-
-	library(Rsamtools, quietly = TRUE)
-	root <- gsub("[.]bam$", "", bamFileName) # part of file name
-	
-	maxLen <- 10^8 # a number larger than the largest chromosome
-	
-	for(i in chrname){
-		param <- ScanBamParam(what=scanBamWhat(), which = GRanges(i, IRanges(1, maxLen)),
-			flag = scanBamFlag(isUnmappedQuery = FALSE))
-		x <- scanBam(bamFileName, param = param, destination = root, indexDestination = TRUE)
-		}
-	# object.size(x)
-		# 459037248 bytes # this is very small for chrUn, great
-	}
-
 g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", run = TRUE){
 	# Takes bamfile file output of g$gatk and makes a gvcf file using gatk haplotype caller.
 	# Input file gatkBamfile must be "root.bam" or "root.sam"

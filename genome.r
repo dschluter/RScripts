@@ -61,10 +61,9 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		fastafile="gasAcu1pitx1new.fa"
 		vcffile="${root}.vcf"
 		'
-		
+				
 	writeLines(parameters, outfile)
 
-	writeLines(		 'module load samtools', outfile)
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 
 	convertsam2bam <- '
@@ -86,7 +85,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	
 	close(outfile)
 	
-	# Run as "qsub -v root=test.chrXXI.recal pbsfile
+	# Run as "qsub -v root=Marine-Pac-Salmon-01-Sara.recal.chrM pbsfile
 	if(run){
 		qsub <- paste("qsub -v root=", root, sep = "")
 		system(paste(qsub, pbsfile))

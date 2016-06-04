@@ -58,6 +58,8 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		bamfile="${root}.bam"
 		samfile="${root}.sam"
 		baifile="${root}.bai"
+		fastafile="gasAcu1pitx1new.fa"
+		vcffile="${root}.vcf"
 		'
 		
 	writeLines(parameters, outfile)

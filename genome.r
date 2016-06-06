@@ -281,7 +281,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 			# --allow_potentially_misencoded_quality_scores  --fix_misencoded_quality_scores
 		# gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			# -after $afterrecaltable -plots $recalplots		
-			'
+			# '
 	haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\

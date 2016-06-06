@@ -144,14 +144,17 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
 		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
-		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", run = TRUE){
+		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", 
+		fixQualityScores = FALSE, run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
 	# If makegvcf = TRUE, program runs HaplotypeCaller on the resulting bam file.
 	# Instead, optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
 	# Pipeline is based on "sam2haplotypeCallerWithRecalibration.pbs"
 	# RGPU (see below) is fixed as "Benlim-q15"
 	# if recalPlot = TRUE, certain R libraries must be installed, see GATK help for AnalyzeCovariates.
-
+	# if fixQualityScores = TRUE, runs PrintReads with --fix_misencoded_quality_scores before BaseRecalibrator
+	# 	This sometimes works to stop errors in BaseRecalibrator about misencoded quality scores 
+	#	that happen despite "--allow_potentially_misencoded_quality_scores" argument.
 	if(inputfish == "") stop("You need to provide inputfish")
 
 	# Attach date and time to name of pbs file to make unique
@@ -196,6 +199,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		recalplots="${inputfish}.recal.pdf"
 		realignedsam="${inputfish}.realigned.sam"
 		recalsam="${inputfish}.recal.sam"
+		fixedmisencoded="${inputfish}.fixed-misencoded.bam"
 		'
 	if(genome != "gasAcu1pitx1new.fa"){
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
@@ -245,21 +249,39 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		gatk.sh -Xmx4g -T IndelRealigner -R $fastafile -I $sortedbam -targetIntervals $intervals \\
 			-o $realignedbam -LOD 0.4 --allow_potentially_misencoded_quality_scores
 			'
-
+			
+	fixqualityscores <- '
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -o $fixedmisencoded --fix_misencoded_quality_scores
+		mv $fixedmisencoded $realignedbam
+			'
+	
 	baserecalibrator <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable \\
 			--allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
-	
+			
 	analyzecovariates <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable \\
 			--allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			-after $afterrecaltable -plots $recalplots		
-		'
+			'
+	# baserecalibratorFix <- '
+		# gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
+			# -knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable \\
+			# --allow_potentially_misencoded_quality_scores --fix_misencoded_quality_scores
+		# gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
+			# '
+	# analyzecovariatesFix <- '
+		# gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
+			# -knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable \\
+			# --allow_potentially_misencoded_quality_scores  --fix_misencoded_quality_scores
+		# gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
+			# -after $afterrecaltable -plots $recalplots		
+			'
 	haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
@@ -274,6 +296,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	writeLines(addorreplacereadgroups, outfile)
 	writeLines(realignertargetcreater, outfile)
 	writeLines(indelrealigner, outfile)
+	
+	if(fixQualityScores) writeLines(fixqualityscores, outfile)
 	
 	if(recalibrate){
 		writeLines(baserecalibrator, outfile)
@@ -307,6 +331,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		system(paste(qsub, pbsfile))
 		}
 	}
+
 
 g$sam2gvcf <- function(inputfish = "", chrname = "", mem = 4, walltime = 72, recalibrate = TRUE,
 		recalPlot = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 

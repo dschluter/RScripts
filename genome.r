@@ -248,13 +248,15 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 
 	baserecalibrator <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			-knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable
+			-knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable \\
+			--allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
 	
 	analyzecovariates <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			-knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable
+			-knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable \\
+			--allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			-after $afterrecaltable -plots $recalplots		
 		'

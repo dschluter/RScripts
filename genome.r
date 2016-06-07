@@ -65,7 +65,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 
 	qualityscoredistribution <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \
+		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$samfile O=$qualscoredist CHART=$qualscorechart ASSUME_SORTED=$assumesorted
 			'
 	writeLines(qualityscoredistribution, outfile)
@@ -287,7 +287,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
 	qualityscoredistribution <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \
+		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'
 	

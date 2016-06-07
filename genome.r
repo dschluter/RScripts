@@ -145,7 +145,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
 		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
 		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", 
-		fixQualityScores = FALSE, run = TRUE){
+		fixQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
 	# If makegvcf = TRUE, program runs HaplotypeCaller on the resulting bam file.
 	# Instead, optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
@@ -200,6 +200,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		realignedsam="${inputfish}.realigned.sam"
 		recalsam="${inputfish}.recal.sam"
 		fixedmisencoded="${inputfish}.fixed-misencoded.bam"
+		qualscoredist="${inputfish}.qual-score-dist.txt"
+		qualscorechart="${inputfish}.qual-score-dist.pdf"
 		'
 	if(genome != "gasAcu1pitx1new.fa"){
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
@@ -227,6 +229,10 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	sortsam <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
+			'
+	qualityscoredistribution <- '
+		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \
+			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'
 	
 	markduplicates <- '
@@ -292,6 +298,9 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 			'
 		
 	writeLines(sortsam, outfile)
+	
+	if(qualityScoreDistribution) writeLines(qualityscoredistribution, outfile)
+	
 	writeLines(markduplicates, outfile)
 	writeLines(addorreplacereadgroups, outfile)
 	writeLines(realignertargetcreater, outfile)

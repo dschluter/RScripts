@@ -58,7 +58,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 		qualscoredist="${samfile}.basequalscores.txt"
 		qualscorechart="${samfile}.basequalscores.pdf"
 		'
-	if(!sorted) gsub("true", "false", parameters)
+	if(!sorted) parameters <- gsub("true", "false", parameters)
 
 	writeLines(parameters, outfile)
 

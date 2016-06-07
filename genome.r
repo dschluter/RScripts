@@ -35,6 +35,9 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	# Useful to check which scoring system is in use ( see http://drive5.com/usearch/manual/quality_score.html )
 	# Use "sorted = TRUE" if already sorted.
 	
+	root <- gsub(".[bs]+am$", "", samfile)
+	filetype <- casefold( gsub(".*([bs]+am$)", "\\1", samfile) ) # must be bam or sam
+
 	if(samfile=="") stop("Provide samfile on input")
 	root <- gsub(".[bs]+am$", "", samfile)
 
@@ -54,20 +57,26 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
 	
 	parameters <- '
-		assumesorted="true"
 		qualscoredist="${samfile}.basequalscores.txt"
 		qualscorechart="${samfile}.basequalscores.pdf"
+		sortedsam="${samfile}"
 		'
-	if(!sorted) parameters <- gsub("true", "false", parameters)
+	sortsam <- '
+		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedsam \\
+			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
+			'
+	qualityscoredistribution <- '
+		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
+			I=$sortedsam O=$qualscoredist CHART=$qualscorechart
+			'
+	if(!sorted) parameters <- gsub('sortedsam="${samfile}"', 
+		paste('sortedsam="${samfile}','.sorted.', filetype, '"',sep = ""), parameters, fixed = TRUE)
 
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 
-	qualityscoredistribution <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
-			I=$samfile O=$qualscoredist CHART=$qualscorechart ASSUME_SORTED=$assumesorted
-			'
+	if(!sorted) writeLines(sortsam, outfile)
 	writeLines(qualityscoredistribution, outfile)
 
 	writeLines('\nexit 0', outfile)

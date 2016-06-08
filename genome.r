@@ -33,7 +33,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 		sorted = FALSE, run = TRUE){
 	# Shows the frequency distribution of bas quality scores in a bam or sam file
 	# Useful to check which scoring system is in use ( see http://drive5.com/usearch/manual/quality_score.html )
-	# Use "sorted = TRUE" if already sorted.
+	# Use "sorted = TRUE" if already sorted; otherwise picard's SortSam is run first
 	
 	root <- gsub(".[bs]+am$", "", samfile)
 	filetype <- casefold( gsub(".*([bs]+am$)", "\\1", samfile) ) # must be bam or sam
@@ -75,6 +75,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
+	writeLines(		 'module load samtools', outfile)
 
 	if(!sorted) writeLines(sortsam, outfile)
 	writeLines(qualityscoredistribution, outfile)
@@ -128,6 +129,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
+	writeLines(		 'module load samtools', outfile)
 
 	convertsam2bam <- '
 		samtools view -bS -o $bamfile $samfile
@@ -157,7 +159,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 
 
 g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7", 
-				fastq1 = "", fastq2 = "", genome = "gasAcu1pitx1new.fa", run = FALSE){
+				fastq1 = "", fastq2 = "", genome = "gasAcu1pitx1new.fa", run = TRUE){
 	# Creates pbs file that runs BWA-mem on paired read fastq files
 	# Include chrname in inputfish name if running on a single chromosome
 	# Based on "bwa077mem.pbs"

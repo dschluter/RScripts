@@ -74,7 +74,7 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencoded --fix_misencoded_quality_scores
 			'
 	convertbam2sam <- '
-		samtools view -h -o $fixedmisencoded $outsam
+		samtools view -h -o $outsam $fixedmisencoded
 		'
 	
 	writeLines(parameters, outfile)

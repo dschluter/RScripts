@@ -29,7 +29,7 @@ g<-list()
 	# }
 	
 	
-g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKversion = "3.4.0")
+g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKversion = "3.4.0",
 		samtoolsVersion = "0.1.19", genome = "gasAcu1pitx1new.fa", outputSam = FALSE, run = TRUE){
 
 	# Standalone function to take a sorted sam or bam file and fix the base quality scores using PrintReads

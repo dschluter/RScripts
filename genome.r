@@ -163,7 +163,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	
 	# Run as "qsub -v root=Marine-Atl-Denmark-BS27-Fuelner.sorted pbsfile"
 	if(run){
-		qsub <- paste("qsub -v root=", samfileroot, sep = "")
+		qsub <- paste("qsub -v root=", root, sep = "")
 		system(paste(qsub, pbsfile))
 		}
 	}

@@ -109,6 +109,8 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	# Shows the frequency distribution of bas quality scores in a bam or sam file
 	# Useful to check which scoring system is in use ( see http://drive5.com/usearch/manual/quality_score.html )
 	# Use "sorted = TRUE" if already sorted; otherwise picard's SortSam is run first
+	# Output of SortSam is determined by input: sam -> sam or bam -> bam
+	# QualityScoreDistribution also accepts sam or bam as input
 	
 	if(samfile=="") stop("Provide samfile on input")
 	root <- gsub(".[bs]+am$", "", samfile)

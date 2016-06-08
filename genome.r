@@ -33,6 +33,11 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		samtoolsVersion = "0.1.19", genome = "gasAcu1pitx1new.fa", outputSam = FALSE, run = TRUE){
 
 	# Standalone function to take a sorted sam or bam file and fix the base quality scores using PrintReads
+	# Testing as follows led to an error; need to add read group step for this standalone to work.
+	# g$fixBaseQualityScores(samfile = "DenmarkBS27File7.sam.sorted.sam", outputSam = TRUE, run = TRUE)
+	# "DenmarkBS27File7.sam.sorted.bam is malformed: SAM file doesn't have any read groups defined in the header. 
+	#  The GATK no longer supports SAM files without read groups"
+
 	# if outSam = TRUE, result is converted from bam file to a sam file
 
 	if(samfile=="") stop("Provide samfile on input")
@@ -125,9 +130,10 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
 	
 	parameters <- '
-		qualscoredist="${samfile}.basequalscores.txt"
-		qualscorechart="${samfile}.basequalscores.pdf"
-		sortedsam="${samfile}"
+		samfile="${root}.sam"
+		qualscoredist="${root}.basequalscores.txt"
+		qualscorechart="${root}.basequalscores.pdf"
+		sortedsam="${root}.sorted.sam"
 		'
 	sortsam <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedsam \\
@@ -137,8 +143,9 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedsam O=$qualscoredist CHART=$qualscorechart
 			'
-	if(!sorted) parameters <- gsub('sortedsam="${samfile}"', 
-		paste('sortedsam="${samfile}','.sorted.', filetype, '"',sep = ""), parameters, fixed = TRUE)
+	if(sorted) parameters <- gsub('sortedsam="${root}.sorted.sam"', 
+		'sortedsam="${root}.sam"', parameters, fixed = TRUE)
+	if(filetype == "bam") parameters <- gsub(".sam", ".bam", parameters, fixed = TRUE)
 
 	writeLines(parameters, outfile)
 
@@ -152,9 +159,9 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	
 	close(outfile)
 	
-	# Run as "qsub -v samfile=Marine-Atl-Denmark-BS27-Fuelner.sorted.bam pbsfile"
+	# Run as "qsub -v root=Marine-Atl-Denmark-BS27-Fuelner.sorted pbsfile"
 	if(run){
-		qsub <- paste("qsub -v samfile=", samfile, sep = "")
+		qsub <- paste("qsub -v root=", samfileroot, sep = "")
 		system(paste(qsub, pbsfile))
 		}
 	}

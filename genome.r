@@ -210,7 +210,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
 		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
 		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", 
-		fixQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
+		fixBaseQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
 	# If makegvcf = TRUE, program runs HaplotypeCaller on the resulting bam file.
 	# Instead, optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
@@ -371,7 +371,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	writeLines(realignertargetcreater, outfile)
 	writeLines(indelrealigner, outfile)
 	
-	if(fixQualityScores) writeLines(fixqualityscores, outfile)
+	if(fixBaseQualityScores) writeLines(fixqualityscores, outfile)
 	
 	if(recalibrate){
 		writeLines(baserecalibrator, outfile)

@@ -30,7 +30,7 @@ g<-list()
 	
 	
 g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rversion = "3.1.2", 
-		sorted = FALSE, run = TRUE){
+		samtoolsVersion = "0.1.19", sorted = FALSE, run = TRUE){
 	# Shows the frequency distribution of bas quality scores in a bam or sam file
 	# Useful to check which scoring system is in use ( see http://drive5.com/usearch/manual/quality_score.html )
 	# Use "sorted = TRUE" if already sorted; otherwise picard's SortSam is run first
@@ -75,7 +75,7 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
-	writeLines(		 'module load samtools', outfile)
+	writeLines(paste('module load samtools', samtoolsVersion, sep = "/"), outfile)
 
 	if(!sorted) writeLines(sortsam, outfile)
 	writeLines(qualityscoredistribution, outfile)
@@ -92,7 +92,8 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 		}
 	}
 
-g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", run = TRUE){
+g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", 
+		samtoolsVersion = "0.1.19", run = TRUE){
 	# Takes bamfile file output of g$gatk and makes a gvcf file using gatk haplotype caller.
 	# Input file gatkBamfile must be "root.bam" or "root.sam"
 	# If bamfile has already been converted to a samfile, it is first converted back to bam
@@ -129,7 +130,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
-	writeLines(		 'module load samtools', outfile)
+	writeLines(paste('module load samtools', samtoolsVersion, sep = "/"), outfile)
 
 	convertsam2bam <- '
 		samtools view -bS -o $bamfile $samfile
@@ -212,7 +213,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	}
 
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
-		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
+		makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", samtoolsVersion = "0.1.19",
 		genome = "gasAcu1pitx1new.fa", knownsitesvcf = "knownSnpsAllchrPitx1new.vcf", 
 		fixBaseQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
@@ -281,7 +282,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		}
 	writeLines(parameters, outfile)
 
-	writeLines(		 'module load samtools', outfile)
+	writeLines(paste('module load samtools', samtoolsVersion, sep = "/"), outfile)
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 

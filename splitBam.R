@@ -16,6 +16,7 @@ args <- commandArgs(TRUE) # first argument will be bamfile name
 # args <- "Marine-Pac-Salmon-01-Sara.recal.bam"
 
 bamFileName <- args[1]
+print(bamFileName)
 
 library(Rsamtools, quietly = TRUE)
 root <- gsub("[.]bam$", "", bamFileName) # part of file name
@@ -44,9 +45,11 @@ maxLen <- 10^8 # a number larger than the largest chromosome
 for(i in chrname){
 	# i <- "chrM"
 	# i <- "chrII"
+	outfilename <- paste(root, i, "bam", sep = ".")
+	print(outfilename)
 	bamSource <- open(BamFile(bamFileName, index = paste(root, "bai", sep = "."))) #, yieldSize = maxLen))
 	param <- ScanBamParam(what=scanBamWhat(), which = GRanges(i, IRanges(1, maxLen)))
-	filterBam(bamSource, destination = paste(root, i, "bam", sep = "."), # filter=FilterRules(), 
+	filterBam(bamSource, destination = outfilename, # filter=FilterRules(), 
 		indexDestination=TRUE, param = param)
 	close(bamSource)
 	}

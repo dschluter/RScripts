@@ -170,14 +170,15 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 
 g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", 
 		samtoolsVersion = "0.1.19", run = TRUE){
-	# Takes bamfile file output of g$gatk and makes a gvcf file using gatk haplotype caller.
+	# Takes bamfile file -- recal.bam or realigned.bam output of g$gatk --
+	#	and makes a gvcf file using gatk haplotype caller.
 	# Input file gatkBamfile must be "root.bam" or "root.sam"
-	# If bamfile has already been converted to a samfile, it is first converted back to bam
-	# If recalibrated = TRUE, program uses $recalbam, otherwise it uses $realignedbam
+	# If samfile is supplied, it is first converted to bam
 
-	if(gatkBamfile == "") stop("You need to provide samfile name")
+	if(gatkBamfile == "") stop("You need to provide bamfile (or samfile) name")
 	root <- gsub(".[bs]+am$", "", gatkBamfile)
 	filetype <- casefold( gsub(".*([bs]+am$)", "\\1", gatkBamfile) ) # must be bam or sam
+	if( !(filetype %in% c("sam","bam")) ) stop("You need to provide .bam (or .sam) file")
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())

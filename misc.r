@@ -1,8 +1,12 @@
-curl<-function(Rfile){
+curl <- function(Rfile){
 	system(paste("curl -o " , Rfile, " https://raw.githubusercontent.com/dschluter/RScripts/master/", Rfile, sep = ""))
 	}
 
-showq<-function(){system("showq -u schluter")}
+showq <- function(){system("showq -u schluter")}
+
+qdel <- function(x){system( paste("qdel", x) )}
+
+qstat <- function(x){system( paste("qstat -f", x) )}
 
 month2integer <- function(x){
 	z1 <- casefold(substr(x, 1, 3)) # round to 3 digits

@@ -39,7 +39,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	
 	if( !all(grepl("[.]vcf$", gvcffiles)) ) stop("Provide only .vcf files as arguments")
 
-	cat("\ngvcffiles inputted:\n")
+	cat("\n", length(gvcffiles), "gvcf files included:\n")
 	for(i in 1:length(gvcffiles)){
 		cat(gvcffiles[i],"\n")
 		}

@@ -39,7 +39,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	
 	if( !all(grepl("[.]vcf$", gvcffiles)) ) stop("Provide only .vcf files as arguments")
 
-	cat("\n", length(gvcffiles), "gvcf files included:\n")
+	cat("\n", length(gvcffiles), " gvcf files included:\n", sep = "")
 	for(i in 1:length(gvcffiles)){
 		cat(gvcffiles[i],"\n")
 		}
@@ -78,7 +78,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 		"-o", outvcfname), outfile)
 	
 	close(outfile)
-	if(run) system(paste("qsub", pbsfilename))
+	if(run) system(paste("qsub", pbsfile))
 	}
 
 

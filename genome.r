@@ -27,7 +27,18 @@ g<-list()
 	# x <- scanBam(bamFile, ..., param = param)[[1]]
 	# coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
 	# }
+
+g$geno2snpgds <- function(geno){
+	# Converts a genotype data frame "geno" of the following format into  a snpgds object in SNPRelate
+	# 	creating a gds file in the local directory at the same time.
+	             # F2.1 F2.2 F2.3 F2.4 F2.5 F2.6 ...
+	# chrI:11963492	AA   AC   CC   AC   AC   AC
+	# chrI:1245655	GG   GC   CC   GC   GC   GC
+	# chrI:14261764	AA   AC   CC   AC   AC   AC
+	# chrI:1549902	AA   AC   CC   AC   AC   AC
+	# ..
 	
+	}
 	
 g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0", 
 	mem = 4, walltime = 24, genome = "gasAcu1pitx1new.fa", maxAltAlleles = 3, run = TRUE){
@@ -586,6 +597,35 @@ g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime 
 	
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))
+	}
+
+g$doesThisGenotypeMatchParent <- function(offspring, parent){
+	# offspring <- "AG"; parent <- "AA"
+	# Tests whether at least one allele in the offspring could have come from this parent
+	# "offspring" and parent are vectors of genotypes.
+	# doesThisGenotypeMatchParent("AG", "AA") # TRUE
+	# doesThisGenotypeMatchParent("GG", "AA") # TRUE
+	# doesThisGenotypeMatchParent("AG", as.character(NA)) # FALSE
+	# doesThisGenotypeMatchParent(as.character(NA), as.character(NA)) # TRUE - both NA!
+
+	# This is how "outer" lines up the comparisons:
+	# outer(c(off1=1,off2=2), c(par1=3,par2=4), FUN=paste)
+	     # par1  par2 
+	# off1 "1 3" "1 4"
+	# off2 "2 3" "2 4"
+	#
+	offspring <- strsplit(offspring, split = "")
+	parent <- strsplit(parent, split = "")
+	z <- mapply(offspring, parent, FUN = function(offspring, parent){
+		z <- outer( offspring, parent, FUN = is.element)
+		# print(z)
+		      # [,1]  [,2]
+		# [1,]  TRUE  TRUE
+		# [2,] FALSE FALSE
+		# Just 1 TRUE in the array is needed to say that offspring genotype matches parent
+		sum(z) > 0
+		})
+	return(z)
 	}
 
 g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL, scafTable = NULL){

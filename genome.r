@@ -43,10 +43,11 @@ g$geno2snpgds <- function(geno){
 g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0", 
 	mem = 4, walltime = 24, genome = "gasAcu1pitx1new.fa", maxAltAlleles = 3, run = TRUE){
 	# Generates "genotypeGVCFs.pbs" to carry out genotypeGVCFs to call snps
-	#	from multiple gvcf files inputted, one chromosome at a time
+	#	from multiple gvcf files inputted, for a SINGLE chromosome
 	# chrname is extracted from gvcf file names.
-	# The fasta file is now a whole 	genome, not "chromosome.fa", because
+	# The fasta file is now a whole genome, not "chromosome.fa", because
 	#	we are splitting only after haplotypeCaller, which needs the whole genome fasta
+	# Includes the '--intervals chr??" to prevent the whole genome being represented in the gvcf file.
 	
 	if( !all(grepl("[.]vcf$", gvcffiles)) ) stop("Provide only .vcf files as arguments")
 
@@ -85,8 +86,8 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
 		writeLines(gvcffiles[i], outfile)
 		}
-	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles", maxAltAlleles, 
-		"-o", outvcfname), outfile)
+	writeLines(paste("     --intervals", chrname, "--includeNonVariantSites --max_alternate_alleles",
+		maxAltAlleles, "-o", outvcfname), outfile)
 	
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))

@@ -28,15 +28,82 @@ g<-list()
 	# coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
 	# }
 
-g$geno2snpgds <- function(geno){
+
+g$geno2snpgds <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds"){
 	# Converts a genotype data frame "geno" of the following format into  a snpgds object in SNPRelate
 	# 	creating a gds file in the local directory at the same time.
-	             # F2.1 F2.2 F2.3 F2.4 F2.5 F2.6 ...
-	# chrI:11963492	AA   AC   CC   AC   AC   AC
-	# chrI:1245655	GG   GC   CC   GC   GC   GC
-	# chrI:14261764	AA   AC   CC   AC   AC   AC
-	# chrI:1549902	AA   AC   CC   AC   AC   AC
-	# ..
+	# "geno" must have the following format, with the rownames as id's and the colnames as marker names
+	         # chrI:11963492 chrI:1245655 chrI:14261764 chrI:1549902 chrI:18548172
+	# GEF1fem1            AC           AG            AG           CC            GG
+	# GEF1fem3            AC           AG            AG           CG            AG
+	# GEF1fem4            AC           GG            AG           CC            GG
+	# GEF1fem6            AC           AG            AG           CC            AG
+	# GEF1fem7            AC           AA            GG           CC            AG
+	
+	# Ensure it is a data frame
+	if(class(geno)!="data.frame") geno <- as.data.frame(geno, stringsAsFactors = FALSE)
+	
+	# Identify the unique alleles at every marker (at most 2 are allowed)
+	alleles <- lapply(geno, function(x){
+		genotypes <- unique(x)
+		alleles <- unique( unlist( strsplit(genotypes, split = "") ) )
+		alleles <- alleles[!is.na(alleles)] # drop the NA
+		})
+	# head(alleles)
+	# $`chrI:11963492`
+	# [1] "A" "C"
+	# $`chrI:1245655`
+	# [1] "A" "G"
+	# $`chrI:14261764`
+	# [1] "A" "G"
+	# $`chrI:1549902`
+	# [1] "C" "G"
+	# $`chrI:18548172`
+	# [1] "G" "A"
+	# $`chrI:20584613`
+	# [1] "A" "C"
+	
+	# Check that there are exactly 2 alleles for each genotype
+	nalleles <- sapply(alleles, length)
+	bad <- which(nalleles != 2)
+	if(length(bad) > 0){
+		geno <- geno[,-bad]
+		alleles <- alleles[-bad]
+		if(!is.null(pos)) pos <- pos[-bad] 
+		if(!is.null(chr)) chr <- chr[-bad] 
+		chr = NULL
+		cat(length(bad), "markers lacking the requisite 2 alleles were dropped")
+		}
+	
+	# extract the id and marker names (do this after the check for exactly 2 alleles, in case somem markers are dropped)
+	id <- rownames(geno)
+	snpname <- colnames(geno)
+
+	# Need to convert genotypes to 0, 1, 2 indicating number of alleles
+	genoscore <- mapply(geno, alleles, FUN = function(x,y){
+		z2 <- str_count(x, y[2])
+		})
+
+	# Need to transpose so that markers are rows and individuals are columns
+	# result will be a matrix (required for next step)
+	genoscore <- t(genoscore) 
+	
+	# create a variable retaining the original genotypes
+	snpAllele <- sapply(alleles, function(x){paste(x, collapse = "/")})
+
+	# Put it all into a list
+	genoList <- list(sample.id = id, snp.id = snpname, snp.position = pos, snp.chromosome = chr, 
+				snp.allele = snpAllele, genotype = genoscore)
+	
+	# Create a GDS file of genotypes from the geno matrix
+	with(genoList, snpgdsCreateGeno(gdsOutfile, genmat=genotype, sample.id=sample.id, 
+			snp.id=snp.id, snp.chromosome=snp.chromosome, snp.position=snp.position, 
+			snp.allele=snp.allele, snpfirstdim=TRUE))
+
+	# Open the GDS file
+	genofile <- snpgdsOpen(gdsOutfile)
+	snpgdsClose(gdsOutfile)
+	genofile
 	
 	}
 	

@@ -108,7 +108,7 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gd
 	# genofile <- snpgdsOpen(gdsOutfile)
 	# 
 	# genofile
-	cat("snpgds file created\nOpen as: genofile <- snpgdsOpen(", gdsOutfile, ")", sep = "" )
+	cat('snpgds file created\nOpen as: genofile <- snpgdsOpen(\"', gdsOutfile, '\")\n', sep = '' )
 	cat("Close as: snpgdsClose(genofile)")
 	
 	invisible()

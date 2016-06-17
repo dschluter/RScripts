@@ -40,6 +40,10 @@ g$geno2snpgds <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds")
 	# GEF1fem6            AC           AG            AG           CC            AG
 	# GEF1fem7            AC           AA            GG           CC            AG
 	
+	# Load the R packages: gdsfmt and SNPRelate
+	library(SNPRelate, quietly = TRUE)
+	library(stringr, quietly = TRUE)
+
 	# Ensure it is a data frame
 	if(class(geno)!="data.frame") geno <- as.data.frame(geno, stringsAsFactors = FALSE)
 	
@@ -101,9 +105,11 @@ g$geno2snpgds <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds")
 			snp.allele=snp.allele, snpfirstdim=TRUE))
 
 	# Open the GDS file
-	genofile <- snpgdsOpen(gdsOutfile)
-	snpgdsClose(gdsOutfile)
-	genofile
+	# genofile <- snpgdsOpen(gdsOutfile)
+	# 
+	# genofile
+	
+	invisible()
 	
 	}
 	

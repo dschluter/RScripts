@@ -29,7 +29,7 @@ g<-list()
 	# }
 
 
-g$geno2snpgds <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds"){
+g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds"){
 	# Converts a genotype data frame "geno" of the following format into  a snpgds object in SNPRelate
 	# 	creating a gds file in the local directory at the same time.
 	# "geno" must have the following format, with the rownames as id's and the colnames as marker names
@@ -108,6 +108,8 @@ g$geno2snpgds <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds")
 	# genofile <- snpgdsOpen(gdsOutfile)
 	# 
 	# genofile
+	cat("snpgds file created\nOpen as: genofile <- snpgdsOpen(", gdsOutfile, ")", sep = "" )
+	cat("Close as: snpgdsClose(genofile)")
 	
 	invisible()
 	

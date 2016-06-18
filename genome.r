@@ -309,9 +309,10 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 	}
 
 g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", 
-		samtoolsVersion = "0.1.19", run = TRUE){
+		samtoolsVersion = "0.1.19", threads = 1, run = TRUE){
 	# Takes bamfile file -- recal.bam or realigned.bam output of g$gatk --
 	#	and makes a gvcf file using gatk haplotype caller.
+	# If threads > 1, function uses -nct option to parallalize 
 	# Input file gatkBamfile must be "root.bam" or "root.sam"
 	# If samfile is supplied, it is first converted to bam
 
@@ -319,6 +320,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	root <- gsub(".[bs]+am$", "", gatkBamfile)
 	filetype <- casefold( gsub(".*([bs]+am$)", "\\1", gatkBamfile) ) # must be bam or sam
 	if( !(filetype %in% c("sam","bam")) ) stop("You need to provide .bam (or .sam) file")
+	threads <- as.integer(threads)
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -329,6 +331,9 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	writeLines(			"#PBS -S /bin/bash", outfile)
 	writeLines(paste(	"#PBS -l walltime=", walltime, ":00:00", sep=""), outfile)
 	writeLines(paste(	"#PBS -l mem=", mem, "gb", sep = ""), outfile)
+	if(threads > 1){
+	writeLines(paste(	"#PBS -l nodes=1:ppn=",threads, sep = ""), outfile)
+	}
 
 	writeLines(	"\n# pbs file to run haplotypeCaller on gatk output, bam or sam file", outfile)
 	writeLines(	paste("\n# gatkBamfile =", gatkBamfile), outfile)
@@ -360,7 +365,11 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		      '	
 	if(filetype == "sam") 
 		writeLines(convertsam2bam, outfile)
-	
+	if(threads > 1){
+		nct <- paste('--num_cpu_threads_per_data_thread', threads)
+		haplotypecaller <- sub('\\', paste(nct,'\\'), haplotypecaller, fixed = TRUE)
+		}
+		
 	writeLines(haplotypecaller, outfile)
 		
 	writeLines('\nexit 0', outfile)

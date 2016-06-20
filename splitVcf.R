@@ -4,19 +4,22 @@
 
 # This code might generate "NA:NA" in DP.inv, so next function needs to deal with it.
 
-args <- commandArgs(TRUE) # get arguments
-# args <- c("BenlimAllMarine", "chrXXI")
+args <- commandArgs(TRUE) # get argument (name of vcf file)
+# args <- c("Benlim.recal.chrM.vcf")
 
-project <- args[1]
-chrname <- args[2]
+# project <- args[1]
+# chrname <- args[2]
 
-vcffile <- paste(project, chrname, "vcf", sep = ".")
-# vcffile <- args
+vcffile <- args
+# vcffile <- paste(project, chrname, "vcf", sep = ".")
 #vcffile <- "Paxton12fish.chrXXI.vcf"
 #vcffile <- "temp.vcf"
 
 # Extract project and chr name
-# projectchr <- gsub("(^[A-z0-9_-]*[.]chr[A-z1]+)[.]vcf", "\\1", vcffile)
+# Assume that project is the first part of the vcf file name
+z <- unlist(strsplit(vcffile, split = "[.]"))
+project <- z[1]
+chrname <- z[grep("chr", z)]
 projectchr <- gsub("[.]vcf$", "", vcffile)
 
 # OPTIONS
@@ -42,7 +45,8 @@ outfile2 <- file(paste(projectchr, "DP", "inv", sep="."), "w")
 writeLines(headerlines, outfile1)
 
 # only the last line of the header goes into the invariant file, but also keep POS REF and fish names
-invheader <- gsub("(^#)CHROM\t(POS)\tID(\tREF)\tALT\tQUAL\tFILTER\tINFO\tFORMAT(\t.+$)", "\\1\\2\\3\\4",headerlines[nhead])
+invheader <- gsub("(^#)CHROM\t(POS)\tID(\tREF).*FORMAT(\t.+$)", "\\1\\2\\3\\4",headerlines[nhead])
+# invheader <- gsub("(^#)CHROM\t(POS)\tID(\tREF)\tALT\tQUAL\tFILTER\tINFO\tFORMAT(\t.+$)", "\\1\\2\\3\\4",headerlines[nhead])
 writeLines(invheader, outfile2)
 
 # Loop

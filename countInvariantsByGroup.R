@@ -9,10 +9,8 @@
 # module load R/3.1.2
 # R
 
-args <- commandArgs(TRUE) # project chrname DPmin groupnames[vector]
-# args <- c("BenlimPax22pacMar7", "chrXXI", "1", "paxl", "paxb", "marine-pac")
-# args <- c(project, chrname, DPmin, groupnames)
-# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
+args <- commandArgs(TRUE) # DPinvfilename groupnames[vector]
+# args <- c("Benlim.recal.chrM.DP.inv", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
 
 project <- args[1]
 chrname <- args[2]

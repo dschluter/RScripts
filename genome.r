@@ -29,9 +29,13 @@ g<-list()
 	# }
 
 
-g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gds"){
+g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, scored = FALSE, gdsOutfile = "geno.gds"){
 	# Converts a genotype data frame "geno" of the following format into  a snpgds object in SNPRelate
 	# 	creating a gds file in the local directory at the same time.
+	# pos is the chromosome position of the marker
+	# chr is the chromosome name/number for the marker
+	# If scored = TRUE, geno is assumed to have been converted to scores 0, 1, 2, already
+	#
 	# "geno" must have the following format, with the rownames as id's and the colnames as marker names
 	         # chrI:11963492 chrI:1245655 chrI:14261764 chrI:1549902 chrI:18548172
 	# GEF1fem1            AC           AG            AG           CC            GG
@@ -39,6 +43,14 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gd
 	# GEF1fem4            AC           GG            AG           CC            GG
 	# GEF1fem6            AC           AG            AG           CC            AG
 	# GEF1fem7            AC           AA            GG           CC            AG
+	# or, if scored = TRUE
+	       # chrI:11963492 chrI:21487034 chrI:21689292 chrI:26879230 chrI:2718044
+	# F3.001             2             2             2             2            2
+	# F3.002             2             2            NA             2            1
+	# F3.003             1            NA             1             1            2
+	# F3.004             1             0             0             1            2
+	# F3.005             1             1             1             1            2
+	# F3.006             0             0             0             0            0
 	
 	# Load the R packages: gdsfmt and SNPRelate
 	library(SNPRelate, quietly = TRUE)
@@ -47,46 +59,49 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, gdsOutfile = "geno.gd
 	# Ensure it is a data frame
 	if(class(geno)!="data.frame") geno <- as.data.frame(geno, stringsAsFactors = FALSE)
 	
-	# Identify the unique alleles at every marker (at most 2 are allowed)
-	alleles <- lapply(geno, function(x){
-		genotypes <- unique(x)
-		alleles <- unique( unlist( strsplit(genotypes, split = "") ) )
-		alleles <- alleles[!is.na(alleles)] # drop the NA
-		})
-	# head(alleles)
-	# $`chrI:11963492`
-	# [1] "A" "C"
-	# $`chrI:1245655`
-	# [1] "A" "G"
-	# $`chrI:14261764`
-	# [1] "A" "G"
-	# $`chrI:1549902`
-	# [1] "C" "G"
-	# $`chrI:18548172`
-	# [1] "G" "A"
-	# $`chrI:20584613`
-	# [1] "A" "C"
-	
-	# Check that there are exactly 2 alleles for each genotype
-	nalleles <- sapply(alleles, length)
-	bad <- which(nalleles != 2)
-	if(length(bad) > 0){
-		geno <- geno[,-bad]
-		alleles <- alleles[-bad]
-		if(!is.null(pos)) pos <- pos[-bad] 
-		if(!is.null(chr)) chr <- chr[-bad] 
-		chr = NULL
-		cat(length(bad), "markers lacking the requisite 2 alleles were dropped")
+	if(scored) genoscore <- geno else{
+		# Identify the unique alleles at every marker (at most 2 are allowed)
+		alleles <- lapply(geno, function(x){
+			genotypes <- unique(x)
+			alleles <- unique( unlist( strsplit(genotypes, split = "") ) )
+			alleles <- alleles[!is.na(alleles)] # drop the NA
+			})
+		# head(alleles)
+		# $`chrI:11963492`
+		# [1] "A" "C"
+		# $`chrI:1245655`
+		# [1] "A" "G"
+		# $`chrI:14261764`
+		# [1] "A" "G"
+		# $`chrI:1549902`
+		# [1] "C" "G"
+		# $`chrI:18548172`
+		# [1] "G" "A"
+		# $`chrI:20584613`
+		# [1] "A" "C"
+		
+		# Check that there are exactly 2 alleles for each genotype
+		nalleles <- sapply(alleles, length)
+		bad <- which(nalleles != 2)
+		if(length(bad) > 0){
+			geno <- geno[,-bad]
+			alleles <- alleles[-bad]
+			if(!is.null(pos)) pos <- pos[-bad] 
+			if(!is.null(chr)) chr <- chr[-bad] 
+			chr = NULL
+			cat(length(bad), "markers lacking the requisite 2 alleles were dropped")
+			}
+		
+		# Need to convert genotypes to 0, 1, 2 indicating number of alleles
+		genoscore <- mapply(geno, alleles, FUN = function(x,y){
+			z2 <- str_count(x, y[2])
+			})
 		}
-	
-	# extract the id and marker names (do this after the check for exactly 2 alleles, in case somem markers are dropped)
+
+	# extract the id and marker names (do this after the check for exactly 2 alleles, 
+	#	in case some markers are dropped in the previous routine)
 	id <- rownames(geno)
 	snpname <- colnames(geno)
-
-	# Need to convert genotypes to 0, 1, 2 indicating number of alleles
-	genoscore <- mapply(geno, alleles, FUN = function(x,y){
-		z2 <- str_count(x, y[2])
-		})
 
 	# Need to transpose so that markers are rows and individuals are columns
 	# result will be a matrix (required for next step)

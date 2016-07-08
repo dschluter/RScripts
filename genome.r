@@ -59,7 +59,13 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, scored = FALSE, gdsOu
 	# Ensure it is a data frame
 	if(class(geno)!="data.frame") geno <- as.data.frame(geno, stringsAsFactors = FALSE)
 	
-	if(scored) genoscore <- geno else{
+	if(scored){
+		
+		genoscore <- geno
+		snpAllele <- NULL
+		
+		} else{
+		
 		# Identify the unique alleles at every marker (at most 2 are allowed)
 		alleles <- lapply(geno, function(x){
 			genotypes <- unique(x)
@@ -96,6 +102,10 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, scored = FALSE, gdsOu
 		genoscore <- mapply(geno, alleles, FUN = function(x,y){
 			z2 <- str_count(x, y[2])
 			})
+			
+		# create a variable retaining the original genotypes
+		snpAllele <- sapply(alleles, function(x){paste(x, collapse = "/")})
+
 		}
 
 	# extract the id and marker names (do this after the check for exactly 2 alleles, 
@@ -107,9 +117,6 @@ g$makeSnpgdsFile <- function(geno, pos = NULL, chr = NULL, scored = FALSE, gdsOu
 	# result will be a matrix (required for next step)
 	genoscore <- t(genoscore) 
 	
-	# create a variable retaining the original genotypes
-	snpAllele <- sapply(alleles, function(x){paste(x, collapse = "/")})
-
 	# Put it all into a list
 	genoList <- list(sample.id = id, snp.id = snpname, snp.position = pos, snp.chromosome = chr, 
 				snp.allele = snpAllele, genotype = genoscore)

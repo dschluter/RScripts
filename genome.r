@@ -1438,12 +1438,17 @@ g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	#return(chrvec)
 	}        
   
-g$downloadSra <- function(SraSample, fishName){ # eg g$downloadSra("SRS639967", "KODK")
-	# R commands for Westgrid to download SRA files from NCBI
+g$downloadSra <- function(SraSample, fishName, format = "sra", convert = "/Users/schluter/sratoolkit.2.8.0-mac64/bin/fastq-dump"){ 
+	# Use as g$downloadSra(SraSample = "SRS639967", fishName = "KODK")
+	# R commands for Greendrake to download SRA files from NCBI
 	# based on "Using the SRAdb Package to Query the Sequence Read Archive", Zhu & Davis
+	# format is "sra" or "fastq"
+	# If format = 'sra', it is converted to fastq and gzipped
+	# Default downloads .sra file because NCBI SRA archive is not making fastq.gz files available any more
 
 	# SraSample <- "SRS639967"; fishName <- "KODK"
 	# source("http://bioconductor.org/biocLite.R"); biocLite("SRAdb")
+
 	library(SRAdb)
 	sqlfile <- 'SRAmetadb.sqlite'
 	if(!file.exists('SRAmetadb.sqlite')) sqlfile <<- getSRAdbFile()
@@ -1490,15 +1495,27 @@ g$downloadSra <- function(SraSample, fishName){ # eg g$downloadSra("SRS639967", 
 	# Gets the ftp addresses of the fastq files corresponding to the run
 	# getFASTQinfo( sra_list$run, srcType = 'ftp' )
 	# Downloads them!
-	getSRAfile( sra_list$run, sra_con, fileType = 'fastq' )
+	if(format == "sra"){
+		getSRAfile( sra_list$run, sra_con, fileType = 'sra' ) # Files are in format "SRR1289567.sra"
+		} else{
+		getSRAfile( sra_list$run, sra_con, fileType = 'fastq' )
+		}
 	
 	# Rename the files to match population for easy recognition using file.rename(from, to)
-	z <- list.files(pattern = "^SRR.")
+	z <- list.files(pattern = paste(sra_list$run, collapse = "|"))
+	# z <- list.files(pattern = "^SRR.")
 	for(i in 1:length(z)){
 		file.rename(z[i], paste(fishName, z[i], sep="_"))
 		}
 	cat("Files downloaded and renamed:\n")
-	list.files(pattern=paste("^", fishName,".", sep = ""))
+	z <- list.files(pattern=paste("^", fishName,".", sep = ""))
+	if(format == "sra") for(i in 1:length(z)){
+			# i <- 1
+			system(paste(convert, z[i]))
+			fastqfile <- sub(".sra$", ".fastq", z[i])
+			system(paste("gzip", fastqfile))
+			}
+	
 	}
 
 g$recode<-function (..., ret = c("numeric", "factor"), none = if (ret == "numeric") 0 else "none", na){

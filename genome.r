@@ -1453,8 +1453,8 @@ g$downloadSra <- function(SraSample, fishName, format = "sra", convert = "/Users
 	sqlfile <- 'SRAmetadb.sqlite'
 	if(!file.exists('SRAmetadb.sqlite')) sqlfile <<- getSRAdbFile()
 	
-	z <- list.files(pattern = "^SRR.")
-	if(length(z) > 0) stop("Method assumes there are no files beginning with 'SRR' in working directory")
+	# z <- list.files(pattern = "^SRR.")
+	# if(length(z) > 0) stop("Method assumes there are no files beginning with 'SRR' in working directory")
 	
 	# Open a connection
 	sra_con <- dbConnect(SQLite(), sqlfile) # opens a connection

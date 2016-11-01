@@ -1437,14 +1437,28 @@ g$makeChrvecMasked <-  function(chrname, windowsmaskername){
 	save(chrvec, file = chrmaskfile)
 	#return(chrvec)
 	}        
-  
-g$downloadSra <- function(SraSample, fishName, format = "sra", convert = "/Users/schluter/sratoolkit.2.8.0-mac64/bin/fastq-dump"){ 
+ 
+g$convertSra <- function(fishName, convert = "/Users/schluter/sratoolkit.2.8.0-mac64/bin/fastq-dump"){
+	# converts .sra files to compressed fastq.gz files
+	# .sra files must be in the current directory, and have fishName at start of file name
+	# "convert" identifies location of sra tooolkit command on current machine
+	z <- list.files(pattern=paste("^", fishName,".", sep = ""))
+	for(i in 1:length(z)){
+		# i <- 1
+		system(paste(convert, z[i]))
+		fastqfile <- sub(".sra$", ".fastq", z[i])
+		system(paste("gzip", fastqfile))
+		}
+
+	}
+
+g$downloadSra <- function(SraSample, fishName, format = "sra"){ 
 	# Use as g$downloadSra(SraSample = "SRS639967", fishName = "KODK")
-	# R commands for Greendrake to download SRA files from NCBI
+	# Download all run (SRR) files corresponding to a sample (SRS) individual from NCBI to current directory
+	# fishName will be used to relabel downloaded files
+	# Target file format is "sra" or "fastq"
+	# Default is .sra file because archive is not making fastq.gz files available any more?
 	# based on "Using the SRAdb Package to Query the Sequence Read Archive", Zhu & Davis
-	# format is "sra" or "fastq"
-	# If format = 'sra', it is converted to fastq and gzipped
-	# Default downloads .sra file because NCBI SRA archive is not making fastq.gz files available any more
 
 	# SraSample <- "SRS639967"; fishName <- "KODK"
 	# source("http://bioconductor.org/biocLite.R"); biocLite("SRAdb")
@@ -1504,17 +1518,11 @@ g$downloadSra <- function(SraSample, fishName, format = "sra", convert = "/Users
 	# Rename the files to match population for easy recognition using file.rename(from, to)
 	z <- list.files(pattern = paste(sra_list$run, collapse = "|"))
 	# z <- list.files(pattern = "^SRR.")
+
 	for(i in 1:length(z)){
 		file.rename(z[i], paste(fishName, z[i], sep="_"))
 		}
 	cat("Files downloaded and renamed:\n")
-	z <- list.files(pattern=paste("^", fishName,".", sep = ""))
-	if(format == "sra") for(i in 1:length(z)){
-			# i <- 1
-			system(paste(convert, z[i]))
-			fastqfile <- sub(".sra$", ".fastq", z[i])
-			system(paste("gzip", fastqfile))
-			}
 	
 	}
 

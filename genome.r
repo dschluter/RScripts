@@ -1452,11 +1452,12 @@ g$convertSra <- function(fishName, convert = "/Users/schluter/sratoolkit.2.8.0-m
 
 	}
 
-g$downloadSra <- function(SraSample, fishName, format = "sra"){ 
+g$downloadSra <- function(SraSample, fishName, format = "sra", srcType = "ftp"){ 
 	# Use as g$downloadSra(SraSample = "SRS639967", fishName = "KODK")
 	# Download all run (SRR) files corresponding to a sample (SRS) individual from NCBI to current directory
-	# fishName will be used to relabel downloaded files
-	# Target file format is "sra" or "fastq"
+	# fishName will be used to re-label downloaded files
+	# format is target file format, "sra" or "fastq"
+	# srcType is type of transfer protocol, "ftp" or "fasp"
 	# Default is .sra file because archive is not making fastq.gz files available any more?
 	# based on "Using the SRAdb Package to Query the Sequence Read Archive", Zhu & Davis
 
@@ -1509,11 +1510,7 @@ g$downloadSra <- function(SraSample, fishName, format = "sra"){
 	# Gets the ftp addresses of the fastq files corresponding to the run
 	# getFASTQinfo( sra_list$run, srcType = 'ftp' )
 	# Downloads them!
-	if(format == "sra"){
-		getSRAfile( sra_list$run, sra_con, fileType = 'sra' ) # Files are in format "SRR1289567.sra"
-		} else{
-		getSRAfile( sra_list$run, sra_con, fileType = 'fastq' )
-		}
+	getSRAfile( sra_list$run, sra_con, fileType = format, srcType = srcType )
 	
 	# Rename the files to match population for easy recognition using file.rename(from, to)
 	z <- list.files(pattern = paste(sra_list$run, collapse = "|"))

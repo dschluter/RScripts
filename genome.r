@@ -1442,10 +1442,11 @@ g$convertSra <- function(fishName, convert = "/Users/schluter/sratoolkit.2.8.0-m
 	# converts .sra files to compressed fastq.gz files
 	# .sra files must be in the current directory, and have fishName at start of file name
 	# "convert" identifies location of sra tooolkit command on current machine
+	# -I --split-files options split sra file into separate reads
 	z <- list.files(pattern=paste("^", fishName,".", sep = ""))
 	for(i in 1:length(z)){
 		# i <- 1
-		system(paste(convert, z[i]))
+		system(paste(convert, "-I --split-files", z[i]))
 		fastqfile <- sub(".sra$", ".fastq", z[i])
 		system(paste("gzip", fastqfile))
 		}

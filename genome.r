@@ -1458,7 +1458,7 @@ g$downloadSra <- function(SraSample, fishName, format = "sra", srcType = "ftp"){
 	# Download all run (SRR) files corresponding to a sample (SRS) individual from NCBI to current directory
 	# fishName will be used to re-label downloaded files
 	# format is target file format, "sra" or "fastq"
-	# srcType is type of transfer protocol, "ftp" or "fasp"
+	# srcType is type of transfer protocol, "ftp" or "fasp" # fasp doesn't seem to work
 	# Default is .sra file because archive is not making fastq.gz files available any more?
 	# based on "Using the SRAdb Package to Query the Sequence Read Archive", Zhu & Davis
 

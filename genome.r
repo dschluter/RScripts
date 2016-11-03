@@ -1447,8 +1447,8 @@ g$convertSra <- function(fishName, convert = "/Users/schluter/sratoolkit.2.8.0-m
 	for(i in 1:length(z)){
 		# i <- 1
 		system(paste(convert, "-I --split-files", z[i]))
-		fastqfile <- sub(".sra$", ".fastq", z[i])
-		system(paste("gzip", fastqfile))
+		system(paste("gzip", sub(".sra$", "_1.fastq", z[i])))
+		system(paste("gzip", sub(".sra$", "_2.fastq", z[i])))
 		}
 
 	}

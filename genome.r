@@ -385,7 +385,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	}
 
 
-g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7", 
+g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7", dir = "", 
 				fastq1 = "", fastq2 = "", genome = "gasAcu1pitx1new.fa", run = TRUE){
 	# Creates pbs file that runs BWA-mem on paired read fastq files
 	# inputfish determines the name of the sam output file
@@ -396,6 +396,9 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	if(fastq1 == "") stop("You need to provide fastq1 file name")
 	if(fastq2 == "") stop("You need to provide fastq2 file name")
 	if(genome != "gasAcu1pitx1new.fa") stop("Code currently works only with gasAcu1pitx1new.fa")
+	
+	fastq1 <- paste(dir, "/", fastq1, sep = "")
+	fastq2 <- paste(dir, "/", fastq2, sep = "")
 	
 	samfile <- paste(inputfish, ".sam", sep = "")
 
@@ -422,9 +425,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	bwaCommand <- 'bwa mem -M -t 16'			
 
 	# bwa mem -M -t 16 $genome $fastq1 $fastq2 > $samfile
-	writeLines(
-		paste(bwaCommand, genome, fastq1, fastq2, ">", samfile),
-		outfile)
+	writeLines( paste(bwaCommand, genome, fastq1, fastq2, ">", samfile), outfile )
 
 	# writeLines('\nexit 0', outfile)
 

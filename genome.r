@@ -810,7 +810,8 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	# New feature: 
 		# ...you can specify the output from any of the steps as a .vcf.gz, and GATK will properly compress and index
 	
-	if( !all(grepl("[.]vcf$", gvcffiles)) ) stop("Provide only .vcf files as arguments")
+	if( !(all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles))) ) 
+		stop("Provide only g.vcf or g.vcf.gz files as arguments")
 
 	cat("\n", length(gvcffiles), " gvcf files included:\n", sep = "")
 	for(i in 1:length(gvcffiles)){
@@ -818,7 +819,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 		}
 
 	# Identify the chromosome number from gvcffiles names
-	chrname <- gsub(".*[.](chr[A-z1]+)[.]vcf", "\\1", gvcffiles)
+	chrname <- gsub(".*[.](chr[A-z1]+)[.]g[.]vcf[.gz]*", "\\1", gvcffiles)
 	chrname <- unique(chrname)
 	if(length(chrname) != 1) stop("chr missing from some filenames, or more than one chromosome represented")
 	

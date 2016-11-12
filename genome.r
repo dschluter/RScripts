@@ -1255,16 +1255,18 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		samtools index -b $bamfile $baifile
 		'
 
-	# haplotypecaller <- '
-		# gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
-		     # --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
-		      # -o $vcffile --allow_potentially_misencoded_quality_scores
-		      # '	
 	haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
-		     --emitRefConfidence GVCF \\
+		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '	
+
+	# haplotypecaller <- '
+		# gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
+		     # --emitRefConfidence GVCF \\
+		      # -o $vcffile --allow_potentially_misencoded_quality_scores
+		      # '
+
 	if(filetype == "sam") 
 		writeLines(convertsam2bam, outfile)
 	if(threads > 1){

@@ -810,7 +810,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	# New feature: 
 		# ...you can specify the output from any of the steps as a .vcf.gz, and GATK will properly compress and index
 	
-	if( !(all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles))) ) 
+	if( !( all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles)) ) )
 		stop("Provide only g.vcf or g.vcf.gz files as arguments")
 
 	cat("\n", length(gvcffiles), " gvcf files included:\n", sep = "")

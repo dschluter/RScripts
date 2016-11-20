@@ -1611,6 +1611,131 @@ g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, intere
 	dev.off()
 	}
 
+g$peel <- function(x,i){
+	# Peels off the i'th elements from a comma-separated character-based set of numbers
+	# 	e.g., "peel(PV4,1)" peels the first element "0.34" of PV4 "0.34,1.5e-20,1,1"
+	# Repeats for every entry if x is a vector
+	# Returns a data frame if i is a vector
+	# 	e.g., "peel(PV4,c(1,3))" returns the first and third elements of PV4
+	z1 <- strsplit(x, split=",")
+	z2 <- sapply(z1,function(x,i){x[i]},i[1])
+	if(length(i) > 1){
+		z3 <- data.frame(z2)
+		for(j in 2:length(i)){
+				z3[j] <- sapply(z1,function(x,i){x[i]},i[j])
+			}
+		names(z3) <- paste("peel",1:length(i), sep="")
+		return(z3)
+		}
+	else return(z2)
+	}
+
+g$plot.reads <- function(x1, from = 1, to = nrow(x1), scalefactor = 1, minqual = 30, keepunmappedmate=TRUE){
+	# x1 is a data frame made from scanBam object
+	# If they don't already exist, the following LOGICAL variables are created:
+	# "unmapped" "unmappedmate", "bothforward","bothreverse"
+	# Positive insert size: 
+	# 	draws a line connecting the start of a read (top) to the end of a read (bottom)
+	# 	draws only reads whose position (pos) at the START of read is between "from" and "to"
+	# Negative insert size: 
+	#	draws a line connecting the end of a read (bottom) backwards to the start of a read (top)
+	# 	draws only reads whose position (pos) at the END of read is between "from" and "to"
+	# scalefactor is the amount that the x-axis in plot is extended beyond "for" and "to", in multiples of to-from
+
+	if(!is.data.frame(x1)) stop("Error: object must be a data frame\n")
+	interval <- to - from
+	if(interval < 0) stop("Error: to must be greater than from\n")
+	library(bitops)
+	if(!exists("unmapped")) unmapped <- bitAnd(x1$flag, 0x0004) == 0x0004
+	if(!exists("unmappedmate")) unmappedmate <- bitAnd(x1$flag, 0x0008) == 0x0008
+	if(!exists("bothforward")) bothforward <- 
+			bitAnd(x1$flag, 0x0010) == 0x0000 & bitAnd(x1$flag, 0x0020) == 0x0000 & !unmapped & !unmappedmate
+	if(!exists("bothreverse")) bothreverse <- 
+			bitAnd(x1$flag, 0x0010) == 0x0010 & bitAnd(x1$flag, 0x0020) == 0x0020 & !unmapped & !unmappedmate
+
+	# regular isizes, positive insert sizes
+	if(keepunmappedmate){
+		i <- !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0} 
+	else{
+		i <- !unmappedmate & !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0}
+	dat <- x1[i & x1$pos>from & x1$pos<to,]
+	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
+		xlab="positive inserts",ylab="")
+	segments(dat$pos, rep(1,nrow(dat)), dat$pos+71+dat$isize, rep(0,nrow(dat)), lwd=0.2)
+
+	# regular isizes, negative insert sizes
+	if(keepunmappedmate){
+		j <- !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0} 
+	else{
+		j <- !unmappedmate & !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0}
+	datj <- x1[j & x1$pos>from & x1$pos<to,]
+	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
+		xlab="negative inserts",ylab="")
+	segments(datj$pos, rep(0,nrow(datj)), datj$pos+datj$isize, rep(1,nrow(datj)), lwd=0.2)
+
+	# both reads point same way, positive insert sizes
+	i <- bothforward & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0
+	j <- bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0
+	dati <- x1[i & x1$pos>from & x1$pos<to,]
+	datj <- x1[j & x1$pos>from & x1$pos<to,]
+	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
+		xlab="positive inserts, both reads point same direction",ylab="")
+	segments(dati$pos, rep(1,nrow(datj)), dati$pos+71+dati$isize, rep(0,nrow(dati)), lwd=0.5, col="red")
+	segments(datj$pos, rep(1,nrow(datj)), datj$pos+71+datj$isize, rep(0,nrow(datj)), lwd=0.5, col="blue")
+
+	# both reads point same way, negative insert sizes
+	i <- bothforward & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0
+	j <- bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0
+	dati <- x1[i & x1$pos>from & x1$pos<to,]
+	datj <- x1[j & x1$pos>from & x1$pos<to,]
+	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
+		xlab="negative inserts, both reads point same direction",ylab="")
+	segments(dati$pos, rep(0,nrow(datj)), dati$pos+dati$isize, rep(1,nrow(dati)), lwd=0.5, col="red")
+	segments(datj$pos, rep(0,nrow(datj)), datj$pos+datj$isize, rep(1,nrow(datj)), lwd=0.5, col="blue")
+
+	invisible()
+	}
+
+g$psd <- function(genotypes, groups){
+	# Calculate the number of genotypic differences between all pairs of individuals, one pair at a time.
+	# Pairwise sequence difference "psd" is 0, 0.5, and 1 according to alleles shared between individuals at the locus.
+	# "genotype" is a matrix of genotypes of individuals in VCF "GT" format:
+		# NA   "0/0"   "1/1"      NA   "0/1"   "0/1"   "0/0"      NA   "1/1"   "1/1"   "0/0"   "0/0"
+	# "groups" indicates corresponding group membership of individuals.	
+	# genotypes <- rbind( c(NA, "0/0", "0/0", "0/0", "0/1", "0/1", "0/1", "1/1", "1/1", "0/1", "0/1", "0/1"),
+	#                     c(NA, "0/0", "0/1", "1/1", "0/0", "0/1",    NA, "0/0", "0/1", "1/2", "2/3", "1/4") )
+	# groups <- c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2)
+	# genotypes <- x1$GT
+
+	pop <- as.character(groups)  # population names
+
+	gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
+	# gtpairs
+	 # [1] "1,1" "1,1" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,1" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2"
+	# [20] "1,2" "1,2" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2"
+	# [39] "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2"
+	# [58] "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2"
+	
+	colpairs <- combn(1:ncol(genotypes), 2)
+	colpairs
+	     # [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13] [,14] [,15] [,16] [,17]
+	# [1,]    1    1    1    1    1    1    1    1    1     1     1     2     2     2     2     2     2
+	# [2,]    2    3    4    5    6    7    8    9   10    11    12     3     4     5     6     7     8
+	     # [,18] [,19] [,20] [,21] [,22] [,23] [,24] [,25] [,26] [,27] [,28] [,29] [,30] [,31] [,32] [,33]
+	# [1,]     2     2     2     2     3     3     3     3     3     3     3     3     3     4     4     4
+	# [2,]     9    10    11    12     4     5     6     7     8     9    10    11    12     5     6     7
+	     # [,34] [,35] [,36] [,37] [,38] [,39] [,40] [,41] [,42] [,43] [,44] [,45] [,46] [,47] [,48] [,49]
+	# ...
+	
+	psd <- apply(colpairs, 2, function(z){
+			psd <- g$geno.diff(genotypes[ ,z[1] ], genotypes[ ,z[2] ])
+			})
+	
+	psd <- as.data.frame(psd, stringsAsCharacters = FALSE)
+	names(psd) <- gtpairs
+	psd
+	}
+
 g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rversion = "3.1.2", 
 		sorted = FALSE, run = TRUE){
 	# Shows the frequency distribution of bas quality scores in a bam or sam file
@@ -1702,157 +1827,6 @@ g$recode<-function (..., ret = c("numeric", "factor"), none = if (ret == "numeri
         result[is.na(na)] <- NA
     result
 }
-
-g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
-	# Replaces makePbsRunRscript
-	# Creates a *.pbs file to run the full Rscript command "Rscript"
-	# Download .R script file from github before using
-	# The Rscript command executes a particular *.R file and provides any needed arguments
-	# if run=TRUE, automatically submits the pbs file to the queue
-	# Example: (note that all the arguments to .R script are included in a single quotation
-	# 	g$submitRscript(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
-	
-	if(Rscript == "") stop("You need to provide an Rscript command")
-		
-	# Remove and repaste initial "Rscript" command if present in case it is missing from the Rscript text submitted
-	# Also grab the name of the .R file argument, store in dotRfile
-	Rscript <- sub("^[ ]*Rscript[ ]*|[ ]*", "", Rscript, ignore.case = TRUE)
-	dotRfile <- strsplit(Rscript, split = " ")[[1]][1]
-	dotRfile <- gsub("[.]R", "", dotRfile, ignore.case = TRUE)
-	Rscript <- paste("Rscript", Rscript)
-	
-	# Attach date and time to name of file to make unique
-	# pbsfile <- gsub(".pbs$", "", pbsfile)
-	hour <- gsub("[ :]","-",Sys.time())
-	pbsfile <- paste(dotRfile, "-", hour, ".pbs", sep = "")
-	outfile <- file(pbsfile, "w")
-	
-	writeLines(			"#!/bin/bash", outfile)
-	writeLines(			"#PBS -S /bin/bash", outfile)
-	writeLines(paste(	"#PBS -l walltime=", walltime, ":00:00", sep=""), outfile)
-	writeLines(paste(	"#PBS -l mem=", mem, "gb", sep = ""), outfile)
-	#writeLines(		"#PBS -l epilogue=epilogue.script", outfile)
-
-	#writeLines(paste("#PBS -N", jobname), outfile)
-	writeLines(	"\n# Generic torque file to run Rscript", outfile)
-	writeLines(paste("\n# ", Rscript), outfile)
-	writeLines(	  "\n# THIS FILE IS GENERATED BY R, DO NOT EDIT\n", outfile)
-	
-	# The following leads to "cd ~/tmp" if R command is executed from that directory
-	writeLines("cd $PBS_O_WORKDIR", outfile)
-	writeLines('\necho \"Current working directory is `pwd`\"',outfile)
-	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
-
-	writeLines(paste("module load R/", Rversion, sep = ""), outfile)
-	writeLines(Rscript, outfile)
-
-	writeLines("\necho \"Job finished with exit code $? at: \`date\`\"", outfile)
-	
-	close(outfile)
-	if(run) system(paste("qsub", pbsfile))
-	}
-
-# This works but is too slow
-g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, nMaxAlt = 3, split = "/"){
-	# Generates a table of allele frequencies at each locus by group
-	# Group is specified by the integer groupcodes, eg 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
-	# 
-	groupnames <- factor(groupnames, levels = groupnames)
-	tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE) # annoying but apply won't return a list
-	alleleFreqByGroup <- lapply(tGT, function(locus){
-		# columns of tGT are loci, so apply function locus by locus
-		# locus <- geno(vcf)$GT[6, ]
-		z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
-		z2 <- lapply(z1, function(x){ 
-			unlist(strsplit(x, split = split))
-			}) 		# the alleles for each group at the locus
-		z3 <- z2	# initialize
-		for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
-		table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
-		})
-	}
-
-g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
-	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making
-	# use of the snp types already provided in snpTypeList
-	#
-	n1 <- sapply(ALTlist, length) # length including NAs
-	n2 <- sapply(snpTypeList, length)
-	if( !all(n1 == n2) ) stop("ALTlist and snpTypeList have unequal element numbers")
-	snp <- unlist(snpTypeList)
-	ref <- rep(as.vector(REF), n1)
-	alt <- unlist(ALTlist)
-
-	cat("Table of variant types used (<*:DEL> and unused are NA)\n")
-	print(table(snp, useNA="always"))
-	
-	# Transition-transversion ratios - true snp only (not indels)
-	cat("\nTransition-transversion ratio - all true snp\n")
-	snp1 <- snp[!is.na(snp) & snp == "snp"]
-	ref1 <- ref[!is.na(snp) & snp == "snp"]
-	alt1 <- alt[!is.na(snp) & snp == "snp"]
-	
-	ref1 <- substr(ref1, 1, 1) # keep the first letter of REF
-	alt1 <- substr(alt1, 1, 1) # keep the first letter of ALT
-	
-	# c( length(ref1[ref1 != alt1]), length(alt1[ref1 != alt1]) )
-	# [1] 216418 216418
-	
-	tstv <- g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1])
-	return(tstv)
-	}
-
-g$whichAltAllelesUsed <- function(GT, split = "/"){
-	# returns a list indicating which alleles are actually used in the genotypes 
-	# 	in the sample by their index (1, 2, ...
-	# GT is geno(vcf)$GT or a subset with rows as loci and columns as individuals
-	whichAltAllelesUsed <- apply(GT, 1, function(x){ 		# is a list
-			# x <- GT[1, ]
-			x1 <- strsplit(x[!is.na(x)], split = split)
-			x1 <- sort( as.integer(unique(unlist(x1))) )
-			whichAltAllelesUsed <- x1[x1 > 0] # drops the REF allele
-			})
-	}
-
-g$psd <- function(genotypes, groups){
-	# Calculate the number of genotypic differences between all pairs of individuals, one pair at a time.
-	# Pairwise sequence difference "psd" is 0, 0.5, and 1 according to alleles shared between individuals at the locus.
-	# "genotype" is a matrix of genotypes of individuals in VCF "GT" format:
-		# NA   "0/0"   "1/1"      NA   "0/1"   "0/1"   "0/0"      NA   "1/1"   "1/1"   "0/0"   "0/0"
-	# "groups" indicates corresponding group membership of individuals.	
-	# genotypes <- rbind( c(NA, "0/0", "0/0", "0/0", "0/1", "0/1", "0/1", "1/1", "1/1", "0/1", "0/1", "0/1"),
-	#                     c(NA, "0/0", "0/1", "1/1", "0/0", "0/1",    NA, "0/0", "0/1", "1/2", "2/3", "1/4") )
-	# groups <- c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2)
-	# genotypes <- x1$GT
-
-	pop <- as.character(groups)  # population names
-
-	gtpairs <- combn(pop, 2, FUN=function(x){paste(x, collapse=",")})
-	# gtpairs
-	 # [1] "1,1" "1,1" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,1" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2"
-	# [20] "1,2" "1,2" "1,1" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,1" "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2"
-	# [39] "1,1" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "1,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2"
-	# [58] "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2" "2,2"
-	
-	colpairs <- combn(1:ncol(genotypes), 2)
-	colpairs
-	     # [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13] [,14] [,15] [,16] [,17]
-	# [1,]    1    1    1    1    1    1    1    1    1     1     1     2     2     2     2     2     2
-	# [2,]    2    3    4    5    6    7    8    9   10    11    12     3     4     5     6     7     8
-	     # [,18] [,19] [,20] [,21] [,22] [,23] [,24] [,25] [,26] [,27] [,28] [,29] [,30] [,31] [,32] [,33]
-	# [1,]     2     2     2     2     3     3     3     3     3     3     3     3     3     4     4     4
-	# [2,]     9    10    11    12     4     5     6     7     8     9    10    11    12     5     6     7
-	     # [,34] [,35] [,36] [,37] [,38] [,39] [,40] [,41] [,42] [,43] [,44] [,45] [,46] [,47] [,48] [,49]
-	# ...
-	
-	psd <- apply(colpairs, 2, function(z){
-			psd <- g$geno.diff(genotypes[ ,z[1] ], genotypes[ ,z[2] ])
-			})
-	
-	psd <- as.data.frame(psd, stringsAsCharacters = FALSE)
-	names(psd) <- gtpairs
-	psd
-	}
 
 g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin){
 
@@ -2052,89 +2026,73 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 	results
 }
 
-g$plot.reads <- function(x1, from = 1, to = nrow(x1), scalefactor = 1, minqual = 30, keepunmappedmate=TRUE){
-	# x1 is a data frame made from scanBam object
-	# If they don't already exist, the following LOGICAL variables are created:
-	# "unmapped" "unmappedmate", "bothforward","bothreverse"
-	# Positive insert size: 
-	# 	draws a line connecting the start of a read (top) to the end of a read (bottom)
-	# 	draws only reads whose position (pos) at the START of read is between "from" and "to"
-	# Negative insert size: 
-	#	draws a line connecting the end of a read (bottom) backwards to the start of a read (top)
-	# 	draws only reads whose position (pos) at the END of read is between "from" and "to"
-	# scalefactor is the amount that the x-axis in plot is extended beyond "for" and "to", in multiples of to-from
+g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
+	# Replaces makePbsRunRscript
+	# Creates a *.pbs file to run the full Rscript command "Rscript"
+	# Download .R script file from github before using
+	# The Rscript command executes a particular *.R file and provides any needed arguments
+	# if run=TRUE, automatically submits the pbs file to the queue
+	# Example: (note that all the arguments to .R script are included in a single quotation
+	# 	g$submitRscript(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
+	
+	if(Rscript == "") stop("You need to provide an Rscript command")
+		
+	# Remove and repaste initial "Rscript" command if present in case it is missing from the Rscript text submitted
+	# Also grab the name of the .R file argument, store in dotRfile
+	Rscript <- sub("^[ ]*Rscript[ ]*|[ ]*", "", Rscript, ignore.case = TRUE)
+	dotRfile <- strsplit(Rscript, split = " ")[[1]][1]
+	dotRfile <- gsub("[.]R", "", dotRfile, ignore.case = TRUE)
+	Rscript <- paste("Rscript", Rscript)
+	
+	# Attach date and time to name of file to make unique
+	# pbsfile <- gsub(".pbs$", "", pbsfile)
+	hour <- gsub("[ :]","-",Sys.time())
+	pbsfile <- paste(dotRfile, "-", hour, ".pbs", sep = "")
+	outfile <- file(pbsfile, "w")
+	
+	writeLines(			"#!/bin/bash", outfile)
+	writeLines(			"#PBS -S /bin/bash", outfile)
+	writeLines(paste(	"#PBS -l walltime=", walltime, ":00:00", sep=""), outfile)
+	writeLines(paste(	"#PBS -l mem=", mem, "gb", sep = ""), outfile)
+	#writeLines(		"#PBS -l epilogue=epilogue.script", outfile)
 
-	if(!is.data.frame(x1)) stop("Error: object must be a data frame\n")
-	interval <- to - from
-	if(interval < 0) stop("Error: to must be greater than from\n")
-	library(bitops)
-	if(!exists("unmapped")) unmapped <- bitAnd(x1$flag, 0x0004) == 0x0004
-	if(!exists("unmappedmate")) unmappedmate <- bitAnd(x1$flag, 0x0008) == 0x0008
-	if(!exists("bothforward")) bothforward <- 
-			bitAnd(x1$flag, 0x0010) == 0x0000 & bitAnd(x1$flag, 0x0020) == 0x0000 & !unmapped & !unmappedmate
-	if(!exists("bothreverse")) bothreverse <- 
-			bitAnd(x1$flag, 0x0010) == 0x0010 & bitAnd(x1$flag, 0x0020) == 0x0020 & !unmapped & !unmappedmate
+	#writeLines(paste("#PBS -N", jobname), outfile)
+	writeLines(	"\n# Generic torque file to run Rscript", outfile)
+	writeLines(paste("\n# ", Rscript), outfile)
+	writeLines(	  "\n# THIS FILE IS GENERATED BY R, DO NOT EDIT\n", outfile)
+	
+	# The following leads to "cd ~/tmp" if R command is executed from that directory
+	writeLines("cd $PBS_O_WORKDIR", outfile)
+	writeLines('\necho \"Current working directory is `pwd`\"',outfile)
+	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
 
-	# regular isizes, positive insert sizes
-	if(keepunmappedmate){
-		i <- !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0} 
-	else{
-		i <- !unmappedmate & !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0}
-	dat <- x1[i & x1$pos>from & x1$pos<to,]
-	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
-		xlab="positive inserts",ylab="")
-	segments(dat$pos, rep(1,nrow(dat)), dat$pos+71+dat$isize, rep(0,nrow(dat)), lwd=0.2)
+	writeLines(paste("module load R/", Rversion, sep = ""), outfile)
+	writeLines(Rscript, outfile)
 
-	# regular isizes, negative insert sizes
-	if(keepunmappedmate){
-		j <- !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0} 
-	else{
-		j <- !unmappedmate & !bothforward & !bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0}
-	datj <- x1[j & x1$pos>from & x1$pos<to,]
-	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
-		xlab="negative inserts",ylab="")
-	segments(datj$pos, rep(0,nrow(datj)), datj$pos+datj$isize, rep(1,nrow(datj)), lwd=0.2)
-
-	# both reads point same way, positive insert sizes
-	i <- bothforward & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0
-	j <- bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize > 0
-	dati <- x1[i & x1$pos>from & x1$pos<to,]
-	datj <- x1[j & x1$pos>from & x1$pos<to,]
-	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
-		xlab="positive inserts, both reads point same direction",ylab="")
-	segments(dati$pos, rep(1,nrow(datj)), dati$pos+71+dati$isize, rep(0,nrow(dati)), lwd=0.5, col="red")
-	segments(datj$pos, rep(1,nrow(datj)), datj$pos+71+datj$isize, rep(0,nrow(datj)), lwd=0.5, col="blue")
-
-	# both reads point same way, negative insert sizes
-	i <- bothforward & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0
-	j <- bothreverse & !is.na(x1$mapq) & x1$mapq >= minqual & x1$isize < 0
-	dati <- x1[i & x1$pos>from & x1$pos<to,]
-	datj <- x1[j & x1$pos>from & x1$pos<to,]
-	plot(c(from-interval*scalefactor,to+interval*scalefactor),c(0,1), type="n", 
-		xlab="negative inserts, both reads point same direction",ylab="")
-	segments(dati$pos, rep(0,nrow(datj)), dati$pos+dati$isize, rep(1,nrow(dati)), lwd=0.5, col="red")
-	segments(datj$pos, rep(0,nrow(datj)), datj$pos+datj$isize, rep(1,nrow(datj)), lwd=0.5, col="blue")
-
-	invisible()
+	writeLines("\necho \"Job finished with exit code $? at: \`date\`\"", outfile)
+	
+	close(outfile)
+	if(run) system(paste("qsub", pbsfile))
 	}
 
-g$peel <- function(x,i){
-	# Peels off the i'th elements from a comma-separated character-based set of numbers
-	# 	e.g., "peel(PV4,1)" peels the first element "0.34" of PV4 "0.34,1.5e-20,1,1"
-	# Repeats for every entry if x is a vector
-	# Returns a data frame if i is a vector
-	# 	e.g., "peel(PV4,c(1,3))" returns the first and third elements of PV4
-	z1 <- strsplit(x, split=",")
-	z2 <- sapply(z1,function(x,i){x[i]},i[1])
-	if(length(i) > 1){
-		z3 <- data.frame(z2)
-		for(j in 2:length(i)){
-				z3[j] <- sapply(z1,function(x,i){x[i]},i[j])
-			}
-		names(z3) <- paste("peel",1:length(i), sep="")
-		return(z3)
-		}
-	else return(z2)
+# This works but is too slow
+g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, nMaxAlt = 3, split = "/"){
+	# Generates a table of allele frequencies at each locus by group
+	# Group is specified by the integer groupcodes, eg 3 3 3 3 3 3 3 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+	# 
+	groupnames <- factor(groupnames, levels = groupnames)
+	tGT <- as.data.frame(t(GT), stringsAsFactors = FALSE) # annoying but apply won't return a list
+	alleleFreqByGroup <- lapply(tGT, function(locus){
+		# columns of tGT are loci, so apply function locus by locus
+		# locus <- geno(vcf)$GT[6, ]
+		z1 <- split(locus, groupcodes) # the genotypes for each group at the locus
+		z2 <- lapply(z1, function(x){ 
+			unlist(strsplit(x, split = split))
+			}) 		# the alleles for each group at the locus
+		z3 <- z2	# initialize
+		for(i in 1:length(z3)) z3[[i]] <- rep( groupnames[i], length(z3[[i]]) ) # replace z3 with corresponding group name
+		table( unlist(z3), factor(unlist(z2), levels=0:nMaxAlt) ) # factor so that all alleles are counted in each table
+		})
 	}
 
 g$tstv <- function(REF,ALT){
@@ -2151,6 +2109,86 @@ g$tstv <- function(REF,ALT){
 	return(R)
 }
 	
+g$variantRecalibrator <- function(vcffile, outvcfname, GATKversion = "3.4.0", mem = 4, walltime = 24, 
+	genome = "gasAcu1pitx1new.fa", resourceFile = "206sticklebacks_GATKvariants.SNP.filtered.vcf", run = TRUE){
+	# Generates pbs file to run VariantRecalibrator, ApplyRecalibration, and SelectVariants
+	#	on inputted vcf.gz file
+	# chrname is extracted from vcf file names.
+	# The fasta file is the whole genome, not "chromosome.fa", because 
+	#	206sticklebacks_GATKvariants.SNP.filtered.vcf uses the whole genome
+	
+	if(length(vcffile) != 1) stop("Provide only one vcf file as argument")
+	
+	if( !( grepl("[.]vcf$", gvcffiles) | grepl("[.]vcf.gz$", vcffile) ) )
+		stop("Provide only .vcf or .vcf.gz files as arguments")
+
+	# Identify the chromosome number from gvcffiles names
+	chrname <- gsub(".*[.](chr[A-z1]+)[.]vcf[.gz]*", "\\1", vcffile)	
+
+	# Attach date and time to name of pbs file to make unique
+	hour <- gsub("[ :]", "-", Sys.time())
+	pbsfile <- paste("VariantRecalibrator-", chrname, "-", hour, ".pbs", sep = "")
+	outfile <- file(pbsfile, "w")
+
+	writeLines(			"#!/bin/bash", outfile)
+	writeLines(			"#PBS -S /bin/bash", outfile)
+	writeLines(paste(	"#PBS -l walltime=", walltime, ":00:00", sep=""), outfile)
+	writeLines(paste(	"#PBS -l mem=", mem, "gb", sep = ""), outfile)
+
+	writeLines(	"\n# pbs file to run GATK VariantRecalibrator on vcf file for one chromosome", outfile)
+	writeLines(	paste("\n# pbsfile =", pbsfile), outfile)
+	writeLines(	  "\n# THIS FILE IS GENERATED BY R, DO NOT EDIT\n", outfile)
+	
+	# The following leads to "cd ~/tmp" if R command is executed from that directory
+	writeLines("cd $PBS_O_WORKDIR", outfile)
+	writeLines('\necho \"Current working directory is `pwd`\"',outfile)
+	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
+		
+	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
+	
+	writeLines(paste("gatk.sh -Xmx", mem, "g -R ", genome, " -T VariantRecalibrator \\", sep=""), outfile)
+	writeLines(paste("  -input", vcffile, "\\", sep = " "), outfile)
+	writeLines(paste("  -resource:known=false,training=true,truth=true,prior=6.0", resourceFile, "\\", sep=" "), outfile)
+	
+	-an DP        -an QD        -an FS        -an MQ        -an MQRankSum -an ReadPosRankSum -mode SNP \
+	-tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 95.0 -tranche 90.0 -nt 6 \
+	-recalFile BenLim_recalibrate_SNP.recal -tranchesFile BenLim_recalibrate_SNP.tranches \
+	-rscriptFile BenLim_recalibrate_SNP.R -dt NONE 
+
+	close(outfile)
+	if(run) system(paste("qsub", pbsfile))
+	}
+
+g$vcfTsTv <- function(REF, ALTlist, snpTypeList){
+	# Calculates the raw transition-transversion ratio from the REF and list of ALT alleles, making
+	# use of the snp types already provided in snpTypeList
+	#
+	n1 <- sapply(ALTlist, length) # length including NAs
+	n2 <- sapply(snpTypeList, length)
+	if( !all(n1 == n2) ) stop("ALTlist and snpTypeList have unequal element numbers")
+	snp <- unlist(snpTypeList)
+	ref <- rep(as.vector(REF), n1)
+	alt <- unlist(ALTlist)
+
+	cat("Table of variant types used (<*:DEL> and unused are NA)\n")
+	print(table(snp, useNA="always"))
+	
+	# Transition-transversion ratios - true snp only (not indels)
+	cat("\nTransition-transversion ratio - all true snp\n")
+	snp1 <- snp[!is.na(snp) & snp == "snp"]
+	ref1 <- ref[!is.na(snp) & snp == "snp"]
+	alt1 <- alt[!is.na(snp) & snp == "snp"]
+	
+	ref1 <- substr(ref1, 1, 1) # keep the first letter of REF
+	alt1 <- substr(alt1, 1, 1) # keep the first letter of ALT
+	
+	# c( length(ref1[ref1 != alt1]), length(alt1[ref1 != alt1]) )
+	# [1] 216418 216418
+	
+	tstv <- g$tstv(ref1[ref1 != alt1], alt1[ref1 != alt1])
+	return(tstv)
+	}
+
 g$wc.revised <- function(ndat){
 	# modified "wc" from hierfstat version 0.04-14 to speed it up
 	library(hierfstat)
@@ -2315,6 +2353,18 @@ g$wc.revised <- function(ndat){
     class(res) <- "wc"
     res
 }
+
+g$whichAltAllelesUsed <- function(GT, split = "/"){
+	# returns a list indicating which alleles are actually used in the genotypes 
+	# 	in the sample by their index (1, 2, ...
+	# GT is geno(vcf)$GT or a subset with rows as loci and columns as individuals
+	whichAltAllelesUsed <- apply(GT, 1, function(x){ 		# is a list
+			# x <- GT[1, ]
+			x1 <- strsplit(x[!is.na(x)], split = split)
+			x1 <- sort( as.integer(unique(unlist(x1))) )
+			whichAltAllelesUsed <- x1[x1 > 0] # drops the REF allele
+			})
+	}
 
 g$write.bedGraph <- function(filename, chrinfo = "chrXXI:1-11,717,487", from, to, stat,
 	graphname = "DolphsGraph", col = "41,155,241", altcol = "100,100,100", ylinemark = 5,

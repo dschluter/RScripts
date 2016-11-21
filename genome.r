@@ -2109,21 +2109,26 @@ g$tstv <- function(REF,ALT){
 	return(R)
 }
 	
-g$variantRecalibrator <- function(vcffile, outvcfname, GATKversion = "3.4.0", mem = 4, walltime = 24, 
-	genome = "gasAcu1pitx1new.fa", resourceFile = "206sticklebacks_GATKvariants.SNP.filtered.vcf", run = TRUE){
+g$variantRecalibrator <- function(vcffile = "Benlim.chrM.vcf.gz", outvcfname, GATKversion = "3.4.0", 
+	genome = "gasAcu1pitx1new.fa", resourceFile = "206sticklebacks_GATKvariants.SNP.filtered.vcf", 
+	an = c("DP", "QD", "FS", "MQ"), mode = "SNP", tranche = c("99.9", "99.0", "90.0"),
+	mem = 4, walltime = 24, run = TRUE){
 	# Generates pbs file to run VariantRecalibrator, ApplyRecalibration, and SelectVariants
 	#	on inputted vcf.gz file
 	# chrname is extracted from vcf file names.
 	# The fasta file is the whole genome, not "chromosome.fa", because 
 	#	206sticklebacks_GATKvariants.SNP.filtered.vcf uses the whole genome
+	# an refers to names of the annotations to be used for calculations
+	# mode is SNP or INDEL
 	
 	if(length(vcffile) != 1) stop("Provide only one vcf file as argument")
 	
-	if( !( grepl("[.]vcf$", gvcffiles) | grepl("[.]vcf.gz$", vcffile) ) )
+	if( !( grepl("[.]vcf$", vcffile) | grepl("[.]vcf.gz$", vcffile) ) )
 		stop("Provide only .vcf or .vcf.gz files as arguments")
 
 	# Identify the chromosome number from gvcffiles names
-	chrname <- gsub(".*[.](chr[A-z1]+)[.]vcf[.gz]*", "\\1", vcffile)	
+	project <- gsub("(.*)[.]chr[A-z1]+.*[.]vcf[.gz]*", "\\1", vcffile)	
+	chrname <- gsub(".*[.](chr[A-z1]+).*[.]vcf[.gz]*", "\\1", vcffile)	
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -2149,11 +2154,12 @@ g$variantRecalibrator <- function(vcffile, outvcfname, GATKversion = "3.4.0", me
 	writeLines(paste("gatk.sh -Xmx", mem, "g -R ", genome, " -T VariantRecalibrator \\", sep=""), outfile)
 	writeLines(paste("  -input", vcffile, "\\", sep = " "), outfile)
 	writeLines(paste("  -resource:known=false,training=true,truth=true,prior=6.0", resourceFile, "\\", sep=" "), outfile)
-	
-	-an DP        -an QD        -an FS        -an MQ        -an MQRankSum -an ReadPosRankSum -mode SNP \
-	-tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 95.0 -tranche 90.0 -nt 6 \
-	-recalFile BenLim_recalibrate_SNP.recal -tranchesFile BenLim_recalibrate_SNP.tranches \
-	-rscriptFile BenLim_recalibrate_SNP.R -dt NONE 
+	writeLines(paste(c(" ", paste("-an", an), "\\"), collapse = " "), outfile)
+	writeLines(paste("  -mode", mode, "\\", sep = " "), outfile)
+	writeLines(paste(c(" ", paste("-tranche", tranche), "\\"), collapse = " "), outfile)
+	writeLines(paste("  -recalFile ", project, ".", chrname, ".", mode, ".recalFile", " \\", sep = ""), outfile)
+	writeLines(paste("  -tranchesFile ", project, ".", chrname, ".", mode, ".tranches", " \\", sep = ""), outfile)
+	writeLines(paste("  -rscriptFile ", project, ".", chrname, ".", mode, ".r", " -dt NONE", sep = ""), outfile)
 
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))

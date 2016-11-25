@@ -21,8 +21,11 @@ library(Rsamtools, quietly = TRUE)
 mean.coverage <- vector()
 median.coverage <- vector()
 for( i in 1:nbam ){
-	root <- gsub("(.)[.]bam$", "\\1", bamfiles[i])
-	baifile <- paste(root, "bai", sep = ".")
+	# i <- 1
+	# root <- gsub("(.)[.]bam$", "\\1", bamfiles[i]) # when bai files are like "paxb04.recal.chrXXI.bai"
+	# baifile <- paste(root, "bai", sep = ".")
+	# print(baifile)
+	baifile <- paste(bamfiles[i], "bai", sep = ".") # when bai files are like "paxb04.recal.chrXXI.bam.bai"
 	# print(baifile)
 	x <- scanBam(bamfiles[i], index = baifile)
 	x1 <- x[[1]]

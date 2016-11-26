@@ -10,7 +10,7 @@
 # R
 
 args <- commandArgs(TRUE) # DPinvfilename groupnames[vector]
-# args <- c("Benlim.recal.chrM.DP.inv", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
+# args <- c("Benlim", "chrM", "paxl", "paxb", "pril", "prib", "qryl", "qryb", "ensl", "ensb",  "marine-pac", "marine-atl", "marine-jap", "solitary", "stream")
 
 project <- args[1]
 chrname <- args[2]
@@ -19,13 +19,10 @@ groupnames <- args[3:length(args)]
 cat("\nchrname is", chrname, "\n")
 
 # convert snp to Glazer assembly coordinates
-Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
-GTminFrac	<- 2/3
+GTminFrac	<- 1/2
 DPmin 		<- 1
-
-# DPmin <- as.integer(args[3])
-# GTminFrac <- eval(parse(text=args[4]))
 
 GTmissing <- "."                     # how GATK represents missing genotypes in the vcf file "./."
 
@@ -37,15 +34,15 @@ load(chrmaskfile) 		# object is named "chrvec"
        # A        C        G        M        T 
  # 8754452  7589050  7570271 29869838  8766600 
 
-invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv", sep="")
-textfile				<- paste(project, ".", chrname, ".goodInv.txt", sep="")
+invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv.gz", sep="")
+textfile				<- paste(project, ".", chrname, ".goodInv.gz", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 
 nLinesAtaTime <- 100000
 # nLinesAtaTime <- 10000
 
 INFILE <- file(invariantsummaryname, open = "r")
-OUTFILE <- file(textfile, "w")
+OUTFILE <- gzfile(textfile, "w")
 
 x <- readLines(con = INFILE, n = nLinesAtaTime)
 x1 <- strsplit(x, split = "\t")
@@ -53,6 +50,9 @@ headerline <- x1[[1]]
 headerline[1] <- "POS"
 x1 <- x1[-1]
 nlines <- length(x1)
+
+# FUDGE TO FIX PRIEST in file names
+headerline <- gsub("Priest", "Pri", headerline, ignore.case = TRUE)
 
 writeLines(paste(c(headerline[1:2], groupnames), collapse = "\t"), OUTFILE)
 
@@ -64,10 +64,11 @@ for(i in 1:length(groupcodes)){
 	groupcodes[x] <- i
 	}
 # groupcodes
- # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
-# [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
-# [51]  3  3  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12 12 12 12 12  2
-# [76]  2  2  2  2  2  1  1  1  1  1  1
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+ # [26]  9  9  9  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
+ # [51]  1  1  1  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12
+ # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  3  1  1  1  1
+# [101]  1  3  3
  
 # Masked rows in the reference genome
 maskedPOS <- which(chrvec == "M")
@@ -101,12 +102,13 @@ while(nlines >0){
 	# print(z)
 	
 	# $`1`
-	 # [1] "PaxLim.PxCL09maleLM1.GS14" "PaxLim.PxLfemale6.GS18"   
-	 # [3] "PaxLim.PxLmale102.GS16"    "PaxLim.PxLmale106.GS15"   
-	 # [5] "PaxLim.PxLmale107.GS17"    "paxl01"                   
-	 # [7] "paxl05"                    "paxl09"                   
-	 # [9] "paxl10"                    "paxl13"                   
-	# [11] "paxl14"                   
+	 # [1] "PaxLim.PxCL09maleLM1.GS14"     "PaxLim.PxLfemale6.GS18"       
+	 # [3] "PaxLim.PxLmale102.GS16"        "PaxLim.PxLmale106.GS15"       
+	 # [5] "PaxLim.PxLmale107.GS17"        "PaxLim.formerlyPrLfemale1.GS8"
+	 # [7] "PaxLim.formerlyPrLmale5.GS5"   "paxl01"                       
+	 # [9] "paxl05"                        "paxl09"                       
+	# [11] "paxl10"                        "paxl13"                       
+	# [13] "paxl14"                       
 	
 	# $`2`
 	 # [1] "PaxBen.PxBmale5.GS11"        "PaxBen.PxBmale6.GS12"       
@@ -117,10 +119,62 @@ while(nlines >0){
 	# [11] "paxb09"                     
 	
 	# $`3`
-	# [1] "Marine.Pac.BIGR.52_54_2008.02"  "Marine.Pac.Japan.01.Katie"     
-	# [3] "Marine.Pac.LittleCampbell.LC1D" "Marine.Pac.MANC_X_X05"         
-	# [5] "Marine.Pac.Oyster.06.Sara"      "Marine.Pac.Seyward.01.Sara"    
-	# [7] "Marine.Pac.WestCreek.01.Sara"  
+	 # [1] "PRIL101"                  "PRIL102"                 
+	 # [3] "PRIL104"                  "PRIL108"                 
+	 # [5] "PRIL112"                  "PRIL16"                  
+	 # [7] "PRIL17"                   "PRIL18"                  
+	 # [9] "PriLim.PrCL09maleLM3.GS7" "PriLim.PrLmale2.GS6"     
+	# [11] "paxl02.formerlyPril02"    "paxl20.formerlyPril20"   
+	# [13] "paxl21.formerlyPril21"   
+	
+	# $`4`
+	 # [1] "PRIB02"                    "PRIB05"                   
+	 # [3] "PRIB06"                    "PRIB07"                   
+	 # [5] "PRIB11"                    "PRIB15"                   
+	 # [7] "PriBen.PrBfemale5.GS4"     "PriBen.PrBmale3.GS2"      
+	 # [9] "PriBen.RPrCL09maleBM4.GS3" "PriBen.RPrCL09maleBM6.GS1"
+	
+	# $`5`
+	# [1] "QRYL04" "QRYL05" "QRYL07" "QRYL08" "QRYL09" "QRYL10"
+	
+	# $`6`
+	# [1] "QRYB01" "QRYB06" "QRYB08" "QRYB11" "QRYB13" "QRYB25"
+	
+	# $`7`
+	# [1] "ENSL172" "ENSL24"  "ENSL25"  "ENSL33"  "ENSL37"  "ENSL50" 
+	
+	# $`8`
+	# [1] "ENSB01" "ENSB03" "ENSB08" "ENSB12" "ENSB15" "ENSB23"
+	
+	# $`9`
+	 # [1] "Marine.Pac.BIGR.52_54_2008.02"  "Marine.Pac.Bamfield.VI17.Sara" 
+	 # [3] "Marine.Pac.Japan.01.Katie"      "Marine.Pac.LITC_0_05_2008.FO"  
+	 # [5] "Marine.Pac.LittleCampbell.LC1D" "Marine.Pac.MANC_X_X05"         
+	 # [7] "Marine.Pac.Oyster.06.Sara"      "Marine.Pac.Oyster.12.Sara"     
+	 # [9] "Marine.Pac.Salmon.01.Sara"      "Marine.Pac.Seyward.01.Sara"    
+	# [11] "Marine.Pac.WestCreek.01.Sara"  
+	
+	# $`10`
+	# [1] "Marine.Atl.BITJ_X_X17"           "Marine.Atl.Denmark.BS27.Fuelner"
+	# [3] "Marine.Atl.TYNE_1_2001.14"      
+	
+	# $`11`
+	# [1] "Marine.JapSea.fem.Kitano.KIA31" "Marine.JapSea.fem.Kitano.KIA46"
+	# [3] "Marine.JapSea.fem.Kitano.KIA48" "Marine.JapSea.male01.Katie"    
+	
+	# $`12`
+	# [1] "Solitary.Black.BL4.Sara"  "Solitary.Bullock.19.Sara"
+	# [3] "Solitary.Cranby.04.Sara"  "Solitary.Hoggan.13.Sara" 
+	# [5] "Solitary.Kirk.12.Sara"    "Solitary.Stowell.04.Sara"
+	# [7] "Solitary.Tom.01.Sara"     "Solitary.Trout.01.Sara"  
+	
+	# $`13`
+	# [1] "Stream.LittleCampbell.01.Sara"       
+	# [2] "Stream.LittleCampbell_23_32_2008.306"
+	# [3] "Stream.LittleCampbell_23_32_2008.324"
+	# [4] "Stream.LittleCampbell_23_32_2008.347"
+	# [5] "Stream.LittleCampbell_23_32_2008.356"
+	# [6] "Stream.LittleCampbell_23_32_2008.744"
 	
 	# Count how many genotypes per group
 	z1 <- lapply(z, function(z){

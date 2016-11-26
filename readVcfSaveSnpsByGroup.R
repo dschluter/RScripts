@@ -4,8 +4,6 @@
 
 # Run in Unix as " Rscript readSaveDnpdByGroup.R ... "
 
-# ALT alleles of "<*:DEL>" are set to variant type NA
-
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
@@ -21,9 +19,7 @@
 # R
 
 args <- commandArgs(TRUE) # project chrname groupnames[vector]
-# args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb", "marine-pac")
-# args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
-# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
+# args <- c("Benlim", "chrM", "paxl", "paxb", "pril", "prib", "qryl", "qryb", "ensl", "ensb",  "marine-pac", "marine-atl", "marine-jap", "solitary", "stream")
 
 project <- args[1]
 chrname <- args[2]
@@ -38,19 +34,19 @@ plotQualMetrics <- FALSE
 # convert snp to Glazer assembly coordinates
 Glazerize 		<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
-GTminFrac 		<- 2/3
+GTminFrac 		<- 1/2
 
 # load "chrvec" for the current chromosome
 chrno 				<- gsub("^chr", "", chrname)
 chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
 
 fastaname		<- paste(chrname, "fa", sep = ".")
-vcfname			<- paste(project, ".", chrname, ".var.vcf", sep="")
+vcfname			<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 vcfBiAllelicFile	<- paste(project, ".", chrname, ".vcfresultsBiAllelic.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
-nMaxAlt			<- 3	# maximum number of ALT alleles
+nMaxAlt			<- 3		# maximum number of ALT alleles
 
 control <- list()
 control$nMaxAlt <- nMaxAlt
@@ -138,7 +134,10 @@ cat("\nSuccessfully read vcf file\n")
 
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
+
+
 fishnames <- samples(header(vcf))
+fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) # FUDGE TO FIX PRIEST in file names
 cat("\nfishnames:\n")
 print(fishnames)
 groupcodes <- vector(length = length(fishnames), mode = "integer")
@@ -148,36 +147,37 @@ for(i in 1:length(groupcodes)){
 	}
 cat("\ngroupcodes:\n")
 print(groupcodes)  # 
- # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
-# [26]  9  4  4  4  4  4  3  3  3  3  3  2  2  2  2  2  1  1  1  1  1  4  4  4  4
-# [51]  3  3  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12 12 12 12 12  2
-# [76]  2  2  2  2  2  1  1  1  1  1  1
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+ # [26]  9  9  9  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
+ # [51]  1  1  1  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12
+ # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  3  1  1  1  1
+# [101]  1  3  3
  
 nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
 # [1] 11 11  9  9  6  6  6  6  7  3  4  8 (corresponding to groupcodes = 1 (paxl), groupcodes = 2 (paxb), and groupcodes = 3 (marine-pac))
 names(nInd) <- groupnames
-nInd
+
 cat("\nNumber of individuals (nInd):\n")
 print(nInd)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
-        # 11         11          9          9          6          6          6 
-      # ensb marine-pac marine-atl marine-jap   solitary 
-         # 6          7          3          4          8
+        # 13         11         13         10          6          6          6 
+      # ensb marine-pac marine-atl marine-jap   solitary     stream 
+         # 6         11          3          4          8          6 
 
-nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group
+nMin <- ceiling(GTminFrac*nInd) 		# minimum number required in each group
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
-         # 7          7          6          6          4          4          4 
-      # ensb marine-pac marine-atl marine-jap   solitary 
-         # 4          4          2          2          5 
+         # 7          6          7          5          3          3          3 
+      # ensb marine-pac marine-atl marine-jap   solitary     stream 
+         # 3          6          2          2          4          3 
 
 nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
 names(nMin) <- groupnames
 cat("\nMinimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):\n")
 print(nMin)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
-         # 5          5          5          5          4          4          4 
-      # ensb marine-pac marine-atl marine-jap   solitary 
-         # 4          4          2          2          5 
+         # 5          5          5          5          3          3          3 
+      # ensb marine-pac marine-atl marine-jap   solitary     stream 
+         # 3          5          2          2          4          3 
 
 # Q: What does QUAL = NA imply?
 
@@ -207,22 +207,80 @@ geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
 # Tally up the number of genotypes in each group
 samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting groups is as in groupnames and groupcodes
 
-# $`1`
- # [1] "PaxLim-PxCL09maleLM1-GS14" "PaxLim-PxLfemale6-GS18"    "PaxLim-PxLmale102-GS16"   
- # [4] "PaxLim-PxLmale106-GS15"    "PaxLim-PxLmale107-GS17"    "paxl01"                   
- # [7] "paxl05"                    "paxl09"                    "paxl10"                   
-# [10] "paxl13"                    "paxl14"                   
-
-# $`2`
- # [1] "PaxBen-PxBmale5-GS11"        "PaxBen-PxBmale6-GS12"        "PaxBen-PxBmale8-GS10"       
- # [4] "PaxBen-PxCL09femaleBF6-GS13" "PaxBen-RPxCL09maleBM2-GS9"   "paxb04"                     
- # [7] "paxb05"                      "paxb06"                      "paxb07"                     
-# [10] "paxb08"                      "paxb09"                     
-
-# $`3`
-# [1] "Marine-Pac-BIGR-52_54_2008-02"  "Marine-Pac-Japan-01-Katie"      "Marine-Pac-LittleCampbell-LC1D"
-# [4] "Marine-Pac-MANC_X_X05"          "Marine-Pac-Oyster-06-Sara"      "Marine-Pac-Seyward-01-Sara"    
-# [7] "Marine-Pac-WestCreek-01-Sara"  
+	# $`1`
+	 # [1] "PaxLim-PxCL09maleLM1-GS14"     "PaxLim-PxLfemale6-GS18"       
+	 # [3] "PaxLim-PxLmale102-GS16"        "PaxLim-PxLmale106-GS15"       
+	 # [5] "PaxLim-PxLmale107-GS17"        "PaxLim-formerlyPrLfemale1-GS8"
+	 # [7] "PaxLim-formerlyPrLmale5-GS5"   "paxl01"                       
+	 # [9] "paxl05"                        "paxl09"                       
+	# [11] "paxl10"                        "paxl13"                       
+	# [13] "paxl14"                       
+	
+	# $`2`
+	 # [1] "PaxBen-PxBmale5-GS11"        "PaxBen-PxBmale6-GS12"       
+	 # [3] "PaxBen-PxBmale8-GS10"        "PaxBen-PxCL09femaleBF6-GS13"
+	 # [5] "PaxBen-RPxCL09maleBM2-GS9"   "paxb04"                     
+	 # [7] "paxb05"                      "paxb06"                     
+	 # [9] "paxb07"                      "paxb08"                     
+	# [11] "paxb09"                     
+	
+	# $`3`
+	 # [1] "PRIL101"                     "PRIL102"                    
+	 # [3] "PRIL104"                     "PRIL108"                    
+	 # [5] "PRIL112"                     "PRIL16"                     
+	 # [7] "PRIL17"                      "PRIL18"                     
+	 # [9] "PriestLim-PrCL09maleLM3-GS7" "PriestLim-PrLmale2-GS6"     
+	# [11] "paxl02-formerlyPril02"       "paxl20-formerlyPril20"      
+	# [13] "paxl21-formerlyPril21"      
+	
+	# $`4`
+	 # [1] "PRIB02"                       "PRIB05"                      
+	 # [3] "PRIB06"                       "PRIB07"                      
+	 # [5] "PRIB11"                       "PRIB15"                      
+	 # [7] "PriestBen-PrBfemale5-GS4"     "PriestBen-PrBmale3-GS2"      
+	 # [9] "PriestBen-RPrCL09maleBM4-GS3" "PriestBen-RPrCL09maleBM6-GS1"
+	
+	# $`5`
+	# [1] "QRYL04" "QRYL05" "QRYL07" "QRYL08" "QRYL09" "QRYL10"
+	
+	# $`6`
+	# [1] "QRYB01" "QRYB06" "QRYB08" "QRYB11" "QRYB13" "QRYB25"
+	
+	# $`7`
+	# [1] "ENSL172" "ENSL24"  "ENSL25"  "ENSL33"  "ENSL37"  "ENSL50" 
+	
+	# $`8`
+	# [1] "ENSB01" "ENSB03" "ENSB08" "ENSB12" "ENSB15" "ENSB23"
+	
+	# $`9`
+	 # [1] "Marine-Pac-BIGR-52_54_2008-02"  "Marine-Pac-Bamfield-VI17-Sara" 
+	 # [3] "Marine-Pac-Japan-01-Katie"      "Marine-Pac-LITC_0_05_2008-FO"  
+	 # [5] "Marine-Pac-LittleCampbell-LC1D" "Marine-Pac-MANC_X_X05"         
+	 # [7] "Marine-Pac-Oyster-06-Sara"      "Marine-Pac-Oyster-12-Sara"     
+	 # [9] "Marine-Pac-Salmon-01-Sara"      "Marine-Pac-Seyward-01-Sara"    
+	# [11] "Marine-Pac-WestCreek-01-Sara"  
+	
+	# $`10`
+	# [1] "Marine-Atl-BITJ_X_X17"           "Marine-Atl-Denmark-BS27-Fuelner"
+	# [3] "Marine-Atl-TYNE_1_2001-14"      
+	
+	# $`11`
+	# [1] "Marine-JapSea-fem-Kitano-KIA31" "Marine-JapSea-fem-Kitano-KIA46"
+	# [3] "Marine-JapSea-fem-Kitano-KIA48" "Marine-JapSea-male01-Katie"    
+	
+	# $`12`
+	# [1] "Solitary-Black-BL4-Sara"  "Solitary-Bullock-19-Sara"
+	# [3] "Solitary-Cranby-04-Sara"  "Solitary-Hoggan-13-Sara" 
+	# [5] "Solitary-Kirk-12-Sara"    "Solitary-Stowell-04-Sara"
+	# [7] "Solitary-Tom-01-Sara"     "Solitary-Trout-01-Sara"  
+	
+	# $`13`
+	# [1] "Stream-LittleCampbell-01-Sara"       
+	# [2] "Stream-LittleCampbell_23_32_2008-306"
+	# [3] "Stream-LittleCampbell_23_32_2008-324"
+	# [4] "Stream-LittleCampbell_23_32_2008-347"
+	# [5] "Stream-LittleCampbell_23_32_2008-356"
+	# [6] "Stream-LittleCampbell_23_32_2008-744"
 
 # Tabulate genotype frequencies by group
 # genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){

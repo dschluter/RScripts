@@ -1,26 +1,24 @@
 #!/usr/bin/Rscript
-# Code to extract variant sites from a .vcf file 
-#	and to save the invariant DP and RGQ values to a second file named etc.DP.inv
+# Code to extract variant sites from a single .vcf.gz file 
+#	and to save the invariant DP and RGQ values to a second file named etc.DP.inv.gz
 
 # This code might generate "NA:NA" in DP.inv, so next function needs to deal with it.
 
 args <- commandArgs(TRUE) # get argument (name of vcf file)
-# args <- c("Benlim.recal.chrM.vcf")
+# args <- c("Benlim.chrM.vcf.gz")
+# args <- c("Benlim.chrXXI.vcf.gz")
 
 # project <- args[1]
 # chrname <- args[2]
 
 vcffile <- args
-# vcffile <- paste(project, chrname, "vcf", sep = ".")
-#vcffile <- "Paxton12fish.chrXXI.vcf"
-#vcffile <- "temp.vcf"
 
 # Extract project and chr name
 # Assume that project is the first part of the vcf file name
 z <- unlist(strsplit(vcffile, split = "[.]"))
 project <- z[1]
 chrname <- z[grep("chr", z)]
-projectchr <- gsub("[.]vcf$", "", vcffile)
+projectchr <- gsub("[.]vcf.gz$", "", vcffile)
 
 # OPTIONS
 nFirstLines <- 1000    # first number of lines to read to extract header
@@ -29,7 +27,7 @@ nLinesAtaTime = 100000
 # Open file and read nFirstLines lines from vcf file
 INFILE <- file(vcffile, open = "r")
 
-x <- readLines(con = INFILE, n = nFirstLines)
+x <- readLines(con = INFILE, n = nFirstLines) # this works on vcf.gz file
 
 # Header line operations (do just once)
 nhead <- length(grep('^#', x)) # get header lines ('#')
@@ -39,8 +37,8 @@ x <- x[-c(1:nhead)] # keep the non-header part of x
 nlines <- length(x)
 
 # Open 2 output file connections and write headers
-outfile1 <- file(paste(projectchr, "var", "vcf", sep="."), "w")
-outfile2 <- file(paste(projectchr, "DP", "inv", sep="."), "w")
+outfile1 <- gzfile(paste(projectchr, "var", "vcf.gz", sep="."), "w")
+outfile2 <- gzfile(paste(projectchr, "DP", "inv.gz", sep="."), "w")
 
 writeLines(headerlines, outfile1)
 

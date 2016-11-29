@@ -28,7 +28,6 @@ groupnames <- args[3:length(args)]
 cat("\nchrname is", chrname, "\n")
 
 dropRareAlleles	<- FALSE
-saveBiAllelic 	<- FALSE # saves a second data set having exactly 2 snp per marker (not necessarily the REF), no indels
 plotQualMetrics <- FALSE
 
 # convert snp to Glazer assembly coordinates
@@ -43,14 +42,13 @@ chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec
 fastaname		<- paste(chrname, "fa", sep = ".")
 vcfname			<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
-vcfBiAllelicFile	<- paste(project, ".", chrname, ".vcfresultsBiAllelic.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 nMaxAlt			<- 3		# maximum number of ALT alleles
 
 control <- list()
 control$nMaxAlt <- nMaxAlt
-control$snpOptions <- c(dropRareAlleles = dropRareAlleles, saveBiAllelic = saveBiAllelic)
+control$snpOptions <- c(dropRareAlleles = dropRareAlleles)
 control$GTminFrac <- GTminFrac
 
 cat("\nControl settings on this run\n")
@@ -686,144 +684,7 @@ save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
 gc()
 
 
-# -----
-# Make a biallelic snp version of the data set * Warning: this might drop out whole populations at a marker if has unique alleles
-# Need to modify for Glazerize
-if(saveBiAllelic){
-	
-	# Identify the ALT alleles that are true snp
-	whichAltAreSnp <- lapply(vcfresults$snpTypeList, function(x){
-		which(x == "snp")
-		})
-
-	# length(whichAltAreSnp)
-	# [1] 281607
-
-	# Keep only cases having at least one ALT snp
-	keep <- sapply(whichAltAreSnp, length) >= 1
-	
-	vcf <- vcfresults$vcf[keep]
-	tGT <- as.data.frame(t(geno(vcf)$GT), stringsAsFactors = FALSE)
-	alleleFreqByGroup <- vcfresults$alleleFreqByGroup[keep]
-	altUsedList  <- vcfresults$altUsedList[keep]
-	whichAltAreSnp <- whichAltAreSnp[keep]
-	
-	rm(vcfresults)
-
-	# length(whichAltAreSnp)
-	# [1] 214283
-	
-	# ---
-	# Erase the genotypes that are not pure snp
-	whichAltAreNotSnp <- lapply(whichAltAreSnp, function(x){setdiff(c(1:nMaxAlt), x)})
-	nNotSnp <- sapply(whichAltAreNotSnp, length)
-
-	# table(nNotSnp) # the "0" values are cases in which all Alt alleles are snp
-	     # 0      1      2 
-	     # 9   2117 212157
-
-	rm(whichAltAreSnp)
-
-	z <- mapply(tGT[, nNotSnp > 0], whichAltAreNotSnp[nNotSnp > 0], FUN = function(x, i){
-		# x <- tGT[, "chrXXI:63560_GCGC/G"]; i <- whichAltAreNotSnp["chrXXI:63560_GCGC/G"]
-		# x
-		 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    "1/1" NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
-		# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
-		# i
-		# [1] 1 3
-		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
-		return(x)
-		})
-
-	# z is a matrix with cols corresponding to tGT
-	# z[,"chrXXI:63560_GCGC/G"]
-	 # [1] "0/0" NA    "2/2" NA    "2/2" NA    NA    NA    NA    NA    NA    "0/0" "2/2" "2/2" NA    NA    "0/0" NA    NA   
-	# [20] NA    NA    NA    NA    NA    NA    NA    NA    NA    NA   
-
-	geno(vcf)$GT[nNotSnp > 0, ] <- t(z)  # fast
-	rm(z)
-	
-	# Redo alleleFreqByGroup
-	alleleFreqByGroup[nNotSnp > 0] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[nNotSnp > 0, ], groupnames, groupcodes)
-
-	# alleleFreqByGroup["chrXXI:63560_GCGC/G"]
-	             # 0 1 2 3
-	  # paxl       2 0 4 0
-	  # paxb       2 0 0 0
-	  # marine-pac 2 0 4 0
-
-	
-	# -----
-	# Keep only the two most common alleles (not necessarily the REF)
-	
-	allelesOrderedByFreq <- lapply(alleleFreqByGroup, function(x){
-		# x <- alleleFreqByGroup[[1]]
-		z <- colSums(x)
-		z[order(z, decreasing = TRUE)]
-		})
-	# head(allelesOrderedByFreq)
-	# $`chrXXI:6316_C/T`
-	# 0 1 2 3 
-	# 3 3 0 0 
-	# $`chrXXI:10364_T/A`
-	# 1 0 2 3 # 0 is second if it is equally the rarest
-	# 8 0 0 0 
-	
-	# Identify all alleles other than the 2 most common alleles
-	whichAllelesToDrop <- lapply(allelesOrderedByFreq, function(x){
-		# x <- allelesOrderedByFreq[[1]]
-		z <- names(x[3:(nMaxAlt + 1)])
-		})
-	
-	# Count the number of alleles represented at each marker
-	nUsedAlleles <- lapply(allelesOrderedByFreq, function(x){sum(x > 0)})
-	# head(nUsedAlleles)
-	
-	# Drop those corresponding genotypes
-	z <- mapply(tGT[, nUsedAlleles > 2], whichAllelesToDrop[nUsedAlleles > 2], FUN = function(x, i){
-		# x <- tGT[, "chrXXI:18389_C/A"]; i <- whichAllelesToDrop[["chrXXI:18389_C/A"]]
-		 # [1] "0/0" "0/2" "0/0" "0/2" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/1"
-		# [17] "0/0" "0/0" "0/1" "0/0" "0/0" "0/1" "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/1"
-		# i
-		# [1] "2" "3"
-		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
-		return(x)
-		})
-
-	geno(vcf)$GT[nUsedAlleles > 2, ] <- t(z)
-	# unname(geno(vcf)$GT["chrXXI:18389_C/A", ])
-	 # [1] "0/0" NA    "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/0" "0/1"
-	# [17] "0/0" "0/0" "0/1" "0/0" "0/0" "0/1" "0/0" NA    "0/0" "0/0" "0/0" "0/0" "0/1"
-	
-	# Redo alleleFreqByGroup again
-	alleleFreqByGroup[nUsedAlleles > 2] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[nUsedAlleles > 2, ], groupnames, groupcodes)
-	
-	# alleleFreqByGroup["chrXXI:18389_C/A"]
-		
-	vcfresultsBiAllelic <- list()
-	vcfresultsBiAllelic$groupnames <- groupnames
-	vcfresultsBiAllelic$groupcodes <- groupcodes
-	vcfresultsBiAllelic$control <- control
-	
-	vcfresultsBiAllelic$vcf <- vcf
-	rm(vcf)
-	
-	vcfresultsBiAllelic$altUsedList <- altUsedList
-	rm(altUsedList)
-		
-	vcfresultsBiAllelic$alleleFreqByGroup <- alleleFreqByGroup
-	rm(alleleFreqByGroup)
-	
-	gc()
-	
-	# cat("\nSaving results\n")
-	save(vcfresultsBiAllelic, file = vcfBiAllelicFile)
-	# load(file = vcfBiAllelicFile) # saved object is "vcfresultsBiAllelic"
-
-	} else rm(vcfresults) 
-
-
-if(plotQualMetrics){ # REDO to include only the snp retained in vcfresults
+if(plotQualMetrics){ # REDO to Glazerize and include only the snp retained in vcfresults
 	# --------------------------------------
 	# Plots of quality metrics - uses only the old assembly results
 	# Current version drops only the rows corresponding to M in chrvec

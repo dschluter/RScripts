@@ -651,7 +651,7 @@ rm(alleleFreqByGroup)
 if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
 	pos <- start(rowData(vcfresults$vcf))
 	
-	if(chrno != "M" & chrno != "VIIpitx1" ){
+	if(chrno != "M" & !grepl("pitx1", chrno) ){
 		newCoords <- g$glazerConvertOld2New(chrname, pos)
 		} else {
 		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)

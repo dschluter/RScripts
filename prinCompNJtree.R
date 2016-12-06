@@ -16,22 +16,61 @@
 # module load R/3.1.2
 # R
 
-args <- commandArgs(TRUE) # project chrname groupnames[vector]
-# args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb", "marine-pac")
-# args <- c("BenlimPax22pacMar7", "chrXXI", "paxl", "paxb", "marine-pac")
-# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb")
-# args <- c("BenlimAllMarine", "chrXXI", "paxl","paxb","pril","prib","qryl","qryb","ensl","ensb","marine-pac","marine-atl","marine-jap","solitary")
+chrname <- NULL
+project <- NULL
+groupnames <- NULL
+Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
-project 		<- args[1]
-chrname 		<- args[2]
-groupnames 	<- args[3:length(args)]
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "drop=Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara")
+args <- commandArgs(TRUE)
+
+# Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
+# and then assigns V2 to variables whose names are in V1 
+x <- read.table(text = args, sep = "=", colClasses = "character")
+for(i in 1:nrow(x)){
+	assign(x[i,1], x[i,2])
+	}
+
+# head(x)
+          # V1
+# 1    chrname
+# 2    project
+# 3 groupnames
+# 4       drop
+                                                                                        # V2
+# 1                                                                                     chrM
+# 2                                                                                   Benlim
+# 3 paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream
+# 4        Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara
+
+
+# project
+# [1] "Benlim"
+# chrname
+# [1] "chrM"
+# groupnames
+# [1] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
+# drop
+# [1] "Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara"
+
+if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(project)) stop("Provide project= in arguments")
+if(is.null(groups)) stop("Provide groups= in arguments (grounames separated by commas, no spaces)")
+
+groupnames <- unlist(strsplit(groupnames, split = ","))
+# groupnames
+ # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
+ # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
+# [11] "marine-jap" "solitary"   "stream" 
+
+if(!is.null(drop)) drop <- unlist(strsplit(drop, split = ","))
+# drop
+# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
+# [3] "Marine-Pac-Salmon-01-Sara"
 
 pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
 
-Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-
 cat("\nProject, chrname, groupnames:\n")
-cat(project, chrname, groupnames,"\n")
 
 if(Glazerize){
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
@@ -63,16 +102,25 @@ if(Glazerize){  # grab fish names
 	} else {
 	fishnames <- samples(header(vcfresults$vcf))
 	}
+	
+# is.element(drop, fishnames)
+# [1] TRUE TRUE TRUE
 
 groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
 	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
 	groupcodes[x] <- i
 	}
+
+# Set groupcodes to 0 if drop fish
+if(!is.null(drop)){
+	groupcodes[is.element(fishnames, drop)] <- 0
+	}
+
 cat("\ngroupcodes:\n")
 print(groupcodes)
-  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
- # [26]  9  9  9  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  0  9  9  9  9
+ # [26]  9  0  0  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
  # [51]  1  1  1  1  1  1  0  0  0  0  0  0  6  6  6  6  6  6  5  5  5  5  5  5 12
  # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  3  1  1  1  1
 # [101]  1  3  3
@@ -109,7 +157,7 @@ print(nrow(genotypes))
 
 
 # -----
-# Keep only snp with all non-missing genotypes
+# Keep only snp with all non-missing genotypes for PCA
 
 z <- apply(genotypes, 1, function(x){sum(is.na(x))})
 genotypes <- genotypes[ z == 0, ]
@@ -203,14 +251,14 @@ z <- prcomp(genoScore, center = TRUE)
 cat("\nProportion of variance accounted for by each PC\n")
 pcaVarProp <- 100*(z$sdev^2)/sum(z$sdev^2)
 print( round( pcaVarProp, 2) )
- # [1] 25.81 17.40  7.49  4.60  3.35  2.81  1.98  1.70  1.44  1.31  1.23  1.07
-# [13]  0.97  0.94  0.89  0.84  0.75  0.72  0.68  0.66  0.62  0.58  0.56  0.54
-# [25]  0.53  0.50  0.48  0.48  0.47  0.47  0.47  0.45  0.45  0.45  0.44  0.43
-# [37]  0.42  0.41  0.40  0.39  0.39  0.38  0.38  0.38  0.38  0.37  0.37  0.36
-# [49]  0.36  0.36  0.35  0.35  0.35  0.34  0.34  0.33  0.33  0.32  0.32  0.32
-# [61]  0.32  0.32  0.31  0.31  0.30  0.30  0.30  0.30  0.29  0.28  0.28  0.28
-# [73]  0.28  0.27  0.27  0.27  0.26  0.26  0.25  0.25  0.23  0.22  0.22  0.21
-# [85]  0.19  0.00
+ # [1] 46.71 31.09  2.55  2.16  1.82  1.35  1.15  0.97  0.84  0.68  0.62  0.54
+# [13]  0.50  0.48  0.41  0.39  0.38  0.36  0.35  0.33  0.33  0.31  0.29  0.29
+# [25]  0.29  0.27  0.26  0.26  0.23  0.22  0.21  0.20  0.20  0.19  0.17  0.16
+# [37]  0.16  0.16  0.15  0.14  0.13  0.11  0.10  0.10  0.10  0.10  0.10  0.10
+# [49]  0.10  0.09  0.09  0.07  0.07  0.07  0.07  0.06  0.06  0.05  0.05  0.04
+# [61]  0.04  0.03  0.03  0.02  0.02  0.02  0.02  0.02  0.01  0.01  0.00  0.00
+# [73]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
+# [85]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
 
 pcaRes <- cbind.data.frame(fish, groupnames[groups], stringsAsFactors = FALSE)
 pcaRes <- cbind.data.frame(pcaRes, z$x)

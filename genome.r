@@ -1040,6 +1040,7 @@ g$groupFishCodes <- function(fishnames, groupnames){
 		x <- grep(pattern = groupnames[i], x = shortnames, ignore.case = TRUE)
 		groupcodes[x] <- i
 		}
+	groupcodes
 	}
 
 g$gtf2thirdpositions <- function(gtffilename, refseqname, directory = "", check=TRUE, dropNonTriplets=TRUE,

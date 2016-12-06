@@ -1026,6 +1026,21 @@ g$glazerConvertOld2New <- function(chrname, pos, scafFile = NULL, scafTable = NU
 
 	return(newCoords)
 	}
+	
+g$groupFishCodes <- function(fishnames, groupnames){
+	# Assigns groupcodes according to fishnames
+	# groupnames <- c("paxl", "paxb", "pril", "prib", "qryl", "qryb", "ensl", "ensb",  
+	#				"marine-pac", "marine-atl", "marine-jap", "solitary", "stream")
+	# 
+	longestGroupName <- max( nchar(groupnames) )
+	shortnames <- substr(fishnames, 1, longestGroupName) 
+	groupcodes <- rep(0, length(shortnames)) # initialize
+	
+	for(i in 1:length(groupcodes)){
+		x <- grep(pattern = groupnames[i], x = shortnames, ignore.case = TRUE)
+		groupcodes[x] <- i
+		}
+	}
 
 g$gtf2thirdpositions <- function(gtffilename, refseqname, directory = "", check=TRUE, dropNonTriplets=TRUE,
 	collapse=TRUE){

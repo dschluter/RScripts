@@ -55,7 +55,7 @@ for(i in 1:nrow(x)){
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
-if(is.null(groups)) stop("Provide groups= in arguments (grounames separated by commas, no spaces)")
+if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
 
 groupnames <- unlist(strsplit(groupnames, split = ","))
 # groupnames

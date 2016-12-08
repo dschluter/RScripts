@@ -283,6 +283,145 @@ g$downloadSra <- function(SraSample, fishName, format = "sra", srcType = "ftp"){
 	cat("Files downloaded and renamed:\n")
 	
 	}
+	
+g$dropRareAlleles <- function(){
+	# NOT YET WORKING - moved from readVcfSaveSnpsByGroup.R
+	
+	# Drop rare alleles if dropRareAlleles is TRUE
+	#  -- we are using ** RULE2 ** otherwise we get lots of rare alleles when many genotypes are missing
+	# RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
+	# RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
+
+	# Code below can also: identify alleles that are < 5% within every group
+	#                      identify singleton alleles within groups
+	# (currently commented out)
+	
+	# Note that afterward, some loci will become invariants
+
+	cat("\nDeleting rare alleles and setting their genotypes to NA\n")
+
+	# Test whether any alleles are rare globally
+	whichRareTot <- lapply(alleleFreqByGroup, function(x){
+		# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
+		              # 0  1  2  3
+		  # paxl       20  0  0  0
+		  # paxb       18  0  0  0
+		  # marine-pac 11  1  0  0
+		# p <- colSums(x)/(2*sum(nInd)) # RULE1
+		p <- colSums(x)/sum(colSums(x)) # RULE2
+		   # 0    1    2    3 
+		# 0.98 0.02 0.00 0.00
+		rareTot <- names(p[p > 0 & p < 0.05])
+		# [1] "1"
+		})
+	# whichRareTot["chrXXI:16024_C/T"]
+	
+	# a slick way to comment something out
+	if(FALSE){ 
+		# Of those that are rare in total, figure out which are also rare (< 5%) within every group
+		casesRareTot <- sapply(whichRareTot, length) > 0 # loci with at least one allele rare in total
+		whichRareAll <- lapply(alleleFreqByGroup[casesRareTot], function(x){
+			# x <- alleleFreqByGroup[["chrXXI:16024_C/T"]]
+			# prop <- sweep(x, 1, rowSums(x), FUN = "/")
+			                      # 0          1          2          3
+			  # paxl       1.00000000 0.00000000 0.00000000 0.00000000
+			  # paxb       1.00000000 0.00000000 0.00000000 0.00000000
+			  # marine-pac 0.91666667 0.08333333 0.00000000 0.00000000
+			# testAll <- apply(prop, 2, function(prop){all(prop < 0.05)})
+			testAll <- apply(x, 2, function(x){all(x < 2)})
+			rareAll <- names(testAll[testAll])
+			# [1] "1" "2" "3"
+			})
+		# This next command finds the intersection of the alleles that are 
+		#	both rare globally and within every group, and saves the result in "whichRareAll"
+		whichRareAll <- mapply(whichRareTot[casesRareTot], whichRareAll, FUN = intersect)
+		# head(whichRareAll)
+		# $`chrXXI:16024_C/T`
+		# [1] "1"
+		# length(whichRareAll[[1]])
+		# [1] 1
+		whichRareTot[casesRareTot] <- whichRareAll
+
+		rm(whichRareAll)
+		rm(casesRareTot)
+
+		} # END if FALSE
+
+			  
+	# View cases that have 3 rare alleles
+	# whichRareTot[sapply(whichRareTot, length) > 2]
+	# $`chrXXI:475792_G/GCGTCTGCTAAATGACC`
+	# [1] "1" "2" "3"
+	# $`chrXXI:488280_T/TAAAAATAAGTTCAACACTAATGCAAAATTGAGCAAAATGTTAC`
+	# [1] "1" "2" "3"
+	# $`chrXXI:1315110_G/GTCTGGCCGGCTCAATGGGTTGTAAGTCACAGCGCGCCGCACAT`
+	# [1] "1" "2" "3"
+	# head( alleleFreqByGroup[sapply(whichRareTot, length) > 2] )
+	# $`chrXXI:475792_G/GCGTCTGCTAAATGACC`            
+	              # 0  1  2  3
+	  # paxl       22  0  0  0
+	  # paxb        4  2  2  2 # all rare benthic alleles
+	  # marine-pac 14  0  0  0
+	
+	# $`chrXXI:488280_T/TAAAAATAAGTTCAACACTAATGCAAAATTGAGCAAAATGTTAC`           
+	              # 0  1  2  3
+	  # paxl       22  0  0  0
+	  # paxb       18  2  1  1 # all rare benthic alleles
+	  # marine-pac 12  0  0  0
+	
+	# $`chrXXI:1315110_G/GTCTGGCCGGCTCAATGGGTTGTAAGTCACAGCGCGCCGCACAT`            
+	              # 0  1  2  3
+	  # paxl       21  0  0  1
+	  # paxb       16  2  2  0 # rare benthic alleles
+	  # marine-pac 13  0  0  1 # and one rare marine allele
+	
+	needFixing <- sapply(whichRareTot, length) > 0
+	# length(whichRareTot[needFixing])
+	# [1] 81429
+
+	tGT <- as.data.frame(t(geno(vcf)$GT[needFixing, ]), stringsAsFactors = FALSE)
+	# ncol(tGT)
+	# [1] 81429
+	
+	z <- mapply(tGT, whichRareTot[needFixing], FUN = function(x, i){
+		# x <- tGT[, "chrXXI:9878908_G/GTCGCCGGCCCT"]; i <- whichRareTot[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+		# x
+		 # [1] "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1"
+		# [19] "1/1" "1/1" "1/2" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "0/3"
+		x[grep(paste("[",paste(i, collapse = ""),"]", sep = ""), x)] <- NA
+		return(x)
+		})
+	
+	# z is a matrix with cols corresponding to tGT
+	# z[,"chrXXI:9878908_G/GTCGCCGGCCCT"]
+		 # [1] "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1"
+		# [19] "1/1" "1/1" NA    "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" "1/1" NA
+	z <- t(z)
+	geno(vcf)$GT[needFixing, ] <- z
+	# geno(vcf)$GT["chrXXI:9878908_G/GTCGCCGGCCCT", ]
+	
+	rm(tGT)
+	rm(z)
+	
+	# Need to recompute allele frequencies for cases needing fixing (rare alleles dropped)
+	# 	(can't just edit the allele frequency tables because genotypes, not alleles, were dropped)
+	# alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+	              # 0  1  2  3
+	  # paxl        1 20  0  1
+	  # paxb        0 21  1  0
+	  # marine-pac  0 14  0  0
+
+	alleleFreqByGroup[needFixing] <- g$tableAlleleFreqByGroup(geno(vcf)$GT[needFixing, ], groupnames, groupcodes)
+	# alleleFreqByGroup[["chrXXI:9878908_G/GTCGCCGGCCCT"]]
+	              # 0  1  2  3
+	  # paxl        0 20  0  0
+	  # paxb        0 20  0  0
+	  # marine-pac  0 14  0  0
+
+	rm(whichRareTot)
+	rm(needFixing)
+	
+	}
 
 g$fasta2list <- function(fastafile){
 	# Reads a fast file and converts to a list of vectors, one element per chromosome

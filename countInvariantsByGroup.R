@@ -9,22 +9,41 @@
 # module load R/3.1.2
 # R
 
-args <- commandArgs(TRUE) # DPinvfilename groupnames[vector]
-# args <- c("Benlim", "chrM", "paxl", "paxb", "pril", "prib", "qryl", "qryb", "ensl", "ensb",  "marine-pac", "marine-atl", "marine-jap", "solitary", "stream")
+# Expect to read these arguments from args
+project <- NULL
+chrname <- NULL
+groupnames <- NULL
+DPmin <- NULL
+Glazerize <- NULL # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+drop <- NULL
 
-project <- args[1]
-chrname <- args[2]
-groupnames <- args[3:length(args)]
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "DPmin=1", "drop=Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara")
+args <- commandArgs(TRUE)
+
+# Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
+# and then assigns V2 to variables whose names are in V1 
+
+x <- read.table(text = args, sep = "=", colClasses = "character")
+for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
+
+# Check args
+# c(project, chrname, groupnames, DPmin, Glazerize, drop)
+# [1] "Benlim"                                                                                  
+# [2] "chrM"                                                                                    
+# [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
+# [4] "1"                                                                                       
+# [5] "TRUE"                                                                                    
+# [6] "Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara"       
+
+if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(project)) stop("Provide project= in arguments")
+if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
+if(is.null(DPmin)) stop("Provide DPmin= in arguments")
+if(is.null(Glazerize)) stop("Provide Glazerize= in arguments")
 
 cat("\nchrname is", chrname, "\n")
 
-# convert snp to Glazer assembly coordinates
-Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-
-GTminFrac	<- 1/2
-DPmin 		<- 1
-
-GTmissing <- "."                     # how GATK represents missing genotypes in the vcf file "./."
+GTmissing <- "."  # how GATK represents missing genotypes in the vcf file "./."
 
 # load "chrvec" for the current chromosome
 chrno 					<- gsub("^chr", "", chrname)
@@ -54,21 +73,41 @@ nlines <- length(x1)
 # FUDGE TO FIX PRIEST in file names
 headerline <- gsub("Priest", "Pri", headerline, ignore.case = TRUE)
 
+groupnames <- unlist(strsplit(groupnames, split = ","))
+
 writeLines(paste(c(headerline[1:2], groupnames), collapse = "\t"), OUTFILE)
+
+cat("\ngroupnames\n")
+cat(groupnames, sep = "\n")
+# groupnames
+ # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
+ # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
+# [11] "marine-jap" "solitary"   "stream"    
+
+if(!is.null(drop)){
+	drop <- unlist(strsplit(drop, split = ","))
+	cat("\nDropping these fish:\n")
+	cat(drop, sep = "\n")
+	}
+# drop
+# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
+# [3] "Marine-Pac-Salmon-01-Sara"
 
 # assign numbers corresponding to groups
 fishnames <- headerline[-c(1,2)]
-groupcodes <- vector(length = length(fishnames), mode = "integer")
-for(i in 1:length(groupcodes)){
-	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
-	groupcodes[x] <- i
+groupcodes <- g$groupFishCodes(fishnames, groupnames)
+
+# Set groupcodes to 0 if drop fish
+if(!is.null(drop)){
+	groupcodes[is.element(fishnames, drop)] <- 0
 	}
+
 # groupcodes
-  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
- # [26]  9  9  9  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  0  9  9  9  9
+ # [26]  9  0  0  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
  # [51]  1  1  1  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12
- # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  3  1  1  1  1
-# [101]  1  3  3
+ # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1
+# [101]  1  1  1
  
 # Masked rows in the reference genome
 maskedPOS <- which(chrvec == "M")
@@ -89,7 +128,7 @@ while(nlines >0){
 	#	y <- as.integer(sub("([0-9]*)[:/][0-9]+", "\\1", x[,3]))
 		y <- sub("([0-9.NA]*)[:][0-9.NA]+", "\\1", x)
 		y[y %in% c(".", "NA")] <- "0"
-		y <- ( as.integer(y) >= DPmin ) # TRUE if DP of a given genotype is bigger than DPmin
+		y <- ( as.integer(y) >= DPmin ) # TRUE if DP of a given genotype is at least DPmin
 		})
 	# Reunite columns
 	y <- data.frame(y)
@@ -101,14 +140,19 @@ while(nlines >0){
 	# cat("\nIdentified groups:\n")
 	# print(z)
 	
+	# $`0`
+	# [1] "Marine.Pac.Bamfield.VI17.Sara" "Marine.Pac.Oyster.12.Sara"    
+	# [3] "Marine.Pac.Salmon.01.Sara"    
+	
 	# $`1`
 	 # [1] "PaxLim.PxCL09maleLM1.GS14"     "PaxLim.PxLfemale6.GS18"       
 	 # [3] "PaxLim.PxLmale102.GS16"        "PaxLim.PxLmale106.GS15"       
 	 # [5] "PaxLim.PxLmale107.GS17"        "PaxLim.formerlyPrLfemale1.GS8"
 	 # [7] "PaxLim.formerlyPrLmale5.GS5"   "paxl01"                       
-	 # [9] "paxl05"                        "paxl09"                       
-	# [11] "paxl10"                        "paxl13"                       
-	# [13] "paxl14"                       
+	 # [9] "paxl02.formerlyPril02"         "paxl05"                       
+	# [11] "paxl09"                        "paxl10"                       
+	# [13] "paxl13"                        "paxl14"                       
+	# [15] "paxl20.formerlyPril20"         "paxl21.formerlyPril21"        
 	
 	# $`2`
 	 # [1] "PaxBen.PxBmale5.GS11"        "PaxBen.PxBmale6.GS12"       
@@ -124,8 +168,6 @@ while(nlines >0){
 	 # [5] "PRIL112"                  "PRIL16"                  
 	 # [7] "PRIL17"                   "PRIL18"                  
 	 # [9] "PriLim.PrCL09maleLM3.GS7" "PriLim.PrLmale2.GS6"     
-	# [11] "paxl02.formerlyPril02"    "paxl20.formerlyPril20"   
-	# [13] "paxl21.formerlyPril21"   
 	
 	# $`4`
 	 # [1] "PRIB02"                    "PRIB05"                   
@@ -147,12 +189,10 @@ while(nlines >0){
 	# [1] "ENSB01" "ENSB03" "ENSB08" "ENSB12" "ENSB15" "ENSB23"
 	
 	# $`9`
-	 # [1] "Marine.Pac.BIGR.52_54_2008.02"  "Marine.Pac.Bamfield.VI17.Sara" 
-	 # [3] "Marine.Pac.Japan.01.Katie"      "Marine.Pac.LITC_0_05_2008.FO"  
-	 # [5] "Marine.Pac.LittleCampbell.LC1D" "Marine.Pac.MANC_X_X05"         
-	 # [7] "Marine.Pac.Oyster.06.Sara"      "Marine.Pac.Oyster.12.Sara"     
-	 # [9] "Marine.Pac.Salmon.01.Sara"      "Marine.Pac.Seyward.01.Sara"    
-	# [11] "Marine.Pac.WestCreek.01.Sara"  
+	# [1] "Marine.Pac.BIGR.52_54_2008.02"  "Marine.Pac.Japan.01.Katie"     
+	# [3] "Marine.Pac.LITC_0_05_2008.FO"   "Marine.Pac.LittleCampbell.LC1D"
+	# [5] "Marine.Pac.MANC_X_X05"          "Marine.Pac.Oyster.06.Sara"     
+	# [7] "Marine.Pac.Seyward.01.Sara"     "Marine.Pac.WestCreek.01.Sara"  
 	
 	# $`10`
 	# [1] "Marine.Atl.BITJ_X_X17"           "Marine.Atl.Denmark.BS27.Fuelner"
@@ -176,6 +216,9 @@ while(nlines >0){
 	# [5] "Stream.LittleCampbell_23_32_2008.356"
 	# [6] "Stream.LittleCampbell_23_32_2008.744"
 	
+	# Drop 0 group if present
+	if(!is.null(drop)) z["0"] <- NULL
+
 	# Count how many genotypes per group
 	z1 <- lapply(z, function(z){
 		z1 <- apply(y[, z], 1, sum) # summing logicals treats TRUE as 1's
@@ -233,7 +276,7 @@ if(Glazerize){
 	
 	goodInvariants <- cbind.data.frame( data.frame(newChr = newChr, newPos = newPos), goodInvariants)
 	
-	z<- unique(newChr)
+	z <- unique(newChr)
 	# [1] "21" "Un"
 	
 	# goodList <- split(goodInvariants, goodInvariants$newChr) # make sure that the list elements are named "21" and "Un"

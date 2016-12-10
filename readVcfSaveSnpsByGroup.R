@@ -136,7 +136,8 @@ gc()
 # Reads only a part of the vcf. ref(), alt(), qual(), geno()$GT still work
 
 # Consider re-doing to include INFO ( change info=NA to info=character() )
-vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
+# vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
+vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=character()))
 
 # object.size(vcf)
 #  50,514,280 bytes # chrXXI
@@ -202,12 +203,9 @@ print(groupcodes)  #
  # 0  1  2  3  4  5  6  7  8  9 10 11 12 13 
  # 3 16 11 10 10  6  6  6  6  8  3  4  8  6
  
-nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
+nInd <- as.vector(table(groupcodes[groupcodes > 0])) # number of individuals genotyped in each group, dropping 0's
  #      0  1  2  3  4  5  6  7  8  9 10 11 12 13
  # [1]  3 16 11 10 10  6  6  6  6  8  3  4  8  6
-
-# Drop the "0" category from the nInd vector (the dropped fish)
-if(!is.null(drop)) nInd <- nInd[-1]
 
 cat("\nNumber of individuals (nInd):\n")
 print(nInd)  # 
@@ -379,7 +377,7 @@ gc()
 # Make a table of the allele frequencies
 # Remember to account for dropped individuals
 
-alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[,groupcodes>0], groupnames, groupcodes[groupcodes>0])
+alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[, groupcodes > 0], groupnames, groupcodes[groupcodes > 0])
 	# unname(geno(vcf)$GT[1, ])
 	# groupcodes
 	# alleleFreqByGroup[[1]]     
@@ -407,8 +405,9 @@ gc()
 # RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
 # RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
 
+# Moved to g$dropRareAlleles in genome.r
+
 if(dropRareAlleles){
-	# Moved to g$dropRareAlleles in genome.r
 	
 	gc()
 	}
@@ -432,7 +431,7 @@ cat("\n\nDetermining which ALT alleles actually used in genotype calls; others A
 # "whichAltAllelesUsed" lists all the ALT alleles used in genotypes by their index (1, 2, ...)
 # unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
 
-altUsedList <- g$makeAltUsedList(geno(vcf)$GT[,groupcodes > 0], alt(vcf))
+altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 
 # Note, there are still "<*:DEL>" alleles. 
 
@@ -634,7 +633,8 @@ save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
 gc()
 
 
-if(plotQualMetrics){ # REDO to Glazerize; include only snp retained in vcfresults; only for GT[,groupcodes > 0]
+# REDO to Glazerize; include only snp retained in vcfresults; use only for GT[,groupcodes > 0]
+if(plotQualMetrics){ 
 	# --------------------------------------
 	# Plots of quality metrics - uses only the old assembly results
 	# Current version drops only the rows corresponding to M in chrvec

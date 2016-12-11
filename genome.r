@@ -997,6 +997,45 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	if(run) system(paste("qsub", pbsfile))
 	}
 
+g$getRscriptResources <- function(pattern, searchPbs = TRUE){
+	# Function to scan all pbs.o* files of a given Rscript run and pull out the memory usage
+	# If searchPbs = TRUE then attempts to get matching file name from .pbs file that called Rscript
+	# Run in R as g$getRscriptResources(pattern = "combineVcfresultsParts")
+	
+	pattern <- sub(".R$", "", pattern) # in case the .R is still on the end
+	oFiles <- list.files(pattern = glob2rx( paste(pattern, "*.pbs.o*", sep = "") ))
+	
+	# Grab the resources line of each output file
+	mem <- sapply(oFiles, function(x){
+		# x <- oFiles[1]
+		z <- scan(x, what = character(), quiet = TRUE)
+		mem <- z[grep("vmem", z, ignore.case = TRUE)]
+		})
+	mem <- unname(mem)
+	mem <- gsub("=", ",", mem)
+	resources <- read.table(text = mem, sep = ",", colClasses = "character")
+	n <- unlist(resources[1, c(1,3,5,7)]) # save names
+	resources <- resources[, c(2,4,6,8)]
+	names(resources) <- n
+	
+	# Find the arguments of the Rscript run
+	args <- sapply(oFiles, function(x){
+		# x <- oFiles[1]
+		z <- sub(pattern, "", x)
+		z <- unlist( strsplit(z, split = "[.]") )
+		pbsFile <- paste(pattern, z[1], ".", z[2], sep = "")
+		z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
+		args <- z1[max( grep(pattern, z1) )] # max beause pattern occurs more than once
+		args <- unlist(strsplit(args, split = " "))
+		args <- paste( args[-c(1,2)], collapse = "-")
+		})
+	args <- unname(args)
+	
+	resources$args <- args
+	resources
+	
+	}
+	
 g$glazerConvertCoordinate <- function(chr, pos, direction = 'old2new', scafFile = "glazerFileS4 NewScaffoldOrder.csv"){
 	# Converts Jones et al 2012 'old' genome assembly coordinates to Glazer et al 2015 'new' assembly coordinates
 	# 	or the reverse direction ( direction = 'new2old' )

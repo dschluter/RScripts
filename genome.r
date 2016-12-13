@@ -761,6 +761,39 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		}
 	}
 
+g$gatk.selectVariants <- function(vcfFile){
+	# Creats a pbs file to run SelectVariants in GATK to subset a vcf file as follows
+	# 	- drop individuals ( -xl_sn samplename )
+	#	- exclude indels ( -xlSelectType INDEL )
+	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION, so this
+	#		might keep all those others except pure indels
+	#	- include only true snp ( -selectType )
+	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION
+	# 	- remove alternate alleles not present in any genotypes ( --removeUnusedAlternates )
+	#	[- restrict alleles to bi-allelic ( --restrictAllelesTo BIALLELIC ) **drops sites** not alleles!]
+	# in progress
+	}
+
+g$gatk.variantsToAllelicPrimitives <- function(vcfFile){
+	# Not yet implemented.
+	# Creats a pbs file to run VariantsToAllelicPrimitives in GATK
+	# 	to break up multi-nucleotide *bi-allelic* variants (MNPs) into more primitive alleles
+	# E.g., ACCCA -> TCCCG is broken up into A -> T and A -> G
+	# Need to test the behavior of this tool
+	
+	# Caveats: 
+	# Modifies only *bi-allelic* variants.
+	# tool modifies only MNPs and leaves SNPs, indels, and complex substitutions as is
+	#	although one day it may be extended to handle the complex substitution case.
+	
+	# java -jar GenomeAnalysisTK.jar \
+	   # -T VariantsToAllelicPrimitives \
+	   # -R reference.fasta \
+	   # -V input.vcf \
+	   # -o output.vcf
+   
+	}
+
 g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){
 	# Genetic distance calculator between all pairs of groups or populations
 	# "alleleFreqByGroup" is a list of tabulated allele frequenies, locus by locus
@@ -2359,15 +2392,17 @@ g$variantRecalibrator <- function(vcffile = "Benlim.chrM.vcf.gz", outvcfname, GA
 	if(run) system(paste("qsub", pbsfile))
 	}
 	
-g$vcf2alleles <- function(vcfresults){
-	# This doesn't work yet. It was pulled from "readVcfSaveSnpsByGroup.R"
-	# Need to Glazerize code
-	#
-	# Make a biallelic snp version of the data set
-	# ** Warning: this might drop out whole populations at a marker if has unique alleles **
-	# Need to modify for Glazerize
-	# Identify the ALT alleles that are true snp
+g$vcf2twoAlleles <- function(vcfresults){
+	# *** This doesn't work yet. It was pulled from "readVcfSaveSnpsByGroup.R" ***
+	# *** Need to Glazerize code ***
+	
+	# Make a biallelic version of the data set by dropping the rarer alleles
+	# Optional: eliminate indels before converting
+	
+	# * Warning: this might drop out whole populations at a marker if has unique alleles *
 
+
+	# Identify the ALT alleles that are true snp
 	whichAltAreSnp <- lapply(vcfresults$snpTypeList, function(x){
 		which(x == "snp")
 		})

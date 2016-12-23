@@ -1086,12 +1086,12 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	if(run) system(paste("qsub", pbsfile))
 	}
 
-g$getRscriptResources <- function(pattern, searchPbs = TRUE){
-	# Function to scan all pbs.o* files of a given Rscript run and pull out the memory usage
+g$getScriptResources <- function(pattern, searchPbs = TRUE){
+	# Function to scan all pbs.o* files of a given script run and pull out the memory usage
 	# If searchPbs = TRUE then attempts to get matching file name from .pbs file that called Rscript
-	# Run in R as g$getRscriptResources(pattern = "combineVcfresultsParts")
+	# Run in R as g$getScriptResources(pattern = "combineVcfresultsParts")
 	
-	pattern <- sub(".R$", "", pattern) # in case the .R is still on the end
+	pattern <- sub(".R$", "", pattern) # in case the .R is on the end of pattern
 	oFiles <- list.files(pattern = glob2rx( paste(pattern, "*.pbs.o*", sep = "") ))
 	
 	# Grab the resources line of each output file
@@ -1107,17 +1107,20 @@ g$getRscriptResources <- function(pattern, searchPbs = TRUE){
 	resources <- resources[, c(2,4,6,8)]
 	names(resources) <- n
 	
-	# Find the arguments of the Rscript run
+	# Find chr from the name of the file run
 	args <- sapply(oFiles, function(x){
 		# x <- oFiles[1]
 		z <- sub(pattern, "", x)
 		z <- unlist( strsplit(z, split = "[.]") )
-		pbsFile <- paste(pattern, z[1], ".", z[2], sep = "")
-		z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
-		args <- z1[max( grep(pattern, z1) )] # max beause pattern occurs more than once
-		args <- unlist(strsplit(args, split = " "))
-		args <- paste( args[-c(1,2)], collapse = "-")
+		args <- z[grep("chr", z)]
+		# pbsFile <- paste(pattern, z[1], ".", z[2], "*.pbs", sep = "")
+		# pbsFile <- list.files(pattern=glob2rx(pbsFile))
+		# z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
+		# args <- z1[max( grep(pattern, z1) )] # max because pattern occurs more than once
+		# args <- unlist(strsplit(args, split = " "))
+		# args <- paste( args[-c(1,2)], collapse = "-")
 		})
+	# args <- unname(args)
 	args <- unname(args)
 	
 	resources$args <- args

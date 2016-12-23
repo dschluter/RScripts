@@ -816,7 +816,7 @@ g$gatk.selectVariants <- function(vcfFile, drop = NULL, mem = 2, walltime = 24,
 		# cat dropfish
 	
 		dropfish <- gsub("samplename", paste(drop, collapse = "\\ \n\t\t\t-xl_sn "), dropfish)
-		writeLines(dropfish), outfile)
+		writeLines(dropfish, outfile)
 	
 		}
 

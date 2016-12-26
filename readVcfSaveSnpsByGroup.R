@@ -19,15 +19,20 @@
 # R
 
 # Expect to read these arguments from args
-project <- NULL
-chrname <- NULL
-groupnames <- NULL
-GTminFrac <- NULL
-Glazerize <- NULL # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-drop <- NULL
+project 	<- NULL
+chrname 	<- NULL
+groupnames 	<- NULL
+GTminFrac 	<- "2/3"
+Glazerize 	<- "FALSE" # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+postDrop 	<- "FALSE"	
+nMaxAlt		<- 3		 # in GATK maximum number of ALT alleles set
+dropRareAlleles	<- FALSE
+plotQualMetrics <- FALSE
+saveBiAllelic 	<- FALSE # saves second data set with 2 snp per marker (not necessarily the REF), removes indels
+plotQualMetrics <- FALSE 
 
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "GTminFrac=2/3", "drop=Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara")
 args <- commandArgs(TRUE)
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "GTminFrac=2/3")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -36,19 +41,16 @@ x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 
 # Check args
-# c(project, chrname, groupnames, GTminFrac, Glazerize, drop)
+# c(chrname, project, groupnames, GTminFrac, Glazerize, drop)
 # [1] "Benlim"                                                                                  
 # [2] "chrM"                                                                                    
 # [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
 # [4] "2/3"                                                                                     
 # [5] "TRUE"                                                                                    
-# [6] "Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara"       
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
-if(is.null(GTminFrac)) stop("Provide DPmin= in arguments")
-if(is.null(Glazerize)) stop("Provide Glazerize= in arguments")
 
 cat("\nchrname is", chrname, "\n")
 
@@ -60,18 +62,6 @@ cat(groupnames, sep = "\n")
  # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
 # [11] "marine-jap" "solitary"   "stream"    
 
-if(!is.null(drop)){
-	drop <- unlist(strsplit(drop, split = ","))
-	cat("\nDropping these fish:\n")
-	cat(drop, sep = "\n")
-	}
-# drop
-# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
-# [3] "Marine-Pac-Salmon-01-Sara"
-
-dropRareAlleles	<- FALSE
-plotQualMetrics <- FALSE
-
 GTminFrac <- eval(parse(text=GTminFrac)) # convert fraction to numeric
 
 # load "chrvec" for the current chromosome
@@ -80,16 +70,15 @@ chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec
 
 fastaname		<- paste(chrname, "fa", sep = ".")
 vcfname			<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
+if(postDrop) vcfname <- paste(project, ".", chrname, ".sel.vcf.gz", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
-nMaxAlt			<- 3		# maximum number of ALT alleles
 
 control <- list()
 control$nMaxAlt <- nMaxAlt
 control$snpOptions <- c(dropRareAlleles = dropRareAlleles)
 control$GTminFrac <- GTminFrac
-control$drop <- drop
 
 cat("\nControl settings on this run\n")
 print(control)
@@ -97,7 +86,7 @@ print(control)
 library(VariantAnnotation, quietly = TRUE)
 
 load(chrmaskfile) 	# object is named "chrvec"
-which.chrvec.M <- which(chrvec == "M")
+which.chrvec.M <- which(chrvec == "M") # bases coded as "M" for masked
 
 # object.size(chrvec)
 #  93,740,176 bytes # chrXXI
@@ -175,7 +164,6 @@ cat("\nSuccessfully read vcf file\n")
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
 
-
 fishnames <- samples(header(vcf))
 
 # FUDGE TO FIX PRIEST in file names
@@ -187,27 +175,23 @@ print(fishnames)
 # assign numbers corresponding to groups
 groupcodes <- g$groupFishCodes(fishnames, groupnames)
 
-# Set groupcodes to 0 if drop fish
-if(!is.null(drop)){
-	groupcodes[is.element(fishnames, drop)] <- 0
-	}
 cat("\ngroupcodes:\n")
 print(groupcodes)  # 
-  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  0  9  9  9  9
- # [26]  9  0  0  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
- # [51]  1  1  1  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12
- # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1
-# [101]  1  1  1
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+ # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
+ # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12
+ # [76] 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1  1  1  1
 
 # table(groupcodes)
- # 0  1  2  3  4  5  6  7  8  9 10 11 12 13 
- # 3 16 11 10 10  6  6  6  6  8  3  4  8  6
+ # 1  2  3  4  5  6  7  8  9 10 11 12 13 
+# 16 11 10 10  6  6  6  6  8  3  4  8  6 
  
-nInd <- as.vector(table(groupcodes[groupcodes > 0])) # number of individuals genotyped in each group, dropping 0's
- #      0  1  2  3  4  5  6  7  8  9 10 11 12 13
- # [1]  3 16 11 10 10  6  6  6  6  8  3  4  8  6
+nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
+ # [1] 16 11 10 10  6  6  6  6  8  3  4  8  6
 
 cat("\nNumber of individuals (nInd):\n")
+names(nInd) <- groupnames
+
 print(nInd)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
         # 16         11         10         10          6          6          6 
@@ -222,6 +206,7 @@ nMin <- round(GTminFrac*nInd) # minimum number required in each group
 
 nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
 names(nMin) <- groupnames
+
 cat("\nMinimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):\n")
 print(nMin)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
@@ -258,10 +243,6 @@ geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
 samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting groups is as in groupnames and groupcodes
 
 samplesByGroup
-	# $`0`
-	# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
-	# [3] "Marine-Pac-Salmon-01-Sara"    
-	
 	# $`1`
 	 # [1] "PaxLim-PxCL09maleLM1-GS14"     "PaxLim-PxLfemale6-GS18"       
 	 # [3] "PaxLim-PxLmale102-GS16"        "PaxLim-PxLmale106-GS15"       
@@ -334,9 +315,7 @@ samplesByGroup
 	# [5] "Stream-LittleCampbell_23_32_2008-356"
 	# [6] "Stream-LittleCampbell_23_32_2008-744"
 
-# Drop the "0" category from the nInd vector (the dropped fish)
-if(!is.null(drop)) samplesByGroup["0"] <- NULL
-
+]
 # Tabulate genotype frequencies by group
 # genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){
 	# table(groupcodes, x)
@@ -350,6 +329,7 @@ nCalledGenotypes <- lapply(samplesByGroup, function(z){
 	z1 <- apply(geno(vcf)$GT[ , z], 1, function(z){sum(!is.na(z))})
 	})
 names(nCalledGenotypes) <- groupnames # don't sort groupnames! This is the order that determined codes
+
 # names(nCalledGenotypes)
  # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
  # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
@@ -444,13 +424,11 @@ altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 # 267591  13243    763      9      1      0
 
 # Number of ALT alleles actually used in genotype calls ( if(FALSE) comments everything out )
-if(FALSE){
-	nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
-	table(nAltUsed, useNA = "always")
-	     # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
-	 # 26102 243415  11398    692      0
-	rm(nAltUsed)
-	} # End if FALSE
+	# nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
+	# table(nAltUsed, useNA = "always")
+	     # # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
+	 # # 26102 243415  11398    692      0
+	# rm(nAltUsed)
 
 # Types of variants
 # -----------------

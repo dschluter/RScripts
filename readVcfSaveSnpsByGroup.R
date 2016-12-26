@@ -32,7 +32,7 @@ saveBiAllelic 	<- FALSE # saves second data set with 2 snp per marker (not neces
 plotQualMetrics <- FALSE 
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "GTminFrac=2/3")
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "GTminFrac=2/3", "postDrop=TRUE")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -315,7 +315,7 @@ samplesByGroup
 	# [5] "Stream-LittleCampbell_23_32_2008-356"
 	# [6] "Stream-LittleCampbell_23_32_2008-744"
 
-]
+
 # Tabulate genotype frequencies by group
 # genotypeFreqByGroup <- apply(geno(vcf)$GT, 1, function(x){
 	# table(groupcodes, x)

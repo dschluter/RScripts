@@ -13,12 +13,12 @@
 project <- NULL
 chrname <- NULL
 groupnames <- NULL
-DPmin <- NULL
-Glazerize <- NULL # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-drop <- NULL
+DPmin <- 1 			 # default if not provided
+postDrop <- "FALSE"
+Glazerize <- "FALSE" # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "DPmin=1", "drop=Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara")
 args <- commandArgs(TRUE)
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "DPmin=1", "postDrop=TRUE")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -27,21 +27,22 @@ x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 
 # Check args
-# c(project, chrname, groupnames, DPmin, Glazerize, drop)
-# [1] "Benlim"                                                                                  
-# [2] "chrM"                                                                                    
-# [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
-# [4] "1"                                                                                       
-# [5] "TRUE"                                                                                    
-# [6] "Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara"       
+# [1] "chrname=chrM"                                                                                       
+# [2] "project=Benlim"                                                                                     
+# [3] "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
+# [4] "Glazerize=TRUE"                                                                                     
+# [5] "DPmin=1"                                                                                            
+# [6] "postDrop=TRUE"                                                             
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
-if(is.null(DPmin)) stop("Provide DPmin= in arguments")
-if(is.null(Glazerize)) stop("Provide Glazerize= in arguments")
 
+
+cat("\nproject is", project, "\n")
 cat("\nchrname is", chrname, "\n")
+cat("\nGlazerize is", Glazerize, "\n")
+cat("\npostDrop is", postDrop, "\n")
 
 GTmissing <- "."  # how GATK represents missing genotypes in the vcf file "./."
 
@@ -54,6 +55,7 @@ load(chrmaskfile) 		# object is named "chrvec"
  # 8754452  7589050  7570271 29869838  8766600 
 
 invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv.gz", sep="")
+if(postDrop == "TRUE") invariantsummaryname <- paste(project, ".", chrname, ".sel.inv.gz", sep="")
 textfile				<- paste(project, ".", chrname, ".goodInv.gz", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 
@@ -84,23 +86,9 @@ cat(groupnames, sep = "\n")
  # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
 # [11] "marine-jap" "solitary"   "stream"    
 
-if(!is.null(drop)){
-	drop <- unlist(strsplit(drop, split = ","))
-	cat("\nDropping these fish:\n")
-	cat(drop, sep = "\n")
-	}
-# drop
-# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
-# [3] "Marine-Pac-Salmon-01-Sara"
-
 # assign numbers corresponding to groups
 fishnames <- headerline[-c(1,2)]
 groupcodes <- g$groupFishCodes(fishnames, groupnames)
-
-# Set groupcodes to 0 if drop fish
-if(!is.null(drop)){
-	groupcodes[is.element(fishnames, drop)] <- 0
-	}
 
 # groupcodes
   # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  0  9  9  9  9
@@ -216,9 +204,6 @@ while(nlines >0){
 	# [5] "Stream.LittleCampbell_23_32_2008.356"
 	# [6] "Stream.LittleCampbell_23_32_2008.744"
 	
-	# Drop 0 group if present
-	if(!is.null(drop)) z["0"] <- NULL
-
 	# Count how many genotypes per group
 	z1 <- lapply(z, function(z){
 		z1 <- apply(y[, z], 1, sum) # summing logicals treats TRUE as 1's

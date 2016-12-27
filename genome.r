@@ -1110,17 +1110,15 @@ g$getScriptResources <- function(pattern, searchPbs = TRUE){
 	# Find chr from the name of the file run
 	args <- sapply(oFiles, function(x){
 		# x <- oFiles[1]
-		z <- sub(pattern, "", x)
-		z <- unlist( strsplit(z, split = "[.]") )
-		args <- z[grep("chr", z)]
-		# pbsFile <- paste(pattern, z[1], ".", z[2], "*.pbs", sep = "")
-		# pbsFile <- list.files(pattern=glob2rx(pbsFile))
-		# z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
-		# args <- z1[max( grep(pattern, z1) )] # max because pattern occurs more than once
-		# args <- unlist(strsplit(args, split = " "))
-		# args <- paste( args[-c(1,2)], collapse = "-")
+		# z <- sub(pattern, "", x)
+		# z <- unlist( strsplit(z, split = "[.]") )
+		# args <- z[grep("chr", z)]
+		pbsFile <- sub(".o[0-9]*$", "", x)
+		z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
+		z2 <- z1[max( grep(pattern, z1) )] # max because pattern occurs more than once
+		z3 <- unlist(strsplit(z2, split = " "))
+		args <- z3[grep("chr", z3)]
 		})
-	# args <- unname(args)
 	args <- unname(args)
 	
 	resources$args <- args

@@ -9,6 +9,14 @@
 # This code assumes that we are working only with ONE chromosome at a time
 # Note: At most 3 ALT alleles permitted per snp in this version
 
+# To hard filter (this should really be done earlier, when making vcfresults)
+# Muhua's VSQR filters are: 
+#	QD < 2.00 || FS > 60.000 || MQ < 50.00 || MQRankSum < -12.500 || ReadPosRankSum < -8.000")
+# GATK Best Practices recommends cutoffs: 
+#	QD 2, FS 60, MQ 40, MQRankSum -12.5, ReadPosRankSum -8.000
+# Based on chrM, most snp have QD > 2, FS < 60, MQ between 20 and 55, 
+#	MQRankSum between -4 and 4, ReadPosRankSum between -4 and 4)
+
 # setwd("~/Desktop")
 # git("genome.r")
 
@@ -19,39 +27,17 @@
 chrname <- NULL
 project <- NULL
 groupnames <- NULL
-Glazerize 	<- TRUE # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+Glazerize 	<- TRUE # *Default*
+removeIndels <- FALSE # *Default*
+filterFS <- TRUE # *Default*  # currently this means only drop nonmissing cases with FS > 60
 
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "drop=Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara")
 args <- commandArgs(TRUE)
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
 x <- read.table(text = args, sep = "=", colClasses = "character")
-for(i in 1:nrow(x)){
-	assign(x[i,1], x[i,2])
-	}
-
-# head(x)
-          # V1
-# 1    chrname
-# 2    project
-# 3 groupnames
-# 4       drop
-                                                                                        # V2
-# 1                                                                                     chrM
-# 2                                                                                   Benlim
-# 3 paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream
-# 4        Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara
-
-
-# project
-# [1] "Benlim"
-# chrname
-# [1] "chrM"
-# groupnames
-# [1] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
-# drop
-# [1] "Marine-Pac-Bamfield-VI17-Sara,Marine-Pac-Oyster-12-Sara,Marine-Pac-Salmon-01-Sara"
+for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
@@ -63,32 +49,32 @@ groupnames <- unlist(strsplit(groupnames, split = ","))
  # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
 # [11] "marine-jap" "solitary"   "stream" 
 
-if(!is.null(drop)) drop <- unlist(strsplit(drop, split = ","))
-# drop
-# [1] "Marine-Pac-Bamfield-VI17-Sara" "Marine-Pac-Oyster-12-Sara"    
-# [3] "Marine-Pac-Salmon-01-Sara"
-
 pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
 
 cat("\nProject, chrname, groupnames:\n")
+cat(project, chrname, "\n", paste(groupnames, collapse = ","), "\n")
 
 if(Glazerize){
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
 	} else {
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
-# vcfresultsfile
-# [1] "BenlimAllMarine.chrXXI.vcfresultsNew.rdd"
-
 cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcfresults"
 
-# object.size(vcfresults)
-# 2,392,863,888 bytes
+# *Note*: if Glazerise, vcfresults$vcf is a list, one element for each old chromosome
 
-dropRareAlleles	<- vcfresults$control$snpOptions["dropRareAlleles"]
-saveBiAllelic 	<- vcfresults$control$snpOptions["saveBiAllelic"]
-nMaxAlt			<- vcfresults$control$nMaxAlt
+# names(vcfresults)
+ # [1] "groupnames"        "groupcodes"        "control"          
+ # [4] "nInd"              "nMin"              "vcf"              
+ # [7] "newChr"            "newPos"            "altUsedList"      
+# [10] "snpTypeList"       "alleleFreqByGroup"
+
+# object.size(vcfresults)
+
+# dropRareAlleles	<- vcfresults$control$snpOptions["dropRareAlleles"]
+# saveBiAllelic 	<- vcfresults$control$snpOptions["saveBiAllelic"]
+# nMaxAlt			<- vcfresults$control$nMaxAlt
 
 gc()
             # used   (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -102,47 +88,75 @@ if(Glazerize){  # grab fish names
 	} else {
 	fishnames <- samples(header(vcfresults$vcf))
 	}
-	
-# is.element(drop, fishnames)
-# [1] TRUE TRUE TRUE
 
-groupcodes <- rep(0, length(fishnames))		 # initialize
-for(i in 1:length(groupcodes)){
-	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
-	groupcodes[x] <- i
-	}
+# Fudge is still needed?
+fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
 
-# Set groupcodes to 0 if drop fish
-if(!is.null(drop)){
-	groupcodes[is.element(fishnames, drop)] <- 0
-	}
+groupcodes <- g$groupFishCodes(fishnames, groupnames)
 
 cat("\ngroupcodes:\n")
 print(groupcodes)
-  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  0  9  9  9  9
- # [26]  9  0  0  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1
- # [51]  1  1  1  1  1  1  0  0  0  0  0  0  6  6  6  6  6  6  5  5  5  5  5  5 12
- # [76] 12 12 12 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  3  1  1  1  1
-# [101]  1  3  3
-
-groups <- groupcodes[groupcodes > 0]
-fish <- fishnames[groupcodes > 0]
-# groups
-# fish
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+ # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
+ # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12
+ # [76] 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1  1  1  1
 
 # -----
+# Reminder: Accessor functions. 
+# Apply to vcfresults$vcf[[1]]
+
+# header(vcf) # Header information
+# samples(header(vcf))		# names of fish in sample
+# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
+# head(rowData(vcf), 3)		# Genomic positions. This command worked instead
+# ref(vcf)					# extract the REF 
+# alt(vcf)					# ALT alleles (DNAStringSetList)
+# qual(vcf)	 				# SNP quality
+# geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
+#							# 	RGQ is "Unconditional reference genotype confidence"
+# geno(header(vcf))["DS",]	# didn't work - no DS in file
+# geno(header(vcf))["SB",]	# Info on what a given genotype item is
+# SB <-geno(vcf)$SB			# grab the genotype values of SB (Fisher's Exact Test to detect strand bias)
+# info(vcf)					# info
+
+# names(info(vcf))    
+ # [1] "AC"              "AF"              "AN"              "BaseQRankSum"   
+ # [5] "ClippingRankSum" "DP"              "DS"              "END"            
+ # [9] "FS"              "HaplotypeScore"  "InbreedingCoeff" "MLEAC"          
+# [13] "MLEAF"           "MQ"              "MQRankSum"       "QD"             
+# [17] "ReadPosRankSum"  "SOR"
+
 cat("\nExtracting genotypes and deleting vcfresults\n")
 # Pull out genotypes 
 if(Glazerize){
-	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT[ , groupcodes > 0]})
+	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT})
 	genotypes <- do.call("rbind", genotypes)
 	pos <- vcfresults$newPos
+	FS <- unlist(lapply(vcfresults$vcf, function(x){info(x)$FS}))
+	# QD <- unlist(lapply(vcfresults$vcf, function(x){info(x)$QD}))
+	# MQ <- unlist(lapply(vcfresults$vcf, function(x){info(x)$MQ}))
+	# MQRankSum <- unlist(lapply(vcfresults$vcf, function(x){info(x)$MQRankSum}))
+	# ReadPosRankSum <- unlist(lapply(vcfresults$vcf, function(x){info(x)$ReadPosRankSum}))
 	} else {
-	genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
+	genotypes <- geno(vcfresults$vcf)$GT
 	pos <- start(rowData(vcfresults$vcf))
+	FS <- info(x)$FS
+	}
+	
+# For chrM test how many snp left if apply all hard filters:
+# z <- cbind(QD,FS,MQ,MQRankSum,ReadPosRankSum)
+# nrow(z)
+# [1] 1154
+# nrow(na.omit(z))
+# [1] 443
+
+if(filterFS){
+	genotypes <- genotypes[FS < 60 | is.na(FS) , ]
+	pos <- pos[FS < 60 | is.na(FS)]
+	# FS <- FS[FS < 60 | is.na(FS)]
 	}
 
-# Don't need this any more
+# Don't need this object any more
 rm(vcfresults)
 
 gc()
@@ -150,11 +164,9 @@ gc()
 # Ncells  3916383 209.2   18306168  977.7  18683826  997.9
 # Vcells 86723924 661.7  319657529 2438.8 362764926 2767.7
 
-
 cat("\nNumber of snp\n")
 print(nrow(genotypes))
 # [1] 915040
-
 
 # -----
 # Keep only snp with all non-missing genotypes for PCA
@@ -209,6 +221,10 @@ z <- sapply(alleleFreq, function(x){dimnames(x)[[1]][2]})
       # chrXXI:58971_T/C chrXXI:58974_CACAGAA/C       chrXXI:59053_C/T 
                    # "1"                    "1"                    "1"
 
+if(removeIndels){
+	cat("\nremoveIndels not implemented yet\n")
+	}
+	
 # Transpose genotypes and make a data frame for PCA
 
 cat("\nTransposing genotypes array\n")
@@ -224,6 +240,7 @@ genoScore <- mapply(genotypes, z, FUN = function(x,z){
 	score <- strsplit(x, split = "/")
 	score <- sapply(score, function(score){sum(score == z)})
 	})
+
 # genoScore[ , 1:3]
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -260,7 +277,7 @@ print( round( pcaVarProp, 2) )
 # [73]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
 # [85]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
 
-pcaRes <- cbind.data.frame(fish, groupnames[groups], stringsAsFactors = FALSE)
+pcaRes <- cbind.data.frame(fishnames, groupnames[groupcodes], stringsAsFactors = FALSE)
 pcaRes <- cbind.data.frame(pcaRes, z$x)
 
 pcaResList$nBiallelicSnpComplete <- nBiallelicSnpComplete

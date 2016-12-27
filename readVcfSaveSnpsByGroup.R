@@ -168,6 +168,9 @@ fishnames <- samples(header(vcf))
 
 # FUDGE TO FIX PRIEST in file names
 fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
+# These two commands should change the names where they are stored in vcf (need both)
+header(vcf)@samples <- fishnames
+dimnames(vcf)[[2]] <- fishnames
 
 cat("\nfishnames:\n")
 print(fishnames)
@@ -555,6 +558,7 @@ gc()
 # Save everything to a list for analyses
 
 vcfresults <- list()
+vcfresults$fishnames <- fishnames
 vcfresults$groupnames <- groupnames
 vcfresults$groupcodes <- groupcodes
 vcfresults$control <- control

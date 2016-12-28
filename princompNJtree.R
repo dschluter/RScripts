@@ -14,6 +14,7 @@
 #	QD < 2.00 || FS > 60.000 || MQ < 50.00 || MQRankSum < -12.500 || ReadPosRankSum < -8.000")
 # GATK Best Practices recommends cutoffs: 
 #	QD 2, FS 60, MQ 40, MQRankSum -12.5, ReadPosRankSum -8.000
+
 # Based on chrM, most snp have QD > 2, FS < 60, MQ between 20 and 55, 
 #	MQRankSum between -4 and 4, ReadPosRankSum between -4 and 4)
 
@@ -32,7 +33,7 @@ removeIndels <- FALSE # *Default*
 filterFS <- TRUE # *Default*  # currently this means only drop nonmissing cases with FS > 60
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream")
+# args <- c("chrname=chrM","project=Benlim","Glazerise=TRUE", "removeIndels=FALSE","filterFS=TRUE")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -41,13 +42,6 @@ for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
-if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
-
-groupnames <- unlist(strsplit(groupnames, split = ","))
-# groupnames
- # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
- # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
-# [11] "marine-jap" "solitary"   "stream" 
 
 pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
 
@@ -68,7 +62,16 @@ load(file = vcfresultsfile)   # object is "vcfresults"
  # [1] "groupnames"        "groupcodes"        "control"          
  # [4] "nInd"              "nMin"              "vcf"              
  # [7] "newChr"            "newPos"            "altUsedList"      
-# [10] "snpTypeList"       "alleleFreqByGroup"
+# [10] "snpTypeList"       "alleleFreqByGroup" "fishnames"        
+
+print(vcfresults$control)
+# $nMaxAlt
+# [1] 3
+# $snpOptions
+# dropRareAlleles 
+          # FALSE 
+# $GTminFrac
+# [1] 0.6666667
 
 # object.size(vcfresults)
 
@@ -83,16 +86,9 @@ gc()
 
 library(VariantAnnotation, quietly = TRUE)
 
-if(Glazerize){  # grab fish names
-	fishnames <- samples(header(vcfresults$vcf[[1]]))
-	} else {
-	fishnames <- samples(header(vcfresults$vcf))
-	}
-
-# Fudge is still needed?
-fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
-
-groupcodes <- g$groupFishCodes(fishnames, groupnames)
+fishnames <- vcfresults$fishnames
+groupcodes <- vcfresults$groupcodes
+groupnames <- vcfresults$groupnames
 
 cat("\ngroupcodes:\n")
 print(groupcodes)
@@ -100,6 +96,8 @@ print(groupcodes)
  # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
  # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12
  # [76] 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1  1  1  1
+
+print(groupnames)
 
 # -----
 # Reminder: Accessor functions. 
@@ -126,7 +124,7 @@ print(groupcodes)
 # [13] "MLEAF"           "MQ"              "MQRankSum"       "QD"             
 # [17] "ReadPosRankSum"  "SOR"
 
-cat("\nExtracting genotypes and deleting vcfresults\n")
+cat("\nExtracting genotypes\n")
 # Pull out genotypes 
 if(Glazerize){
 	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT})
@@ -143,6 +141,9 @@ if(Glazerize){
 	FS <- info(x)$FS
 	}
 	
+# Don't need this object any more
+rm(vcfresults)
+
 # For chrM test how many snp left if apply all hard filters:
 # z <- cbind(QD,FS,MQ,MQRankSum,ReadPosRankSum)
 # nrow(z)
@@ -156,8 +157,6 @@ if(filterFS){
 	# FS <- FS[FS < 60 | is.na(FS)]
 	}
 
-# Don't need this object any more
-rm(vcfresults)
 
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -166,7 +165,7 @@ gc()
 
 cat("\nNumber of snp\n")
 print(nrow(genotypes))
-# [1] 915040
+# [1] 1148
 
 # -----
 # Keep only snp with all non-missing genotypes for PCA
@@ -178,7 +177,7 @@ pos <- pos [z == 0]
 cat("\nDropped all snp with any genotypes missing\n")
 cat("\nNumber of snp remaining\n")
 print(nrow(genotypes))
-# [1] 405478
+# [1] 336
 
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
@@ -199,8 +198,8 @@ cat("\nKeeping only snp with exactly two alleles\n")
 
 z <- sapply(alleleFreq, dim) 
 # table(z) # number of alleles per snp
-     # 1      2      3      4 
-# 105190 279159  20209    920 
+  # 1   2   3 
+# 100 225  11 
 
 genotypes <- genotypes[ z == 2, ]
 alleleFreq <- alleleFreq[ z == 2 ]
@@ -209,23 +208,23 @@ pos <- pos[ z == 2 ]
 cat("\nNumber of snp remaining\n")
 nBiallelicSnpComplete <- nrow(genotypes)
 print(nBiallelicSnpComplete)
-# [1] 279159
+# [1] 225
 
 # Grab the name of the second allele -- then count how many such alleles each genotype has as a score
 
 z <- sapply(alleleFreq, function(x){dimnames(x)[[1]][2]})
 
 # head(z)
-      # chrXXI:58916_C/A       chrXXI:58947_G/A       chrXXI:58965_G/T 
-                   # "1"                    "1"                    "1" 
-      # chrXXI:58971_T/C chrXXI:58974_CACAGAA/C       chrXXI:59053_C/T 
-                   # "1"                    "1"                    "1"
+# chrM:397_G/A chrM:480_C/A chrM:543_C/G chrM:607_T/A chrM:620_G/A chrM:648_C/T
+         # "1"          "1"          "1"          "1"          "1"          "1" 
+
 
 if(removeIndels){
 	cat("\nremoveIndels not implemented yet\n")
 	}
 	
 # Transpose genotypes and make a data frame for PCA
+# rows are fish, columns are genes
 
 cat("\nTransposing genotypes array\n")
 genotypes <- as.data.frame( t(genotypes), stringsAsFactors = FALSE)
@@ -241,7 +240,15 @@ genoScore <- mapply(genotypes, z, FUN = function(x,z){
 	score <- sapply(score, function(score){sum(score == z)})
 	})
 
-# genoScore[ , 1:3]
+# head(genoScore[ , 1:5])
+     # chrM:397_G/A chrM:480_C/A chrM:543_C/G chrM:607_T/A chrM:620_G/A
+# [1,]            2            2            0            0            0
+# [2,]            2            2            0            0            0
+# [3,]            2            2            0            0            1
+# [4,]            2            2            0            0            0
+# [5,]            2            2            0            0            0
+# [6,]            2            2            0            0            0
+
 gc()
            # used  (Mb) gc trigger   (Mb)  max used   (Mb)
 # Ncells  6353894 339.4   25047118 1337.7  30641133 1636.5
@@ -268,14 +275,15 @@ z <- prcomp(genoScore, center = TRUE)
 cat("\nProportion of variance accounted for by each PC\n")
 pcaVarProp <- 100*(z$sdev^2)/sum(z$sdev^2)
 print( round( pcaVarProp, 2) )
- # [1] 46.71 31.09  2.55  2.16  1.82  1.35  1.15  0.97  0.84  0.68  0.62  0.54
-# [13]  0.50  0.48  0.41  0.39  0.38  0.36  0.35  0.33  0.33  0.31  0.29  0.29
-# [25]  0.29  0.27  0.26  0.26  0.23  0.22  0.21  0.20  0.20  0.19  0.17  0.16
-# [37]  0.16  0.16  0.15  0.14  0.13  0.11  0.10  0.10  0.10  0.10  0.10  0.10
-# [49]  0.10  0.09  0.09  0.07  0.07  0.07  0.07  0.06  0.06  0.05  0.05  0.04
-# [61]  0.04  0.03  0.03  0.02  0.02  0.02  0.02  0.02  0.01  0.01  0.00  0.00
-# [73]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
-# [85]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
+  # [1] 46.19 32.29  2.51  2.19  1.36  1.20  1.12  0.95  0.85  0.66  0.61  0.52
+ # [13]  0.49  0.49  0.40  0.39  0.38  0.35  0.33  0.33  0.32  0.30  0.28  0.28
+ # [25]  0.28  0.27  0.26  0.25  0.24  0.22  0.21  0.20  0.20  0.19  0.19  0.17
+ # [37]  0.16  0.16  0.15  0.15  0.14  0.13  0.10  0.10  0.10  0.10  0.10  0.10
+ # [49]  0.10  0.09  0.09  0.07  0.07  0.07  0.07  0.06  0.06  0.06  0.05  0.05
+ # [61]  0.05  0.04  0.02  0.02  0.02  0.02  0.02  0.02  0.01  0.01  0.00  0.00
+ # [73]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
+ # [85]  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00  0.00
+ # [97]  0.00  0.00  0.00  0.00
 
 pcaRes <- cbind.data.frame(fishnames, groupnames[groupcodes], stringsAsFactors = FALSE)
 pcaRes <- cbind.data.frame(pcaRes, z$x)
@@ -287,7 +295,7 @@ pcaResList$pcaVarProp <- pcaVarProp
 
 # Calculate Euclidean distances between all pairs of individuals
 x <- z$x
-dimnames(x) <- list(fish, fish)
+dimnames(x)[[1]] <- fishnames
 pcaDist <- dist(x, method = "euclidean", diag = TRUE, upper = TRUE)
 
 pcaResList$pcaDist <- pcaDist

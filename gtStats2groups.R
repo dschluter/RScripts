@@ -6,60 +6,66 @@
 # This code assumes that you are working only with ONE chromosome
 # Note: At most 3 ALT alleles permitted per snp in this version
 
-# Code analyzes all snps, including indels. 
-# Need to add step if want true snps only
-
-# Q: How did Jones et al handle indels in the 21 genomes project?
-# Answer: they did not call indels
-
 # Obtains stats on one pair of populations
 # qsub -I -l walltime=04:00:00 -l mem=4gb # work interactively; use "exit" to exit
 # module load R/3.1.2
 # R
 
-# setwd("~/Desktop")
-# git("genome.r")
-
-# groupnames must uniquely be substrings of the fishnames (ignoring case)
+# fishPair must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
-args <- commandArgs(TRUE) # project chrname groupnames[vector]
-# args <- c("BenlimPax22pacMar7", "chrUn", "paxl", "paxb")
-# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "qryb")
-# args <- c("BenlimAllMarine", "chrXXI", "paxl", "paxb")
+chrname 		<- NULL
+project 		<- NULL
+includePfisher 	<- NULL
+includeFst     	<- NULL
+includePsd		<- NULL
+trueSnpOnly		<- NULL # If TRUE, this must be evaluated separately for each pair of populations
+fishPair		<- NULL
 
-Glazerize 		<- TRUE # using new assembly coordinates; use the results in vcfresultsNew files
+Glazerize 		<- TRUE  # *Default*
+filterFS 		<- TRUE  # *Default*  # currently this means only drop nonmissing cases with FS > 60
 
-includePfisher 	<- FALSE
-includeFst     	<- TRUE
-includePsd		<- TRUE
-trueSnpOnly		<- FALSE # Note: this must be evaluated separately for each pair of populations
+args <- commandArgs(TRUE)
+# args <- c("chrname=chrM","project=Benlim","includePfisher=FALSE","includeFst=TRUE","includePsd=TRUE","trueSnpOnly=FALSE","Glazerise=TRUE","filterFS=TRUE","fishPair=paxl,paxb")
 
-# note: An indel relative to REF genome, if fixed and shared between limnetic and benthic, 
-# is not an indel between limnetic and benthic, but a fixed difference. 
-# However, REF indel that is polymorphic within or between limnetics and benthics is an indel.
-# So handle indels carefully.
-# Q: What if two alt alleles that are indels relative to REF are the same width. 
-#	 Might they be true snps between benthic and limnetic? I have not investigated.
+# Parses the args into a data frame with two columns and then assigns variables 
+x <- read.table(text = args, sep = "=", colClasses = "character")
+for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
+# x
+              # V1        V2
+# 1        chrname      chrM
+# 2        project    Benlim
+# 3 includePfisher     FALSE
+# 4     includeFst      TRUE
+# 5     includePsd      TRUE
+# 6    trueSnpOnly     FALSE
+# 7      Glazerise      TRUE
+# 8       filterFS      TRUE
+# 9       fishPair paxl,paxb
 
-project <- args[1]
-chrname <- args[2]
-groupnames <- args[3:length(args)] # Here, refers only to the two under consideration
+if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(project)) stop("Provide project= in arguments")
+if(is.null(includePfisher)) stop("Provide includePfisher= in arguments")
+if(is.null(includeFst)) stop("Provide includeFst= in arguments")
+if(is.null(includePsd)) stop("Provide includePsd= in arguments")
+if(is.null(fishPair)) stop("Provide fishPair= in arguments")
+
 if(Glazerize){
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
 	} else {
 	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
-gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")
-gtstats <- list()
-
-if(length(groupnames) > 2 ) stop("Provide names of only two groups")
-
-cat("\nProject, chromosome, 2groups:", project, chrname, groupnames, "\n")
-
 cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcfresults"
 # lapply(vcfresults, object.size)
+
+fishPair <- unlist(strsplit(fishPair, split = ","))
+if(length(fishPair) > 2 ) stop("Provide names of only two groups")
+
+gtstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
+gtstats <- list()
+
+cat("\nProject, chromosome, 2groups:", project, chrname, fishPair, "\n")
 
 # ** todo: in saveSnpsByGroup.R convert alleleFreqByGroup into a data frame, saves so much memory (see below) **
 
@@ -69,7 +75,7 @@ gc()
  # [1] "groupnames"        "groupcodes"        "control"          
  # [4] "nInd"              "nMin"              "vcf"              
  # [7] "newChr"            "newPos"            "altUsedList"      
-# [10] "snpTypeList"       "alleleFreqByGroup"
+# [10] "snpTypeList"       "alleleFreqByGroup" "fishnames"        
 
 control <- vcfresults$control
 GTminFrac <- control$GTminFrac
@@ -80,24 +86,54 @@ control$Glazerize <- Glazerize
 library(VariantAnnotation)
 # library(GenomicFeatures)
 
-# Group codes for the two groups of interest here
-# 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
-if(Glazerize){  # grab fish names
-	fishnames <- samples(header(vcfresults$vcf[[1]]))
-	} else {
-	fishnames <- samples(header(vcfresults$vcf))
-	}
+# fishPair
+# [1] "paxl" "paxb"
 
+# vcfresults$groupnames[vcfresults$groupcodes]
+  # [1] "ensb"       "ensb"       "ensb"       "ensb"       "ensb"      
+  # [6] "ensb"       "ensl"       "ensl"       "ensl"       "ensl"      
+ # [11] "ensl"       "ensl"       "marine-atl" "marine-atl" "marine-atl"
+ # [16] "marine-jap" "marine-jap" "marine-jap" "marine-jap" "marine-pac"
+ # [21] "marine-pac" "marine-pac" "marine-pac" "marine-pac" "marine-pac"
+ # [26] "marine-pac" "marine-pac" "prib"       "prib"       "prib"      
+ # [31] "prib"       "prib"       "prib"       "pril"       "pril"      
+ # [36] "pril"       "pril"       "pril"       "pril"       "pril"      
+ # [41] "pril"       "paxb"       "paxb"       "paxb"       "paxb"      
+ # [46] "paxb"       "paxl"       "paxl"       "paxl"       "paxl"      
+ # [51] "paxl"       "paxl"       "paxl"       "prib"       "prib"      
+ # [56] "prib"       "prib"       "pril"       "pril"       "qryb"      
+ # [61] "qryb"       "qryb"       "qryb"       "qryb"       "qryb"      
+ # [66] "qryl"       "qryl"       "qryl"       "qryl"       "qryl"      
+ # [71] "qryl"       "solitary"   "solitary"   "solitary"   "solitary"  
+ # [76] "solitary"   "solitary"   "solitary"   "solitary"   "stream"    
+ # [81] "stream"     "stream"     "stream"     "stream"     "stream"    
+ # [86] "paxb"       "paxb"       "paxb"       "paxb"       "paxb"      
+ # [91] "paxb"       "paxl"       "paxl"       "paxl"       "paxl"      
+ # [96] "paxl"       "paxl"       "paxl"       "paxl"       "paxl"
+
+# which(is.element(vcfresults$groupnames[vcfresults$groupcodes], fishPair))
+ # [1]  42  43  44  45  46  47  48  49  50  51  52  53  86  87  88  89  90  91  92
+# [20]  93  94  95  96  97  98  99 100
+
+# Redo group codes for the two groups of interest here
+# 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
+fishnames <- vcfresults$fishnames
 groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
-	x <- grep(groupnames[i], fishnames, ignore.case = TRUE)
+	x <- grep(fishPair[i], fishnames, ignore.case = TRUE)
 	groupcodes[x] <- i
 	}
+	
 cat("\ngroupcodes:\n")
 print(groupcodes)
  # [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
 # [39] 2 2 2 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
 # [77] 2 2 2 2 1 1 1 1 1 1
+
+# which(groupcodes > 0)
+ # [1]  42  43  44  45  46  47  48  49  50  51  52  53  86  87  88  89  90  91  92
+# [20]  93  94  95  96  97  98  99 100
+
 groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
@@ -105,11 +141,11 @@ groups <- groupcodes[groupcodes > 0]
 # nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11
 # nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7
 # nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5
-nInd <- vcfresults$nInd[groupnames]
-nMin <- vcfresults$nMin[groupnames]
+nInd <- vcfresults$nInd[fishPair]
+nMin <- vcfresults$nMin[fishPair]
 
 cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
-print( data.frame(groupnames=groupnames, nInd, nMin) )
+print( data.frame(nInd, nMin) )
 
 # ----------
 # Pull out the genotypes for just the two groups being analyzed. 
@@ -133,7 +169,7 @@ gc()
 
 cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
 
-alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[groupnames,]})
+alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[fishPair,]})
 vcfresults$alleleFreqByGroup <- NULL
 
 cat("\nDone extracting allele frequencies for each locus\n")
@@ -307,7 +343,7 @@ if(trueSnpOnly){
 
 	# redo allele frequencies by group - use groups as argument not groupcodes
 	alleleFreqByGroup[status == "v"] <- g$tableAlleleFreqByGroup(genotypes[status == "v", ], 
-		groupnames, groups) 
+		fishPair, groups) 
 
 	# alleleFreqByGroup["chrXXI:54638_T/TG"]
 	
@@ -380,7 +416,7 @@ gc()
 	
 
 # Start saving key results
-gtstats$groupnames <- groupnames 	# "paxl" "paxb"
+gtstats$fishPair <- fishPair 	# "paxl" "paxb"
 gtstats$groups <- groups 			# 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 gtstats$nInd <- nInd
 gtstats$nMin <- nMin

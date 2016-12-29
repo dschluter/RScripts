@@ -138,9 +138,6 @@ groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
 
-# nInd <- as.vector(table(groups)) 	# n individuals genotyped in each group eg 11 11
-# nMin <- floor(GTminFrac*nInd) 		# minimum number required in each group eg 7 7
-# nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5
 nInd <- vcfresults$nInd[fishPair]
 nMin <- vcfresults$nMin[fishPair]
 
@@ -149,13 +146,16 @@ print( data.frame(nInd, nMin) )
 
 # ----------
 # Pull out the genotypes for just the two groups being analyzed. 
-# 	geno(vcfresults$vcf)$GT has already been edited in "saveSnpsByGroup.R"
 # Bring over coding annotations too, if present
 if(Glazerize){
 	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT[ , groupcodes > 0]})
 	genotypes <- do.call("rbind", genotypes)
-	} else genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
-
+	if(filterFS) FS <- unlist(lapply(vcfresults$vcf, function(x){info(x)$FS}))
+	} else{
+	genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
+	if(filterFS) FS <- info(x)$FS
+	}
+	
 # Wipe out the genotypes in vcf to save memory?
 if(Glazerize){
 	for(i in 1:length(vcfresults$vcf)) geno(vcfresults$vcf[[i]])$GT <- NULL
@@ -220,6 +220,8 @@ gc()
 # # 137856 bytes # so much smaller!
 
 # ----------
+# Filtering
+
 # Drop the rows with insufficient numbers of alleles - these will not be seen again, whether variant or invariant
 
 cat("\nIdentifying loci with sufficient numbers of individuals genotyped\n")
@@ -230,30 +232,33 @@ sufficient.alleles.per.group <- sapply(alleleFreqByGroup, function(x){
 	z[1] >= 2*nMin[1] & z[2] >= 2*nMin[2]
 	})
 
-cat("\nDropping loci with insufficient numbers of individuals genotyped\n")
+cat("\nDropping loci with insufficient numbers of individuals genotyped or too much strand bias\n")
 
-# Drop cases with insufficient numbers of individuals
-# Keep snpTypeList too, need it if want to remove non-polymorphic indels later
+if(filterFS){
+	keep <- (FS < 60 | is.na(FS)) & sufficient.alleles.per.group
+	} else keep <- sufficient.alleles.per.group
 
-genotypes <- genotypes[sufficient.alleles.per.group, ]
-alleleFreqByGroup <- alleleFreqByGroup[sufficient.alleles.per.group]
+genotypes <- genotypes[keep, ]
+alleleFreqByGroup <- alleleFreqByGroup[keep]
 
 # if Glazerize is TRUE, then vcfresults$vcf is a list (containing blocks from 1 or more former chromosomes)
-# So need to drop cases with insufficient numbers of individuals separately for each element of vcfresults$vcf
+# So need to keep cases separately for each element of vcfresults$vcf
 if(Glazerize){
 	nPerChr <- sapply(vcfresults$vcf, nrow) # nrow for each vcf block in vcfresults$vcf
 	oldChr <- rep(names(nPerChr), nPerChr)
 	gtstats$vcf <- vector("list", length(nPerChr))
 	names(gtstats$vcf) <- names(vcfresults$vcf)
 	for(i in 1:length(vcfresults$vcf)){
-		gtstats$vcf[[i]] <- vcfresults$vcf[[i]][ sufficient.alleles.per.group[oldChr == names(gtstats$vcf)[i]] ]
+		gtstats$vcf[[i]] <- vcfresults$vcf[[i]][ keep[oldChr == names(gtstats$vcf)[i]] ]
 		}
-	} else gtstats$vcf <- vcfresults$vcf[sufficient.alleles.per.group]
+	} else gtstats$vcf <- vcfresults$vcf[keep]
 
-snpTypeList <- vcfresults$snpTypeList[sufficient.alleles.per.group]
-if(Glazerize) newPos <- vcfresults$newPos[sufficient.alleles.per.group]
+snpTypeList <- vcfresults$snpTypeList[keep]
+if(Glazerize) newPos <- vcfresults$newPos[keep]
 
 rm(sufficient.alleles.per.group)
+rm(keep)
+rm(FS)
 rm(vcfresults) # assuming we have extracted all the useful bits
 
 cat("\nDone dropping loci with insufficient numbers of individuals genotyped\n")

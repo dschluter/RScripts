@@ -11,7 +11,7 @@
 # module load R/3.1.2
 # R
 
-# fishPair must uniquely be substrings of the fishnames (ignoring case)
+# fishPair must uniquely be substrings of the group names (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
 chrname 		<- NULL

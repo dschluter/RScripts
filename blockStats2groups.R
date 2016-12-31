@@ -16,45 +16,65 @@
 # setwd("~/Desktop")
 # git("genome.r")
 
-# groupnames must uniquely be substrings of the fishnames (ignoring case)
+# fishPair must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
-args <- commandArgs(TRUE) # project chrname groupnames[vector]
-# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxb")
-# args <- c("BenlimAllMarine", "chrXXI", "marine-pac", "paxl")
-# args <- c("BenlimAllMarine", "chrXX", 500, "pril", "prib") # one of the smaller ones that crashed because of memory
-# args <- c("BenlimAllMarine", "chrM", 500, "paxl", "paxb")
-# args <- c("BenlimAllMarine", "chrXXI", 500, "paxl", "paxb")
+chrname 		<- NULL
+project 		<- NULL
+fishPair		<- NULL
+stepsize 		<- NULL
+psdMissingAction<- NULL 
+genomeDir		<- NULL 
 
-project <- args[1]
-chrname <- args[2]
-stepsize <- as.integer(args[3])
-groupnames <- args[-c(1:3)]
-chrno <- gsub("chr", "", chrname)
+args <- commandArgs(TRUE)
+# args <- c("chrname=chrM","project=Benlim", "fishPair=paxl,paxb", "stepsize=500", "psdMissingAction=meanBW", "genomeDir=~/tmp")
 
-psdMissingAction <- "meanBW" 
-	# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
-	# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
-	# 	"meanBW", then psd = NA replaced by mean psd, calculated separately for Between-group and Within-group pairs.
-	#   "meanGroup" then psd = NA replaced by mean psd, calculated separately for every unique type of pair
-	#		identified by missingGroups.
-	#		For example, pairs that are "1,1", "1,2" and "2,2" are treated separately, whereas "meanBW" treats
-	#		"1,1" and "2,2" as the same (i.e., both are within-group).
+# Parses the args into a data frame with two columns and then assigns variables 
+x <- read.table(text = args, sep = "=", colClasses = "character")
+for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
+# x
+                # V1        V2
+# 1          chrname      chrM
+# 2          project    Benlim
+# 3         fishPair paxl,paxb
+# 4         stepsize       500
+# 5 psdMissingAction    meanBW
+# 6        genomeDir     ~/tmp
+
+if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(project)) stop("Provide project= in arguments")
+if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
+if(is.null(stepsize)) stop("Provide stepsize= in arguments")
+if(is.null(psdMissingAction)) stop("Provide psdMissingAction= in arguments")
+if(is.null(fishPair)) stop("Provide fishPair= in arguments")
+
+# psdMissingAction is for g$blockstats, how to average when psd values are missing. Must be one of the following:
+# 	"meanAll", then psd = NA replaced by the mean pairwise distance for all non-missing psd values
+# 	"meanBW", then psd = NA replaced by mean psd, calculated separately for Between-group and Within-group pairs.
+#   "meanGroup" then psd = NA replaced by mean psd, calculated separately for every unique type of pair
+#		identified by missingGroups.
+#		For example, pairs that are "1,1", "1,2" and "2,2" are treated separately, whereas "meanBW" treats
+#		"1,1" and "2,2" as the same (i.e., both are within-group).
 if( !is.element(psdMissingAction, c("meanAll", "meanBW", "meanGroup")) )
 	stop("psdMissingAction must be one of meanAll, meanBW, or meanGroup")
 
-cat("\nProject, chrname, groupnames, stepsize", project, chrname, groupnames, stepsize, "\n")
+chrno <- gsub("chr", "", chrname)
 
-gtstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "gtstats.rdd", sep = ".")	# object is gtstats
-blockstatsfile 	<- paste(project, chrname, paste(groupnames, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
+cat("\nProject, chrname, fishPair, stepsize, psdMissingAction\n", 
+	project, chrname, fishPair, stepsize, psdMissingAction, "\n")
+
+fishPair <- unlist(strsplit(fishPair, split = ","))
+if(length(fishPair) > 2 ) stop("Provide names of only two groups")
+
+gtstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
+blockstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
 
 cat("\nLoading gtstats file\n")
 
 load(gtstatsfile) # object is gtstats
 # names(gtstats)
- # [1] "vcf"        "groupnames" "groups"     "nInd"       "nMin"      
- # [6] "control"    "genotypes"  "status"     "newPos"     "fst"       
-# [11] "psd"      
+ # [1] "vcf"       "fishPair"  "groups"    "nInd"      "nMin"      "control"  
+ # [7] "genotypes" "status"    "newPos"    "fst"       "psd"      
 
 # object.size(gtstats) 
 # 3111541328 bytes # 3Gb wow (chrXXI paxl paxb) - will be less when not including alleleFreqByGroups (newer version)
@@ -64,14 +84,12 @@ load(gtstatsfile) # object is gtstats
 control <- gtstats$control
 Glazerize <- control$Glazerize
 groups <- gtstats$groups
-groupnames <- gtstats$groupnames
 nInd <- gtstats$nInd 	# n individuals genotyped in each group eg 7 11
 nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
-# control$psdMissingAction <- psdMissingAction # not used right now
 status <- gtstats$status
 fst <- gtstats$fst # will be NULL if absent
-# library(data.table)
 psd <- gtstats$psd # will be NULL if absent
+# library(data.table)
 # psd <- as.data.table(gtstats$psd) # will be NULL if absent
 
 
@@ -82,7 +100,7 @@ gc()
 
 if(Glazerize){
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
-	chrvecfile = paste("chrvec.", chrno, ".glazer.rdd", sep = "")
+	chrvecfile = paste(genomeDir, "/chrvec.", chrno, ".glazer.rdd", sep = "")
 	pos <- gtstats$newPos # pos is for the variants, use POS for the invariants file
 	
 	} else {
@@ -90,7 +108,7 @@ if(Glazerize){
 	# *Need to confirm that this works if not glazerizing* (because gtstats$vcf is a vcf not a list)
 
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object is goodInvariants
-	chrvecfile = paste("chrvec.", chrno, ".masked.rdd", sep = "")
+	chrvecfile = paste(genomeDir, "/chrvec.", chrno, ".masked.rdd", sep = "")
 	library(VariantAnnotation)
 	pos <- start(rowData(gtstats$vcf)) # pos is for the variants, use POS for the invariants file
 	}
@@ -124,7 +142,7 @@ load(chrvecfile) # object is chrvec
 	
 nbases <- length(chrvec)
 ibase <- c( seq(1, nbases, k), nbases + 1) # bases marking breaks between steps of size k
-midbase <- ibase + (stepsize)/2 # If want something to indicate midpoint of blocks instead
+midbase <- ibase + (k)/2 # If want something to indicate midpoint of blocks instead
 
 # head(midbase)
 # [1]  251  751 1251 1751 2251 2751
@@ -189,11 +207,11 @@ names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
 	# setnames(goodInvariants, names(goodInvariants), gsub("[.]", "-", names(goodInvariants)))
 
 if(Glazerize){
-	goodInvariants <- goodInvariants[, c("newPos", groupnames)] # grab the columns of interest
+	goodInvariants <- goodInvariants[, c("newPos", fishPair)] # grab the columns of interest
 	# rename "newPos" to "POS"
 	names(goodInvariants)[names(goodInvariants) =="newPos"] <- "POS"
 	} else{
-	goodInvariants <- goodInvariants[, c("POS", groupnames)] # grab the columns of interest
+	goodInvariants <- goodInvariants[, c("POS", fishPair)] # grab the columns of interest
 	}
 
 # gc()

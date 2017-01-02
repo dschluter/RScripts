@@ -3,27 +3,9 @@
 # Averages sliding window results of multiple pairwise genome scans and plots the results to a pdf file.
 # Separate sliding windows are carried out for each pair, and then an unweighted average is calculated.
 
-# args are project, pairtype, method, chrname, ymax)
-
 # Carries out sliding window analysis and plots the results to a pdf file, one chromosome per page.
 # All interestingPairs are plotted on the same page, whose length is adjusted according to their number
 # Unweighted average of multiple sliding window scans is provided at the bottom of each page.
-
-# args are: project, pairtype, method, chrname, ymax)
-
-# pairtype:
-# "species-pairs", "marinepac-pairs" "solitary-benthic"
-
-# method: 
-# 	"vara" is totVarA, variance among, per base
-# 	"fst" is weir-cockerham Fst
-# 	"css" is my slightly modified version of felicity's CSS score, per base
-
-# chrname:
-# "chrXXI" or "all" (i.e., must be a single chromosome or all chromosomes)
-
-# ymax:
-# 0  # number indicating maximum y to plot (0 = ignore)
 
 # Analyses files named " project.chr.pop1.pop2.blockstats.stepsize.rdd "
 
@@ -36,26 +18,59 @@
 
 # set ymax to zero to ignore this argument
 
-args <- commandArgs(TRUE) 
-# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0)
-# args <- c( "BenlimAllMarine", "species-pairs", "css", "chrVIIpitx1", 0.04)
-# args <- c( "BenlimAllMarine", "species-pairs", "css", "all", 0.04)
-# args <- c( "BenlimAllMarine", "species-pairs", "fst", "chrXXI", 1)
-# args <- c( "BenlimAllMarine", "species-pairs", "vara", "all", 0.03)
+chrname 		<- NULL # "chrXXI" or "all" (must be a single chromosome or all chromosomes)
+project 		<- NULL
+pairtype		<- NULL # "species-pairs", "marinepac-pairs" or "solitary-benthic"
+method			<- NULL # "vara" is totVarA, variance among, per base; 
+						# "fst" is weir-cockerham Fst
+						# "css" is my slightly modified version of felicity's CSS score, per base
+stepsize 		<- 500
+nsteps.per.window <- 5  # window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
+windowNmin 		<- 100 	# windowNmin is minimum number of good bases in window
+ymax	  		<-   0  # maximum y-value in plots; 0 means not specified
+genomeDir		<- NULL # where genomes and "glazerFileS4 NewScaffoldOrder.csv" are located
 
-project <- args[1]
-pairtype <- args[2]
-method <- args[3]
-chromosomes <- args[4]
-ymax <- as.numeric(args[5])
-
-# these are defaults, not arguments
-stepsize = 500
-nsteps.per.window = 5  	# window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
-windowNmin = 100 		# windowNmin is minimum number of good bases in window
-orderChr <- TRUE
+# Defaults (can't be overridden yet)
+orderChr  <- TRUE
 Glazerize <- TRUE
-scafFile <- "glazerFileS4 NewScaffoldOrder.csv"
+scafFile  <- "glazerFileS4 NewScaffoldOrder.csv"
+
+args <- commandArgs(TRUE) 
+# args <- c("chrname=chrM","project=Benlim", "pairtype=species-pairs", "method=vara", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
+
+# Parses the args into a data frame with two columns and then assigns variables 
+x <- read.table(text = args, sep = "=", colClasses = "character")
+for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
+# x
+                 # V1            V2
+# 1           chrname          chrM
+# 2           project        Benlim
+# 3          pairtype species-pairs
+# 4            method          vara
+# 5          stepsize           500
+# 6 nsteps.per.window             5
+# 7        windowNmin           100
+# 8              ymax             0
+# 9         genomeDir         ~/tmp
+
+if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(project)) stop("Provide project= in arguments")
+if(is.null(pairtype)) stop("Provide pairtype= in arguments")
+if(is.null(method)) stop("Provide method= in arguments")
+if(is.null(stepsize)) stop("Provide stepsize= in arguments")
+if(is.null(nsteps.per.window)) stop("Provide nsteps.per.window= in arguments")
+if(is.null(windowNmin)) stop("Provide windowNmin= in arguments")
+if(is.null(ymax)) stop("Provide ymax= in arguments")
+if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
+
+ymax 				<- as.numeric(ymax)
+stepwise 			<- as.numeric(stepsize)
+nsteps.per.window 	<- as.numeric(nsteps.per.window)
+windowNmin 			<- as.numeric(windowNmin)
+
+# get chrnames if chrname="all"
+z <- list.files(pattern=glob2rx("*.vcfresultsNew.rdd"))
+if(chrname == "all")  chrname <- read.table(text = z, sep = ".", colClasses = "character")$V2
 
 if(pairtype == "species-pairs") 
 	interestingPairs <- list(
@@ -85,11 +100,6 @@ if(pairtype == "solitary-benthic")
 
 npairs <- length(interestingPairs)
 
-# chrname must be a single chromosome (e.g., "chrXXI") or "all"
-# chrname <- c("chrXXI", "chrXX")
-if(chromosomes == "all") 
-	chrname <- gsub("[.]fa", "", list.files( pattern=glob2rx( "chr*.fa"), ignore.case=TRUE )) else 
-	chrname <- chromosomes[1]
 
 # Check that all blockstats files are present
 z <- sapply(interestingPairs, paste, collapse = ".")
@@ -100,7 +110,7 @@ if( !all(file.exists(z)) ){
 	stop("The above blockstats files are missing\n")
 	}
 
-if(Glazerize) x <- read.csv(scafFile)
+if(Glazerize) x <- read.csv(paste(genomeDir, scafFile, sep = "/"))
 
 # Order the chromosomes by their numeric values, leaving out the specially named ones
 if(orderChr){
@@ -111,14 +121,10 @@ if(orderChr){
 	if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
 	}
 
-# Plot 3 scans per page
-# plotsPerPage <- 3
-# pdf( paste(project, pairtype, method, "meanscan", "pdf", sep = ".") )
-# par(mfrow = c(plotsPerPage, 1), mar = c(2, 2, 1.5, 1) + 0.1)
-
 # Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
 npairs <- length(interestingPairs)
-pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), height = max(11, round((npairs + 1) * 1.5)) )
+pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 
+				height = max(11, round((npairs + 1) * 1.5)) )
 par(mfrow = c(npairs+1, 1), mar = c(2, 2, 1.5, 1) + 0.1)
 
 # If ymax is set, include in header
@@ -129,7 +135,7 @@ library(zoo)
 if(tolower(method) == "css") library(gdata)
 
 for(i in chrname){
-	# i <- "chrXXI"
+	# i <- "chrM"
 	# Grab data needed to include an underline to indicate location of old assembly of this chromosome
 	drawOldAssembly <- FALSE
 	if( Glazerize & !is.element(i, c("chrVIIpitx1", "chrUn", "chrM")) ){

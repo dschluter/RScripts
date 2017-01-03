@@ -122,7 +122,6 @@ if(orderChr){
 	}
 
 # Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
-npairs <- length(interestingPairs)
 pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 
 				height = max(11, round((npairs + 1) * 1.5)) )
 par(mfrow = c(npairs+1, 1), mar = c(2, 2, 1.5, 1) + 0.1)

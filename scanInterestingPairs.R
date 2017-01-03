@@ -20,7 +20,7 @@
 
 chrname 		<- NULL # "chrXXI" or "all" (must be a single chromosome or all chromosomes)
 project 		<- NULL
-pairtype		<- NULL # "species-pairs", "marinepac-pairs" or "solitary-benthic"
+pairtype		<- NULL # "speciesPairs", "marinepacPairs" or "solitaryBenthic"
 method			<- NULL # "vara" is totVarA, variance among, per base; 
 						# "fst" is weir-cockerham Fst
 						# "css" is my slightly modified version of felicity's CSS score, per base
@@ -36,7 +36,7 @@ Glazerize <- TRUE
 scafFile  <- "glazerFileS4 NewScaffoldOrder.csv"
 
 args <- commandArgs(TRUE) 
-# args <- c("chrname=chrM","project=Benlim", "pairtype=species-pairs", "method=vara", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
+# args <- c("chrname=chrM","project=Benlim", "pairtype=speciesPairs", "method=vara", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
@@ -45,7 +45,7 @@ for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
                  # V1            V2
 # 1           chrname          chrM
 # 2           project        Benlim
-# 3          pairtype species-pairs
+# 3          pairtype speciesPairs
 # 4            method          vara
 # 5          stepsize           500
 # 6 nsteps.per.window             5
@@ -72,28 +72,28 @@ windowNmin 			<- as.numeric(windowNmin)
 z <- list.files(pattern=glob2rx("*.vcfresultsNew.rdd"))
 if(chrname == "all")  chrname <- read.table(text = z, sep = ".", colClasses = "character")$V2
 
-if(pairtype == "species-pairs") 
+if(pairtype == "speciesPairs") 
 	interestingPairs <- list(
 		c("paxl", "paxb"), c("pril", "prib"), c("qryl", "qryb"), c("ensl", "ensb")
 		)
 
-if(pairtype == "marinepac-pairs") 
+if(pairtype == "marinepacPairs") 
 	interestingPairs <- list(
 		c("marine-pac", "paxb"), c("marine-pac", "prib"), c("marine-pac", "qryb"), c("marine-pac", "ensb"),
 		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
 		)
 
-if(pairtype == "marinepac-benthic") 
+if(pairtype == "marinepacBenthic") 
 	interestingPairs <- list(
 		c("marine-pac", "paxb"), c("marine-pac", "prib"), c("marine-pac", "qryb"), c("marine-pac", "ensb")
 		)
 
-if(pairtype == "marinepac-limnetic") 
+if(pairtype == "marinepacLimnetic") 
 	interestingPairs <- list(
 		c("marine-pac", "paxl"), c("marine-pac", "pril"), c("marine-pac", "qryl"), c("marine-pac", "ensl")
 		)
 
-if(pairtype == "solitary-benthic") 
+if(pairtype == "solitaryBenthic") 
 	interestingPairs <- list(
 		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")
 		)

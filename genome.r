@@ -92,6 +92,7 @@ g$chrOrderRoman <- function(chrname){
 	# Takes the roman numer chr names, converts to numeric (except pitx1, Un, M),
 	# sorts, and converts back (putting pitx1, Un, M at tne end)
 	chr <- g$chrname2numeric(chrname) # is still a character
+	chr <- chr[order(chr)]
 	isNumber <- !grepl("[a-zMU]+", chr)
 	chr[isNumber] <- chr[order( as.numeric(chr[isNumber]) )] # Puts "M" etc at end
 	chrOrdered <- g$numeric2chrname(chr)

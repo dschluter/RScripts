@@ -228,7 +228,7 @@ for(i in chrname){
 						nsteps.per.window = nsteps.per.window, windowNmin = windowNmin)
 			# Need to convert to *per-base*
 			cssPerBase <- CSSwin$CSS/CSSwin$nbases
-			slideWinList[[k]] <- VarPerBase	
+			slideWinList[[k]] <- cssPerBase	
 			}			
 		ibaseMillions <- CSSwin$ibase/10^6
 		z <- do.call("cbind.data.frame", slideWinList)

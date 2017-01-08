@@ -60,23 +60,16 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	}
 
 g$chrname2numeric <- function(chrname){
-	# Convert chromosome name to Glazer code format (a number if it is a roman numeral, character otherwise)
-	# Detects whether chrno refers to an actual number by ensuring there are no lower case letters, no U and no M
-	# chrno will work too (ie without the "chr" prefix)
-	# Modified to allow chrname to be a vector
-	
+	# Convert vector of chromosome names to numbers if they are roman numerals, characters otherwise.
+	# Result vector is character if chrname includes non-numeric chromosome names, eg chrUn
+	# Identifies actual chr numbers by ensuring there are no lower case letters, no U and no M
+	# "chrX" and "X" will both work (ie doesn't need the "chr" prefix)	
 	# g$chrname2numeric("chrXXI")
 	# [1] 21
-	# g$chrname2numeric("chrUn")
-	# [1] "Un"
-	# g$chrname2numeric("chrM")
-	# [1] "M"
-	# g$chrname2numeric("chrVIIpitx1")
-	# [1] "VIIpitx1"
+	# g$chrname2numeric(c("chrXXI", "chrVIIpitx1"))
+	# [1] "21"       "VIIpitx1"
 	# g$chrname2numeric("I")
 	# [1] 1
-	# g$chrname2numeric("XX")
-	# [1] 20
 
 	chrno <- gsub("^chr|^group", "", chrname)
 	chrNumeric <- chrno
@@ -87,6 +80,22 @@ g$chrname2numeric <- function(chrname){
 	chrNumeric[isNumber] <- as.numeric( as.roman( chrNumeric[isNumber] ) )
 	# if( !grepl("[a-zMU]+", chrno) ) chrNumeric <- as.numeric( as.roman( chrNumeric ) )
 	chrNumeric
+	}
+
+g$chrnumeric2chrname <- function(chrnumeric){
+	# Just calls g$numeric2chrname
+	# chrnumeric may still be a character
+	g$numeric2chrname(chrnumeric)
+	}
+	
+g$chrOrderRoman <- function(chrname){
+	# Takes the roman numer chr names, converts to numeric (except pitx1, Un, M),
+	# sorts, and converts back (putting pitx1, Un, M at tne end)
+	chr <- g$chrname2numeric(chrname) # is still a character
+	isNumber <- !grepl("[a-zMU]+", chr)
+	chr[isNumber] <- chr[order( as.numeric(chr[isNumber]) )] # Puts "M" etc at end
+	chrOrdered <- g$numeric2chrname(chr)
+	chrOrdered
 	}
 
 g$convertScaf2Chr <- function(scafNumber, pos, scafFile = NULL, scafTable = NULL){
@@ -1798,7 +1807,7 @@ g$numeric2chrname <- function(chrNumeric){
 	
 	chrname
 	}
-
+	
 g$plotSlidewinInterestingPairsByChr <- function(project, chrname, method, interestingPairs, ymax = 0,
 			stepsize = 500, nsteps.per.window = 5, windowNmin = 100, orderChr = TRUE,
 			Glazerize = TRUE, scafFile = "glazerFileS4 NewScaffoldOrder.csv"){

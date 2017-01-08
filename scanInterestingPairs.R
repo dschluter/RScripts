@@ -31,7 +31,7 @@ ymax	  		<-   0  # maximum y-value in plots; 0 means not specified
 genomeDir		<- NULL # where genomes and "glazerFileS4 NewScaffoldOrder.csv" are located
 
 # Defaults (can't be overridden yet)
-orderChr  <- TRUE
+# orderChr  <- TRUE
 Glazerize <- TRUE
 scafFile  <- "glazerFileS4 NewScaffoldOrder.csv"
 
@@ -68,9 +68,12 @@ stepwise 			<- as.numeric(stepsize)
 nsteps.per.window 	<- as.numeric(nsteps.per.window)
 windowNmin 			<- as.numeric(windowNmin)
 
-# get chrnames if chrname="all"
-z <- list.files(pattern=glob2rx("*.vcfresultsNew.rdd"))
-if(chrname == "all")  chrname <- read.table(text = z, sep = ".", colClasses = "character")$V2
+# get all chrnames if chrname="all", and order them automatically
+if(chrname == "all"){
+	z <- list.files(pattern=glob2rx("*.vcfresultsNew.rdd"))	# finds Roman chr names
+	chrname <- read.table(text = z, sep = ".", colClasses = "character")$V2
+	chrname <- g$chrOrderRoman(chrname)
+	}  
 
 if(pairtype == "speciesPairs") 
 	interestingPairs <- list(
@@ -113,13 +116,13 @@ if( !all(file.exists(z)) ){
 if(Glazerize) x <- read.csv(paste(genomeDir, scafFile, sep = "/"))
 
 # Order the chromosomes by their numeric values, leaving out the specially named ones
-if(orderChr){
-	chrSpecial <- intersect(chrname, c("chrVIIpitx1", "chrUn", "chrM"))
-	if(length(chrSpecial) > 0) chrname <- chrname[!is.element(chrname, chrSpecial)]
-	chrNumeric <- sapply(chrname, g$chrname2numeric)
-	chrname <- chrname[ order(chrNumeric) ]
-	if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
-	}
+# if(orderChr){
+	# chrSpecial <- intersect(chrname, c("chrVIIpitx1", "chrUn", "chrM"))
+	# if(length(chrSpecial) > 0) chrname <- chrname[!is.element(chrname, chrSpecial)]
+	# chrNumeric <- sapply(chrname, g$chrname2numeric)
+	# chrname <- chrname[ order(chrNumeric) ]
+	# if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
+	# }
 
 # Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
 pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 

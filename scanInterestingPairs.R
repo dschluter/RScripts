@@ -36,7 +36,7 @@ Glazerize <- TRUE
 scafFile  <- "glazerFileS4 NewScaffoldOrder.csv"
 
 args <- commandArgs(TRUE) 
-# args <- c("chrname=chrM","project=Benlim", "pairtype=speciesPairs", "method=vara", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
+# args <- c("chrname=chrVIIpitx1new","project=Benlim", "pairtype=speciesPairs", "method=css", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
@@ -45,7 +45,7 @@ for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
                  # V1            V2
 # 1           chrname          chrM
 # 2           project        Benlim
-# 3          pairtype speciesPairs
+# 3          pairtype  speciesPairs
 # 4            method          vara
 # 5          stepsize           500
 # 6 nsteps.per.window             5
@@ -137,7 +137,7 @@ for(i in chrname){
 	# i <- "chrM"
 	# Grab data needed to include an underline to indicate location of old assembly of this chromosome
 	drawOldAssembly <- FALSE
-	if( Glazerize & !is.element(i, c("chrVIIpitx1", "chrUn", "chrM")) ){
+	if( Glazerize & !any(c(grepl("VIIpitx1",i), grepl("Un",i), grepl("M",i))) ){ 
 		chrNumeric <- g$chrname2numeric( i )
 		# grab those rows for which both old and new are on the given chrname
 		z <- x[x$NewChr == chrNumeric & x$OldChr == chrNumeric,] 

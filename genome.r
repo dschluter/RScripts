@@ -861,10 +861,9 @@ g$gatk.variantsToAllelicPrimitives <- function(vcffile){
 	   # -V input.vcf \
 	   # -o output.vcf
    
-=======
 	# For example, to drop These fish, which have coverage < 5x
 	# "Marine-Pac-Bamfield-VI17-Sara","Marine-Pac-Oyster-12-Sara","Marine-Pac-Salmon-01-Sara") # coverage < 5
-:
+
 	# First needed to make ain index of the vcf file using R
 	module load R/3.1.2
 	R
@@ -889,7 +888,6 @@ g$gatk.variantsToAllelicPrimitives <- function(vcffile){
 	   -xl_sn Marine-Pac-Bamfield-VI17-Sara \
 	   -xl_sn Marine-Pac-Oyster-12-Sara \
 	   -xl_sn Marine-Pac-Salmon-01-Sara
->>>>>>> Stashed changes
 	}
 
 g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){

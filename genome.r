@@ -788,6 +788,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, mem = 2, walltime = 24,
 	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION
 	# 	- remove alternate alleles not present in any genotypes ( --removeUnusedAlternates )
 	#	[- restrict alleles to bi-allelic ( --restrictAllelesTo BIALLELIC ) **drops sites** not alleles!]
+<<<<<<< Updated upstream
 	# in progress
 	
 	# Attach date and time to name of pbs file to make unique
@@ -860,6 +861,35 @@ g$gatk.variantsToAllelicPrimitives <- function(vcffile){
 	   # -V input.vcf \
 	   # -o output.vcf
    
+=======
+	# For example, to drop These fish, which have coverage < 5x
+	# "Marine-Pac-Bamfield-VI17-Sara","Marine-Pac-Oyster-12-Sara","Marine-Pac-Salmon-01-Sara") # coverage < 5
+:
+	# First needed to make ain index of the vcf file using R
+	module load R/3.1.2
+	R
+	library(VariantAnnotation, quietly = TRUE)
+	project <- "Benlim"
+	chrname <- "chrM"
+	genome <- "~/tmp/gasAcu1pitx1new.fa"
+	vcfname <- paste(project, ".", chrname, ".var.vcf.gz", sep="")
+	# need to make an bgz index first, use indexTabix in VariantAnnotation
+	compressedVcfname <- paste(project, chrname, "var.vcf.bgz", sep = ".")
+	zipped <- bgzip(vcfname, compressedVcfname)
+	# "Benlim.chrM.var.vcf.bgz"
+	idx <- indexTabix(zipped, "vcf")
+	# "Benlim.chrM.var.vcf.bgz.tbi"
+
+	module load gatk/3.4.0
+	cd ~/BenlimResults
+	gatk.sh -Xmx4g -T SelectVariants \
+	   -R ~/tmp/gasAcu1pitx1new.fa \
+	   --variant Benlim.chrM.var.vcf.bgz \
+	   -o output.vcf.gz \
+	   -xl_sn Marine-Pac-Bamfield-VI17-Sara \
+	   -xl_sn Marine-Pac-Oyster-12-Sara \
+	   -xl_sn Marine-Pac-Salmon-01-Sara
+>>>>>>> Stashed changes
 	}
 
 g$genDistList <- function(alleleFreqByGroup, nMin, method = "nei"){

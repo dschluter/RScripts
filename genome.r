@@ -864,6 +864,7 @@ g$gatk.variantsToAllelicPrimitives <- function(vcffile){
 	# For example, to drop These fish, which have coverage < 5x
 	# "Marine-Pac-Bamfield-VI17-Sara","Marine-Pac-Oyster-12-Sara","Marine-Pac-Salmon-01-Sara") # coverage < 5
 
+
 	# First needed to make ain index of the vcf file using R
 		# module load R/3.1.2
 		# R

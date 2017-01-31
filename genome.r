@@ -61,6 +61,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 		}
 	}
 
+
 g$chrname2numeric <- function(chrname){
 	# Convert vector of chromosome names to numbers if they are roman numerals, characters otherwise.
 	# Result vector is character if chrname includes non-numeric chromosome names, eg chrUn

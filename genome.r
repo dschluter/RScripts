@@ -16,8 +16,10 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	if(fastq2 == "") stop("You need to provide fastq2 file name")
 	if(genome != "gasAcu1pitx1new.fa") stop("Code currently works only with gasAcu1pitx1new.fa")
 	
-	fastq1 <- paste(fastqdir, "/", fastq1, sep = "")
-	fastq2 <- paste(fastqdir, "/", fastq2, sep = "")
+	if(fastqdir != ""){
+		fastq1 <- paste(fastqdir, "/", fastq1, sep = "")
+		fastq2 <- paste(fastqdir, "/", fastq2, sep = "")
+		}
 	
 	samfile <- paste(inputfish, ".sam", sep = "")
 

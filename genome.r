@@ -788,7 +788,6 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, mem = 2, walltime = 24,
 	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION
 	# 	- remove alternate alleles not present in any genotypes ( --removeUnusedAlternates )
 	#	[- restrict alleles to bi-allelic ( --restrictAllelesTo BIALLELIC ) **drops sites** not alleles!]
-<<<<<<< Updated upstream
 	# in progress
 	
 	# Attach date and time to name of pbs file to make unique

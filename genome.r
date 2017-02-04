@@ -469,7 +469,7 @@ g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
-	pbsfile <- paste("fastaIndex-", inputfish, "-", hour, ".pbs", sep = "")
+	pbsfile <- paste("fastaIndex-", genome, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 	
 	writeLines(			"#!/bin/bash", outfile)

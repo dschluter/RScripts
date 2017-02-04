@@ -1055,7 +1055,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 2, wa
 			-o $selectfile \\
 			--allow_potentially_misencoded_quality_scores
 			'
-		keepfish <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-sn "), keepfish)
+		keepfish <- gsub("samplename", paste(keep, collapse = " \\\\\n\t\t\t-sn "), keepfish)
 		writeLines(keepfish, outfile)
 		}
 

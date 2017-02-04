@@ -510,7 +510,7 @@ g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24
 	
 	# Run as "qsub -v inputfish=PRIL17 sam2haplotypeCallerWithRecalibration.pbs
 	if(run){
-		system(pbsfile)
+		system(paste("qsub", pbsfile))
 		}
 	}
 

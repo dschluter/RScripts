@@ -1406,11 +1406,17 @@ g$getScriptResources <- function(pattern, searchPbs = TRUE){
 		# z <- sub(pattern, "", x)
 		# z <- unlist( strsplit(z, split = "[.]") )
 		# args <- z[grep("chr", z)]
+		# pbsFile <- sub(".o[0-9]*$", "", x)
+		
+		# z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
+		# z2 <- z1[max( grep(pattern, z1) )] # max because pattern occurs more than once
+		# z3 <- unlist(strsplit(z2, split = " "))
+		# args <- z3[grep("chr", z3)]
+		
 		pbsFile <- sub(".o[0-9]*$", "", x)
-		z1 <- scan(pbsFile, what = character(), quiet = TRUE, sep = "\n")
-		z2 <- z1[max( grep(pattern, z1) )] # max because pattern occurs more than once
-		z3 <- unlist(strsplit(z2, split = " "))
-		args <- z3[grep("chr", z3)]
+		z <- sub(paste(pattern,"-", sep=""), "", pbsFile)
+		args <- sub("-[0-9]*-[0-9]*-[0-9]*-[0-9]*-[0-9]*-[0-9]*[.]pbs", "", z)
+
 		})
 	args <- unname(args)
 	

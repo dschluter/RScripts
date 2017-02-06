@@ -629,8 +629,8 @@ g$flag.readable <- function(i){
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
 		workdir = "~/tmp/", makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
 		samtoolsVersion = "0.1.19", genome = "gasAcu1pitx1new.fa", 
-		knownsitesvcf = "knownSnpsAllchrPitx1new.vcf",    # set to NULL if don't use
-		muhuasitesbed = "stickleback_21genome_SNP_chrM.bed", # set to NULL if don't use
+		knownsitesvcf = "knownSnpsAllchrPitx1new.vcf",    # set to "" if don't use
+		muhuasitesbed = "stickleback_21genome_SNP_chrM.bed", # set to "" if don't use
 		fixBaseQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
 	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
 	# Because of history, this function creates a .pbs file that takes "inputfish" as an argument when run,
@@ -687,6 +687,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		reducedbam="${inputfish}.reduced.bam"
 		vcffile="${inputfish}.vcf"
 		knownsitesvcf="knownSnpsAllchrPitx1new.vcf"
+		muhuasitesbed="stickleback_21genome_SNP_chrM.bed"
 		recalbam="${inputfish}.recal.bam"
 		recaltable="${inputfish}.recal.table"
 		afterrecaltable="${inputfish}.after.recal.table"
@@ -699,10 +700,13 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		'
 	if(genome != "gasAcu1pitx1new.fa"){
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
-		 parameters <- gsub("gasAcu1pitx1new.dict", gsub("[.][fasta]+",".dict",genome), parameters)
+		 parameters <- gsub("gasAcu1pitx1new.dict", gsub("[.][fasta]+", ".dict", genome), parameters)
 		 }
-	if(knownsitesvcf != "knownSnpsAllchrPitx1new.vcf"){
+	if(knownsitesvcf !="" & knownsitesvcf != "knownSnpsAllchrPitx1new.vcf"){
 		parameters <- gsub("knownSnpsAllchrPitx1new.vcf", knownsitesvcf, parameters)
+		}
+	if(muhuasitesbed !="" & muhuasitesbed != "stickleback_21genome_SNP_chrM.bed"){
+		parameters <- gsub("stickleback_21genome_SNP_chrM.bed", muhuasitesbed, parameters)
 		}
 	writeLines(parameters, outfile)
 

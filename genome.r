@@ -654,7 +654,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 	#   "stickleback_21genome_SNP_chrM.bed", Muhua's sites from 21 genomes project (Jones et al Nature)
 
 	if(inputfish == "") stop("You need to provide inputfish")
-	if(recalibrate) if(knownSNPvcf == "" & knownSNPbed = "") 
+	if(recalibrate) if(knownSNPvcf == "" & knownSNPbed == "") 
 		stop("You need to specify knownSNPvcf or knownSNPbed")
 
 	# Attach date and time to name of pbs file to make unique

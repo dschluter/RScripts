@@ -626,17 +626,23 @@ g$flag.readable <- function(i){
 	return(z)
 	}
 
-g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, recalPlot = FALSE, 
-		workdir = "~/tmp/", makegvcf = FALSE, bam2sam = FALSE, Rversion = "3.1.2", GATKversion = "3.4.0", 
-		samtoolsVersion = "0.1.19", genome = "gasAcu1pitx1new.fa", 
-		knownsitesvcf = "knownSnpsAllchrPitx1new.vcf",    # set to "" if don't use
-		muhuasitesbed = "stickleback_21genome_SNP_chrM.bed", # set to "" if don't use
+g$gatk <- function(inputfish = "", mem = 4, walltime = 72, 
+		recalibrate = TRUE, recalPlot = FALSE, 
+		workdir = "~/tmp/", 
+		makegvcf = FALSE, 
+		samgz = TRUE,
+		bam2sam = FALSE, 
+		Rversion = "3.1.2", GATKversion = "3.4.0", samtoolsVersion = "0.1.19", 
+		genome = "gasAcu1pitx1new.fa", 
+		knownSNPvcf = "knownSnpsAllchrPitx1new.vcf",       # set to "" if don't use
+		knownSNPbed = "stickleback_21genome_SNP_chrM.bed", # set to "" if don't use
 		fixBaseQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
-	# Takes .sam file (output of bwa) through the gatk pipeline to realigned and/or recalibrated bam.
+	# Takes .sam file (from bwa) through gatk pipeline to realigned and/or recalibrated bam.
+	# If samgz=TRUE, begins by uncompressing *.sam.gz to *.sam 
 	# Because of history, this function creates a .pbs file that takes "inputfish" as an argument when run,
 	#	rather than paste the name of inputfish directly into all the commands. Fix someday.
-	# If makegvcf = TRUE, program runs HaplotypeCaller on the resulting bam file.
-	# Instead, optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
+	# makegvcf = TRUE: program runs HaplotypeCaller on the resulting bam file.
+	# Optionally converts final bam to sam to allow (later) splitting the sam file by chromosome.
 	# Pipeline is based on "sam2haplotypeCallerWithRecalibration.pbs"
 	# RGPU (see below) is fixed as "Benlim"
 	# if recalPlot = TRUE, certain R libraries must be installed, see GATK help for AnalyzeCovariates.
@@ -645,8 +651,11 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	#	that happen despite "--allow_potentially_misencoded_quality_scores" argument.
 	# Known sites files that might be used in recalibration:
 	#   "knownSnpsAllchrPitx1new.vcf", obtained from the Kinglsey lab SNP data base (Jones et al Curr Biol)
-	#   "stickleback_21genome_SNP_chrM.bed", sites from the 21 genomes project (Jones et al Nature)
+	#   "stickleback_21genome_SNP_chrM.bed", Muhua's sites from 21 genomes project (Jones et al Nature)
+
 	if(inputfish == "") stop("You need to provide inputfish")
+	if(recalibrate) if(knownSNPvcf == "" & knownSNPbed = "") 
+		stop("You need to specify knownSNPvcf or knownSNPbed")
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -669,6 +678,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 
 	parameters <- '
 		samfile="${inputfish}.sam"
+		samgzfile="${inputfish}.sam.gz"
 		outfile="${inputfish}.out"
 		RGID="BENLIM.${inputfish}"
 		RGLB="${inputfish}.SB"
@@ -686,8 +696,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		mkdupbai="${inputfish}.mkdup.bai"
 		reducedbam="${inputfish}.reduced.bam"
 		vcffile="${inputfish}.vcf"
-		knownsitesvcf="knownSnpsAllchrPitx1new.vcf"
-		muhuasitesbed="stickleback_21genome_SNP_chrM.bed"
+		knownSNPvcf="knownSnpsAllchrPitx1new.vcf"
+		knownSNPbed="stickleback_21genome_SNP_chrM.bed"
 		recalbam="${inputfish}.recal.bam"
 		recaltable="${inputfish}.recal.table"
 		afterrecaltable="${inputfish}.after.recal.table"
@@ -702,11 +712,11 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
 		 parameters <- gsub("gasAcu1pitx1new.dict", gsub("[.][fasta]+", ".dict", genome), parameters)
 		 }
-	if(knownsitesvcf !="" & knownsitesvcf != "knownSnpsAllchrPitx1new.vcf"){
-		parameters <- gsub("knownSnpsAllchrPitx1new.vcf", knownsitesvcf, parameters)
+	if(knownSNPvcf !="" & knownSNPvcf != "knownSnpsAllchrPitx1new.vcf"){
+		parameters <- gsub("knownSnpsAllchrPitx1new.vcf", knownSNPvcf, parameters)
 		}
-	if(muhuasitesbed !="" & muhuasitesbed != "stickleback_21genome_SNP_chrM.bed"){
-		parameters <- gsub("stickleback_21genome_SNP_chrM.bed", muhuasitesbed, parameters)
+	if(knownSNPbed !="" & knownSNPbed != "stickleback_21genome_SNP_chrM.bed"){
+		parameters <- gsub("stickleback_21genome_SNP_chrM.bed", knownSNPbed, parameters)
 		}
 	writeLines(parameters, outfile)
 
@@ -724,6 +734,10 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 		fi
 		', outfile)
 
+	gunzipsam <- '
+		gunzip $samgzfile
+			'
+			
 	sortsam <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
@@ -761,43 +775,39 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	
 	baserecalibrator <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			-knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable \\
-			--allow_potentially_misencoded_quality_scores
+			-knownSites $knownSNPvcf \\
+			-knownSites $knownSNPbed \\
+			-o $recaltable --allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
 			
 	analyzecovariates <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			-knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable \\
+			-knownSites $knownSNPvcf \\
+			-knownSites $knownSNPbed \\
+			-BQSR $recaltable -o $afterrecaltable \\
 			--allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			-after $afterrecaltable -plots $recalplots		
 			'
-	# baserecalibratorFix <- '
-		# gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			# -knownSites knownSnpsAllchrPitx1new.vcf -o $recaltable \\
-			# --allow_potentially_misencoded_quality_scores --fix_misencoded_quality_scores
-		# gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
-			# '
-	# analyzecovariatesFix <- '
-		# gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
-			# -knownSites $knownsitesvcf -BQSR $recaltable -o $afterrecaltable \\
-			# --allow_potentially_misencoded_quality_scores  --fix_misencoded_quality_scores
-		# gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
-			# -after $afterrecaltable -plots $recalplots		
-			# '
+
 	haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '
+
 	convertbam2sam <- '
 			samtools view -h -o $recalsam $recalbam
 			'
-		
+	
+	if(samgz) 
+		writeLines(gunzipsam, outfile)
+
 	writeLines(sortsam, outfile)
 	
-	if(qualityScoreDistribution) writeLines(qualityscoredistribution, outfile)
+	if(qualityScoreDistribution) 
+		writeLines(qualityscoredistribution, outfile)
 	
 	writeLines(markduplicates, outfile)
 	writeLines(addorreplacereadgroups, outfile)
@@ -807,6 +817,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72, recalibrate = TRUE, r
 	if(fixBaseQualityScores) writeLines(fixqualityscores, outfile)
 	
 	if(recalibrate){
+		if(knownSNPvcf == "") sub("-knownSites \\$knownSNPvcf", "", baserecalibrator)
+		if(knownSNPbed == "") sub("-knownSites \\$knownSNPbed", "", baserecalibrator)
 		writeLines(baserecalibrator, outfile)
 		if(recalPlot){	
 			writeLines(analyzecovariates, outfile)
@@ -1640,12 +1652,6 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '	
-
-	# haplotypecaller <- '
-		# gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
-		     # --emitRefConfidence GVCF \\
-		      # -o $vcffile --allow_potentially_misencoded_quality_scores
-		      # '
 
 	if(filetype == "sam") 
 		writeLines(convertsam2bam, outfile)

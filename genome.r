@@ -749,7 +749,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, sortsam)
 
 	qualityscoredistribution <- '
-		java -Xmx2g  -Djava.io.tmpdir=$TMPDIR/tmp \\
+		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'

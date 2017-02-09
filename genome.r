@@ -726,8 +726,9 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 
 	dictfile <- '
 		if [ ! -f "$dictfile" ]; then
-		    java -Xmx2g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar \\
-		    	R=$fastafile O=$dictfile -Djava.io.tmpdir=$TMPDIR/tmp
+		    java -Xmx2g  -Djava.io.tmpdir=$TMPDIR/tmp \\
+		    	-jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar \\
+		    	R=$fastafile O=$dictfile
 		fi
 		if [ ! -f "$faifile" ]; then
 		    samtools faidx $fastafile
@@ -741,30 +742,30 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 			'
 			
 	sortsam <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
-			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT \\
-			-Djava.io.tmpdir=$TMPDIR/tmp
+		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+			-jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
+			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, sortsam)
 
 	qualityscoredistribution <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
-			I=$sortedbam O=$qualscoredist CHART=$qualscorechart -Djava.io.tmpdir=$TMPDIR/tmp
+		java -Xmx2g  -Djava.io.tmpdir=$TMPDIR/tmp \\
+			-jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
+			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, qualityscoredistribution)
 	
 	markduplicates <- '
-		java -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
+		java -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
 			I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
-			-Djava.io.tmpdir=$TMPDIR/tmp \\
 			VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 			'
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, markduplicates)
 		
 	addorreplacereadgroups <- '
-		java -Xmx2g -jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
+		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+			-jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \\
-			-Djava.io.tmpdir=$TMPDIR/tmp \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, addorreplacereadgroups)

@@ -628,14 +628,14 @@ g$flag.readable <- function(i){
 
 g$gatk <- function(inputfish = "", mem = 4, walltime = 72, 
 		recalibrate = TRUE, recalPlot = FALSE, 
-		workdir = "~/tmp/", 
+		workdir = "$TMPDIR/tmp", 							# needed for Picard, says Belaid
 		makegvcf = FALSE, 
 		samgz = TRUE,
 		bam2sam = FALSE, 
 		Rversion = "3.1.2", GATKversion = "3.4.0", samtoolsVersion = "0.1.19", 
 		genome = "gasAcu1pitx1new.fa", 
-		knownSNPvcf = "knownSnpsAllchrPitx1new.vcf",       # set to "" if don't use
-		knownSNPbed = "stickleback_21genome_SNP_chrM.bed", # set to "" if don't use
+		knownSNPvcf = "knownSnpsAllchrPitx1new.vcf",      	# set to "" if don't use
+		knownSNPbed = "stickleback_21genome_SNP_chrM.bed",	# set to "" if don't use
 		fixBaseQualityScores = FALSE, qualityScoreDistribution = FALSE, run = TRUE){
 	# Takes .sam file (from bwa) through gatk pipeline to realigned and/or recalibrated bam.
 	# If samgz=TRUE, begins by uncompressing *.sam.gz to *.sam 
@@ -724,40 +724,50 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 
-	writeLines('
+	dictfile <- '
 		if [ ! -f "$dictfile" ]; then
-		    java -Xmx2g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar R=$fastafile O=$dictfile
+		    java -Xmx2g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar \\
+		    	R=$fastafile O=$dictfile -Djava.io.tmpdir=$TMPDIR/tmp
 		fi
-		
 		if [ ! -f "$faifile" ]; then
 		    samtools faidx $fastafile
 		fi
-		', outfile)
-
+			'
+	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, dictfile)
+	writeLines(dictfile, outfile)
+	
 	gunzipsam <- '
 		gunzip $samgzfile
 			'
 			
 	sortsam <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
-			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
+			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT \\
+			-Djava.io.tmpdir=$TMPDIR/tmp
 			'
+	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, sortsam)
+
 	qualityscoredistribution <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
-			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
+			I=$sortedbam O=$qualscoredist CHART=$qualscorechart -Djava.io.tmpdir=$TMPDIR/tmp
 			'
+	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, qualityscoredistribution)
 	
 	markduplicates <- '
 		java -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
 			I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
+			-Djava.io.tmpdir=$TMPDIR/tmp \\
 			VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 			'
+	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, markduplicates)
 		
 	addorreplacereadgroups <- '
 		java -Xmx2g -jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \\
+			-Djava.io.tmpdir=$TMPDIR/tmp \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
+	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, addorreplacereadgroups)
 	
 	realignertargetcreater <- '
 		gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \\

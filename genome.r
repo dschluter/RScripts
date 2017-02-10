@@ -756,7 +756,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, qualityscoredistribution)
 	
 	markduplicates <- '
-		java -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
+		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
 			I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
 			VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 			'

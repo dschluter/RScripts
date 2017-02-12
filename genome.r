@@ -1597,19 +1597,30 @@ g$gtf2thirdpositions <- function(gtffilename, refseqname, directory = "", check=
 	}
 	
 g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKversion = "3.4.0", 
-		samtoolsVersion = "0.1.19", threads = 1, run = TRUE, compressVcf = TRUE){
+		samtoolsVersion = "0.1.19", threads = 1, genome = "gasAcu1pitx1new.fa", 
+		run = TRUE, compressVcf = TRUE, muhua = TRUE){
 	# Takes bamfile file -- recal.bam or realigned.bam output of g$gatk --
 	#	and makes a gvcf file using gatk haplotype caller.
 	# If threads > 1, function uses -nct option to parallalize 
 	# Input file gatkBamfile must be "root.bam" or "root.sam"
 	# If samfile is supplied, it is first converted to bam.
-	# New feature: 
-		# Name output file with extension ".g.vcf" (or ".g.vcf" with compression)
-		# Variant indexing arguments (--variant_index_type LINEAR --variant_index_parameter 128000) are
-		# no longer required IF output file named with the extension .g.vcf so that the engine knows 
-		# what level of compression to use to write the gVCF index
-	# New feature: 
-		# ...you can specify the output from any of the steps as a .vcf.gz, and GATK will properly compress and index
+	# Name output file with extension ".g.vcf" (or ".g.vcf" with compression)
+	# 	Variant indexing arguments (--variant_index_type LINEAR --variant_index_parameter 128000) are
+	# 	no longer required IF output file named with the extension .g.vcf so that the engine knows 
+	# 	what level of compression to use to write the gVCF index
+	# Specify output from any of the steps as a .vcf.gz, and GATK will properly compress and index
+	# If muhua = TRUE, use Muhua's haplotypecaller options:
+	# java -Djava.io.tmpdir=/tmp -Xmx4g -jar GenomeAnalysisTK.jar -T HaplotypeCaller \
+	# 	-R gasAcu1.fa -variant_index_type LINEAR -variant_index_parameter 128000 \
+	# 	-ERC BP_RESOLUTION -nda -hets 0.01 -indelHeterozygosity 0.00125 -stand_call_conf 20.0 \
+	# 	-stand_emit_conf 10.0 -mbq 10 -maxNumHaplotypesInPopulation 128  -out_mode EMIT_ALL_SITES \
+	# 	-A AlleleBalanceBySample -A BaseCounts -A BaseQualityRankSumTest -A Coverage \
+	# 	-A DepthPerAlleleBySample -A DepthPerSampleHC -A FisherStrand -A GenotypeSummaries \
+	# 	-A HaplotypeScore -A HardyWeinberg -A InbreedingCoeff -A LikelihoodRankSumTest \
+	# 	-A MappingQualityRankSumTest -A MappingQualityZero -A MappingQualityZeroBySample \
+	# 	-A QualByDepth -A RMSMappingQuality -A ReadPosRankSumTest -A SampleList \
+	# 	-A SpanningDeletions -A StrandBiasBySample -A StrandOddsRatio -A VariantType \
+	# 	-I LITC_DWN_4.bam -o LITC_DWN_4.g.vcf
 
 	if(gatkBamfile == "") stop("You need to provide bamfile (or samfile) name")
 	root <- gsub(".[bs]+am$", "", gatkBamfile)
@@ -1627,8 +1638,8 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	writeLines(paste(	"#PBS -l walltime=", walltime, ":00:00", sep=""), outfile)
 	writeLines(paste(	"#PBS -l mem=", mem, "gb", sep = ""), outfile)
 	if(threads > 1){
-	writeLines(paste(	"#PBS -l nodes=1:ppn=",threads, sep = ""), outfile)
-	}
+	writeLines(paste(	"#PBS -l nodes=1:ppn=", threads, sep = ""), outfile)
+		}
 
 	writeLines(	"\n# pbs file to run haplotypeCaller on gatk output, bam or sam file", outfile)
 	writeLines(	paste("\n# gatkBamfile =", gatkBamfile), outfile)
@@ -1647,6 +1658,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		vcffile="${root}.g.vcf"
 		'
 	if(compressVcf) parameters <- sub(".g.vcf", ".g.vcf.gz", parameters)
+	if(genome != "gasAcu1pitx1new.fa") parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
 				
 	writeLines(parameters, outfile)
 
@@ -1663,6 +1675,18 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '	
+	if(muhua) haplotypecaller <- '
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
+		    --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
+			-stand_emit_conf 10.0 -mbq 10 -maxNumHaplotypesInPopulation 128 -out_mode EMIT_ALL_SITES \
+			-A AlleleBalanceBySample -A BaseCounts -A BaseQualityRankSumTest -A Coverage \\
+			-A DepthPerAlleleBySample -A DepthPerSampleHC -A FisherStrand -A GenotypeSummaries \\
+			-A HaplotypeScore -A HardyWeinberg -A InbreedingCoeff -A LikelihoodRankSumTest \\
+			-A MappingQualityRankSumTest -A MappingQualityZero -A MappingQualityZeroBySample \\
+			-A QualByDepth -A RMSMappingQuality -A ReadPosRankSumTest -A SampleList \\
+			-A SpanningDeletions -A StrandBiasBySample -A StrandOddsRatio -A VariantType \\
+		    -o $vcffile --allow_potentially_misencoded_quality_scores
+		     '	
 
 	if(filetype == "sam") 
 		writeLines(convertsam2bam, outfile)

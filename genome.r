@@ -550,7 +550,8 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 	parameters <- '
 		samfile="${root}.sam"
 		bamfile="${root}.bam"
-		fixedmisencoded="${root}.fixed-misencoded.bam"
+		fixedmisencodedbam="${root}.fixed-misencoded.bam"
+		fixedmisencodedbai="${root}.fixed-misencoded.bai"
 		outsam="${root}.fixed-misencoded.sam"
 		fastafile="gasAcu1pitx1new.fa"
 		'
@@ -563,10 +564,10 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		samtools view -bS -o $bamfile $samfile
 		'
 	fixqualityscores <- '
-		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencoded --fix_misencoded_quality_scores
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencodedbam --fix_misencoded_quality_scores
 			'
 	convertbam2sam <- '
-		samtools view -h -o $outsam $fixedmisencoded
+		samtools view -h -o $outsam $fixedmisencodedbam
 		'
 	
 	writeLines(parameters, outfile)
@@ -691,6 +692,7 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 		intervals="${inputfish}.intervals"
 		sortedbam="${inputfish}.sorted.bam"
 		realignedbam="${inputfish}.realigned.bam"
+		realignedbai="${inputfish}.realigned.bai"
 		mkdupmetrics="${inputfish}.mkdup.metrics"
 		mkdupbam="${inputfish}.mkdup.bam"
 		mkdupbai="${inputfish}.mkdup.bai"
@@ -704,7 +706,8 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 		recalplots="${inputfish}.recal.pdf"
 		realignedsam="${inputfish}.realigned.sam"
 		recalsam="${inputfish}.recal.sam"
-		fixedmisencoded="${inputfish}.fixed-misencoded.bam"
+		fixedmisencodedbam="${inputfish}.fixed-misencoded.bam"
+		fixedmisencodedbai="${inputfish}.fixed-misencoded.bai"
 		qualscoredist="${inputfish}.qual-score-dist.txt"
 		qualscorechart="${inputfish}.qual-score-dist.pdf"
 		'
@@ -780,8 +783,9 @@ g$gatk <- function(inputfish = "", mem = 4, walltime = 72,
 			'
 			
 	fixqualityscores <- '
-		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -o $fixedmisencoded --fix_misencoded_quality_scores
-		mv $fixedmisencoded $realignedbam
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -o $fixedmisencodedbam --fix_misencoded_quality_scores
+		mv $fixedmisencodedbam $realignedbam
+		mv $fixedmisencodedbai $realignedbai
 			'
 	
 	baserecalibrator <- '

@@ -1682,7 +1682,7 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 	if(muhua) haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
 		    --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
-			-stand_emit_conf 10.0 -mbq 10 -maxNumHaplotypesInPopulation 128 -out_mode EMIT_ALL_SITES \
+			-stand_emit_conf 10.0 -mbq 10 -maxNumHaplotypesInPopulation 128 -out_mode EMIT_ALL_SITES \\
 			-A AlleleBalanceBySample -A BaseCounts -A BaseQualityRankSumTest -A Coverage \\
 			-A DepthPerAlleleBySample -A DepthPerSampleHC -A FisherStrand -A GenotypeSummaries \\
 			-A HaplotypeScore -A HardyWeinberg -A InbreedingCoeff -A LikelihoodRankSumTest \\

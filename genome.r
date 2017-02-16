@@ -515,11 +515,11 @@ g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24
 	}
 
 
-
 g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKversion = "3.4.0",
 		samtoolsVersion = "0.1.19", genome = "gasAcu1pitx1new.fa", outputSam = FALSE, run = TRUE){
 
 	# Standalone function to take a sorted sam or bam file and fix the base quality scores using PrintReads
+	# If filetype is "sam", the file is converted to "bam" first
 	# Testing as follows led to an error; need to add read group step for this standalone to work.
 	# g$fixBaseQualityScores(samfile = "DenmarkBS27File7.sam.sorted.sam", outputSam = TRUE, run = TRUE)
 	# "DenmarkBS27File7.sam.sorted.bam is malformed: SAM file doesn't have any read groups defined in the header. 
@@ -554,6 +554,8 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		fixedmisencodedbai="${root}.fixed-misencoded.bai"
 		outsam="${root}.fixed-misencoded.sam"
 		fastafile="gasAcu1pitx1new.fa"
+		faifile="gasAcu1pitx1new.fa.fai"
+		dictfile="gasAcu1pitx1new.dict"
 		'
 	if(genome != "gasAcu1pitx1new.fa"){
 		 parameters <- gsub("gasAcu1pitx1new.fa", genome, parameters)
@@ -564,7 +566,8 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		samtools view -bS -o $bamfile $samfile
 		'
 	fixqualityscores <- '
-		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencodedbam --fix_misencoded_quality_scores
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencodedbam \\
+			--fix_misencoded_quality_scores
 			'
 	convertbam2sam <- '
 		samtools view -h -o $outsam $fixedmisencodedbam
@@ -576,6 +579,7 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 	writeLines(paste('module load samtools', samtoolsVersion, sep = "/"), outfile)
 
 	if(filetype == "sam") writeLines(convertsam2bam, outfile)
+	
 	writeLines(fixqualityscores, outfile)
 	if(outputSam) writeLines(convertbam2sam, outfile)
 		

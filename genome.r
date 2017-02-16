@@ -2488,7 +2488,7 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 		samfile="${inputfish}.sam"
 		samgzfile="${inputfish}.sam.gz"
 		sortedbam="${inputfish}.sortSam.bam"
-		sortedRGbam ="${inputfish}.sortRGsam.bam"
+		sortedRGbam="${inputfish}.sortRGsam.bam"
 		RGID="BENLIM.${inputfish}"
 		RGLB="${inputfish}.SB"
 		RGSM="${inputfish}" 
@@ -2507,13 +2507,13 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 	if(samgz) 
 		writeLines(gunzipsam, outfile)
 			
-	sortsam <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
-			-jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$step1bam \\
-			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
-			'
-	if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, sortsam)
-	# writeLines(sortsam, outfile) # Don't need to sort first?
+	# sortsam <- ' # Don't need to sort first
+		# java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+			# -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$step1bam \\
+			# SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
+			# '
+	# if(workdir != "$TMPDIR/tmp") sub("$TMPDIR/tmp", workdir, sortsam)
+	# writeLines(sortsam, outfile) 
 	
 	# This syntax assumes no sorting needed first - change I=$samfile otherwise	
 	addorreplacereadgroups <- '

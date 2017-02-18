@@ -745,7 +745,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 		    samtools faidx $fastafile
 		fi
 			'
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, dictfile)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, dictfile)
 	
 	gunzipsam <- '
 		gunzip $samgzfile
@@ -756,22 +756,22 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			-jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
-	if(bamfile) sub("\\$samfile", "$bamfile", sortsam)
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, sortsam)
+	if(bamfile) sub("[$]samfile", "$bamfile", sortsam)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, sortsam)
 
 	qualityscoredistribution <- '
 		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, qualityscoredistribution)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, qualityscoredistribution)
 	
 	markduplicates <- '
 		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
 			I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
 			VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 			'
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, markduplicates)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, markduplicates)
 		
 	addorreplacereadgroups <- '
 		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
@@ -779,7 +779,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, addorreplacereadgroups)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, addorreplacereadgroups)
 	
 	realignertargetcreater <- '
 		gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \\
@@ -801,8 +801,8 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			-o $recaltable --allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
-		if(knownSNPvcf == "") sub("-knownSites \\$knownSNPvcf", "", baserecalibrator)
-		if(knownSNPbed == "") sub("-knownSites \\$knownSNPbed", "", baserecalibrator)
+		if(knownSNPvcf == "") sub("-knownSites [$]knownSNPvcf", "", baserecalibrator)
+		if(knownSNPbed == "") sub("-knownSites [$]knownSNPbed", "", baserecalibrator)
 
 	analyzecovariates <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
@@ -2516,7 +2516,7 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 			# -jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$step1bam \\
 			# SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			# '
-	# if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, sortsam)
+	# if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, sortsam)
 	# writeLines(sortsam, outfile) 
 	
 	# This syntax assumes no sorting needed first - change I=$samfile otherwise	
@@ -2526,7 +2526,7 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$samfile O=$sortedRGbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
-	if(workdir != "$TMPDIR/tmp") sub("\\$TMPDIR/tmp", workdir, addorreplacereadgroups)
+	if(workdir != "$TMPDIR/tmp") sub("[$]TMPDIR/tmp", workdir, addorreplacereadgroups)
 	writeLines(addorreplacereadgroups, outfile)
 
 	writeLines('\nexit 0', outfile)

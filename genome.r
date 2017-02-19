@@ -492,16 +492,18 @@ g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24
 		'
 	parameters <- gsub("x.fa", genome, parameters)
 	parameters <- gsub("x.dict", gsub("[.][fasta]+",".dict",genome), parameters)
-
 	writeLines(parameters, outfile)
 
 	writeLines(paste('module load samtools', samtoolsVersion, sep = "/"), outfile)
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 
-	writeLines('
+	makeindex <- '
 		samtools faidx $fastafile
-		java -Xmx2g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar R=$fastafile O=$dictfile
-		', outfile)
+		java -Xmx4g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar R=$fastafile O=$dictfile
+		'
+ 	if(mem !=4) 
+  		makeindex <- sub('Xmx4', paste('Xmx', mem, sep = ""), makeindex, fixed = TRUE)
+	writeLines(makeindex, outfile)
 
 	writeLines('\nexit 0', outfile)
 	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)
@@ -572,6 +574,8 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencodedbam \\
 			--fix_misencoded_quality_scores
 			'
+	if(mem !=4) fixqualityscores <- sub('Xmx4', paste('Xmx', mem, sep = ""), fixqualityscores, fixed = TRUE)
+
 	convertbam2sam <- '
 		samtools view -h -o $outsam $fixedmisencodedbam
 		'
@@ -737,7 +741,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 		
 	dictfile <- '
 		if [ ! -f "$dictfile" ]; then
-		    java -Xmx2g  -Djava.io.tmpdir=$TMPDIR/tmp \\
+		    java -Xmx4g  -Djava.io.tmpdir=$TMPDIR/tmp \\
 		    	-jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar \\
 		    	R=$fastafile O=$dictfile
 		fi
@@ -745,6 +749,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 		    samtools faidx $fastafile
 		fi
 			'
+	if(mem !=4) dictfile <- sub('Xmx4', paste('Xmx', mem, sep = ""), dictfile, fixed = TRUE)
 	if(workdir != "$TMPDIR/tmp") dictfile <- sub("[$]TMPDIR/tmp", workdir, dictfile)
 	
 	gunzipsam <- '
@@ -752,7 +757,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			'
 			
 	sortsam <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/SortSam.jar I=$samfile O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
@@ -760,45 +765,65 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 		sortsam <- sub("[$]samfile", "$bamfile", sortsam)
 	if(workdir != "$TMPDIR/tmp") 
 		sortsam <- sub("[$]TMPDIR/tmp", workdir, sortsam)
+	if(mem !=4) sortsam <- sub('Xmx4', paste('Xmx', mem, sep = ""), sortsam, fixed = TRUE)
 
 	qualityscoredistribution <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedbam O=$qualscoredist CHART=$qualscorechart
 			'
 	if(workdir != "$TMPDIR/tmp") 
 		qualityscoredistribution <- sub("[$]TMPDIR/tmp", workdir, qualityscoredistribution)
+	if(mem !=4) 
+		qualityscoredistribution <- sub('Xmx4', paste('Xmx', mem, sep = ""), qualityscoredistribution, 
+			fixed = TRUE)
 	
 	markduplicates <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/MarkDuplicates.jar \\
 			I=$sortedbam O=$mkdupbam M=$mkdupmetrics \\
 			VALIDATION_STRINGENCY=LENIENT REMOVE_DUPLICATES=FALSE ASSUME_SORTED=TRUE
 			'
 	if(workdir != "$TMPDIR/tmp") 
 		markduplicates <- sub("[$]TMPDIR/tmp", workdir, markduplicates)
+	if(mem !=4) markduplicates <- sub('Xmx4', paste('Xmx', mem, sep = ""), markduplicates, fixed = TRUE)
 		
 	addorreplacereadgroups <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$mkdupbam O=$sortedbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
 	if(workdir != "$TMPDIR/tmp") 
-			addorreplacereadgroups <- sub("[$]TMPDIR/tmp", workdir, addorreplacereadgroups)
+		addorreplacereadgroups <- sub("[$]TMPDIR/tmp", workdir, addorreplacereadgroups)
+	if(mem !=4) 
+		addorreplacereadgroups <- sub('Xmx4', paste('Xmx', mem, sep = ""), addorreplacereadgroups, 
+			fixed = TRUE)
 	
 	realignertargetcreater <- '
 		gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \\
 			--allow_potentially_misencoded_quality_scores
 			'
+	if(mem !=4) 
+		realignertargetcreater <- sub('Xmx4', paste('Xmx', mem, sep = ""), realignertargetcreater, 
+			fixed = TRUE)
+
 	indelrealigner <- '
 		gatk.sh -Xmx4g -T IndelRealigner -R $fastafile -I $sortedbam -targetIntervals $intervals \\
 			-o $realignedbam -LOD 0.4 --allow_potentially_misencoded_quality_scores
 			'
+	if(mem !=4) 
+		indelrealigner <- sub('Xmx4', paste('Xmx', mem, sep = ""), indelrealigner, 
+			fixed = TRUE)
+
 	fixqualityscores <- '
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -o $fixedmisencodedbam --fix_misencoded_quality_scores
 		mv $fixedmisencodedbam $realignedbam
 		mv $fixedmisencodedbai $realignedbai
 			'
+	if(mem !=4) 
+		fixqualityscores <- sub('Xmx4', paste('Xmx', mem, sep = ""), fixqualityscores, 
+			fixed = TRUE)
+
 	baserecalibrator <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites $knownSNPvcf \\
@@ -806,10 +831,13 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			-o $recaltable --allow_potentially_misencoded_quality_scores
 		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
-		if(knownSNPvcf == "") 
+	if(knownSNPvcf == "") 
 			baserecalibrator <- sub("-knownSites [$]knownSNPvcf", "", baserecalibrator)
-		if(knownSNPbed == "") 
+	if(knownSNPbed == "") 
 			baserecalibrator <- sub("-knownSites [$]knownSNPbed", "", baserecalibrator)
+	if(mem !=4) 
+		baserecalibrator <- gsub('Xmx4', paste('Xmx', mem, sep = ""), baserecalibrator, 
+			fixed = TRUE)
 
 	analyzecovariates <- '
 		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
@@ -820,11 +848,18 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 		gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			-after $afterrecaltable -plots $recalplots		
 			'
+	if(mem !=4) 
+		analyzecovariates <- gsub('Xmx4', paste('Xmx', mem, sep = ""), analyzecovariates, 
+			fixed = TRUE)
+
 	haplotypecaller <- '
 		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '
+	if(mem !=4) 
+		haplotypecaller <- sub('Xmx4', paste('Xmx', mem, sep = ""), haplotypecaller, 
+			fixed = TRUE)
 		 
 	# ----- Write components of pipeline to pbs file ----------
 
@@ -878,7 +913,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 	}
 
 
-g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 2, walltime = 24, 
+g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, walltime = 24, 
 	workdir = "~/tmp/", GATKversion = "3.4.0", genome = "gasAcu1pitx1new.fa", run = TRUE){
 	# Run "indexVcfGz.R" beforehand to generate "var.vcf.bgz.tbi"
 	#
@@ -930,10 +965,13 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 2, wa
 			--allow_potentially_misencoded_quality_scores
 			'
 		# cat dropfish
-	
-		dropfish <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-xl_sn "), dropfish)
+	dropfish <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-xl_sn "), dropfish)
 		writeLines(dropfish, outfile)
 		}
+ 	if(mem !=4) 
+ 		dropfish <- gsub('Xmx4', paste('Xmx', mem, sep = ""), dropfish, 
+ 			fixed = TRUE)
+
 
 	if(!is.null(keep)){
 		if(!is.null(drop)) stop("You must drop or keep, not both")
@@ -946,6 +984,9 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 2, wa
 		keepfish <- gsub("samplename", paste(keep, collapse = " \\\\\n\t\t\t-sn "), keepfish)
 		writeLines(keepfish, outfile)
 		}
+ 	if(mem !=4) 
+ 		keepfish <- gsub('Xmx4', paste('Xmx', mem, sep = ""), keepfish, 
+ 			fixed = TRUE)
 
 	writeLines("\necho \"Job finished with exit code $? at: \`date\`\"", outfile)
 	
@@ -1764,13 +1805,13 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 			-A SpanningDeletions -A StrandBiasBySample -A StrandOddsRatio -A VariantType \\
 		    -o $vcffile --allow_potentially_misencoded_quality_scores
 		     '	
-
 	if(filetype == "sam") 
 		writeLines(convertsam2bam, outfile)
 	if(threads > 1){
 		nct <- paste('--num_cpu_threads_per_data_thread', threads)
 		haplotypecaller <- sub('\\', paste(nct,'\\'), haplotypecaller, fixed = TRUE)
 		}
+	if(mem !=4) haplotypecaller <- sub('Xmx4', paste('Xmx', mem, sep = ""), haplotypecaller, fixed = TRUE)
 		
 	writeLines(haplotypecaller, outfile)
 		
@@ -2274,10 +2315,18 @@ g$qualityScoreDistribution <- function(samfile = "", mem = 2, walltime = 24, Rve
 			I=$samfile O=$sortedsam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
+	if(mem !=2) 
+ 		sortsam <- sub('Xmx2', paste('Xmx', mem, sep = ""), sortsam, 
+ 			fixed = TRUE)
+
 	qualityscoredistribution <- '
 		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/QualityScoreDistribution.jar \\
 			I=$sortedsam O=$qualscoredist CHART=$qualscorechart
 			'
+	if(mem !=2) 
+ 		qualityscoredistribution <- sub('Xmx2', paste('Xmx', mem, sep = ""), qualityscoredistribution, 
+ 			fixed = TRUE)
+
 	if(sorted) parameters <- gsub('sortedsam="${root}.sorted.sam"', 
 		'sortedsam="${root}.sam"', parameters, fixed = TRUE)
 	if(filetype == "bam") parameters <- gsub(".sam", ".bam", parameters, fixed = TRUE)
@@ -2590,11 +2639,14 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 	
 	# This syntax assumes no sorting needed first - change I=$samfile otherwise	
 	addorreplacereadgroups <- '
-		java -Xmx2g -Djava.io.tmpdir=$TMPDIR/tmp \\
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp \\
 			-jar /global/software/picard-tools-1.89/AddOrReplaceReadGroups.jar \\
 			RGID=$RGID RGLB=$RGLB RGSM=$RGSM RGPL=$RGPL RGPU=$RGPU I=$samfile O=$sortedRGbam \\
 			SORT_ORDER=coordinate CREATE_INDEX=TRUE VALIDATION_STRINGENCY=LENIENT
 			'
+ 	if(mem !=4) 
+  		addorreplacereadgroups <- sub('Xmx4', paste('Xmx', mem, sep = ""), addorreplacereadgroups, 
+  			fixed = TRUE)
 	if(workdir != "$TMPDIR/tmp") 
 		addorreplacereadgroups  <- sub("[$]TMPDIR/tmp", workdir, addorreplacereadgroups)
 	writeLines(addorreplacereadgroups, outfile)

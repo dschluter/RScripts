@@ -1152,8 +1152,12 @@ g$geno.diff <- function(GT1, GT2){
 	diff
 }
 
-g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0", 
-	mem = 4, walltime = 24, genome = "gasAcu1pitx1new.fa", maxAltAlleles = 3, run = TRUE){
+g$genotypeChrGVCFs <- function(gvcffiles, outvcfname, 
+	GATKversion = "3.4.0", 
+	mem = 4, walltime = 24,
+	genome = "gasAcu1pitx1new.fa", 
+	maxAltAlleles = 3, 
+	run = TRUE){
 	# Generates "genotypeGVCFs.pbs" to carry out genotypeGVCFs to call snps
 	#	from multiple gvcf files inputted, for a SINGLE chromosome
 	# chrname is extracted from gvcf file names.
@@ -1163,7 +1167,8 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname, GATKversion = "3.4.0",
 	# New feature: RGQ Reference Genotype Quality, a sample-level annotation added to monomorphic sites 
 		# if use -allSites argument to emit non-variant sites to the output VCF
 	# New feature: 
-		# ...you can specify the output from any of the steps as a .vcf.gz, and GATK will properly compress and index
+		# ...you can specify the output from any of the steps as a .vcf.gz, and GATK will 
+		# properly compress and index
 	
 	if( !( all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles)) ) )
 		stop("Provide only g.vcf or g.vcf.gz files as arguments")

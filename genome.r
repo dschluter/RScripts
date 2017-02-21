@@ -1261,7 +1261,8 @@ g$genotypeChrGVCFs <- function(gvcffiles, outvcfname,
 
 g$genotypeGVCFs <- function(gvcffiles, outvcfname, 
 	GATKversion = "3.4.0", 
-	mem = 4, walltime = 24, threads = 1,
+	mem = 4, walltime = 24, 
+	# threads = 1, # doesn't support -nct
 	genome = "gasAcu1pitx1new.fa", 
 	maxAltAlleles = 3, 
 	run = TRUE){
@@ -1305,10 +1306,10 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname,
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
 		writeLines(gvcffiles[i], outfile)
 		}
-	if(threads > 1){
-		nct <- paste("     --num_cpu_threads_per_data_thread", threads)
-		writeLines(paste(nct, "\\"), outfile)
-		}
+	# if(threads > 1){
+		# nct <- paste("     --num_cpu_threads_per_data_thread", threads)
+		# writeLines(paste(nct, "\\"), outfile)
+		# }
 	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles",
 		maxAltAlleles, "-o", outvcfname), outfile)
 	

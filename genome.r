@@ -1281,7 +1281,7 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname,
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
-	pbsfile <- paste("genotypeGVCFs-", "-", hour, ".pbs", sep = "")
+	pbsfile <- paste("genotypeGVCFs-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 
 	writeLines(			"#!/bin/bash", outfile)

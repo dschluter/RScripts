@@ -3,10 +3,12 @@
 #	and to save the invariant DP and RGQ values to a second file named etc.DP.inv.gz
 
 # This code might generate "NA:NA" in DP.inv, so next function needs to deal with it.
+# This code should work for whole genome vcf files too, not just single-chromosome files.
 
 args <- commandArgs(TRUE) # get argument (name of vcf file)
 # args <- c("Benlim.chrM.vcf.gz")
 # args <- c("Benlim.chrXXI.vcf.gz")
+# args <- c("SculpinNoSculpin.vcf.gz") # no chr, is whole genome
 
 # project <- args[1]
 # chrname <- args[2]
@@ -17,7 +19,7 @@ vcffile <- args
 # Assume that project is the first part of the vcf file name
 z <- unlist(strsplit(vcffile, split = "[.]"))
 project <- z[1]
-chrname <- z[grep("chr", z)]
+chrname <- z[grep("chr", z)] # might be character(0)
 projectchr <- gsub("[.]vcf.gz$", "", vcffile)
 
 # OPTIONS

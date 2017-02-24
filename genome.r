@@ -2747,9 +2747,10 @@ g$tstv <- function(REF,ALT){
 	return(R)
 }
 	
-g$variantRecalibrator <- function(vcffile = "Benlim.chrM.vcf.gz", outvcfname, GATKversion = "3.4.0", 
+g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname, GATKversion = "3.4.0", 
 	genome = "gasAcu1pitx1new.fa", resourceFile = "206sticklebacks_GATKvariants.SNP.filtered.vcf", 
-	an = c("DP", "QD", "FS", "MQ"), mode = "SNP", tranche = c("99.9", "99.0", "90.0"),
+	an = c("DP", "QD", "FS", "MQ", "MQRankSum", "ReadPosRankSum"), mode = "SNP", 
+	tranche = c("99.9", "99.5", "99.0", "95.0", "90.0"),
 	mem = 4, walltime = 24, run = TRUE){
 	# Generates pbs file to run VariantRecalibrator, ApplyRecalibration, and SelectVariants
 	#	on inputted vcf.gz file
@@ -2764,13 +2765,11 @@ g$variantRecalibrator <- function(vcffile = "Benlim.chrM.vcf.gz", outvcfname, GA
 	if( !( grepl("[.]vcf$", vcffile) | grepl("[.]vcf.gz$", vcffile) ) )
 		stop("Provide only .vcf or .vcf.gz files as arguments")
 
-	# Identify the chromosome number from gvcffiles names
-	project <- gsub("(.*)[.]chr[A-z1]+.*[.]vcf[.gz]*", "\\1", vcffile)	
-	chrname <- gsub(".*[.](chr[A-z1]+).*[.]vcf[.gz]*", "\\1", vcffile)	
-
+	root <- gsub("[.]vcf|[.]vcf[.]gz", "", vcffile)
+	
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
-	pbsfile <- paste("VariantRecalibrator-", chrname, "-", hour, ".pbs", sep = "")
+	pbsfile <- paste("VariantRecalibrator-", root, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 
 	writeLines(			"#!/bin/bash", outfile)
@@ -2789,15 +2788,15 @@ g$variantRecalibrator <- function(vcffile = "Benlim.chrM.vcf.gz", outvcfname, GA
 		
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 	
-	writeLines(paste("gatk.sh -Xmx", mem, "g -R ", genome, " -T VariantRecalibrator \\", sep=""), outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g", " -T VariantRecalibrator -R ", genome, " \\", sep=""), outfile)
 	writeLines(paste("  -input", vcffile, "\\", sep = " "), outfile)
 	writeLines(paste("  -resource:known=false,training=true,truth=true,prior=6.0", resourceFile, "\\", sep=" "), outfile)
 	writeLines(paste(c(" ", paste("-an", an), "\\"), collapse = " "), outfile)
 	writeLines(paste("  -mode", mode, "\\", sep = " "), outfile)
 	writeLines(paste(c(" ", paste("-tranche", tranche), "\\"), collapse = " "), outfile)
-	writeLines(paste("  -recalFile ", project, ".", chrname, ".", mode, ".recalFile", " \\", sep = ""), outfile)
-	writeLines(paste("  -tranchesFile ", project, ".", chrname, ".", mode, ".tranches", " \\", sep = ""), outfile)
-	writeLines(paste("  -rscriptFile ", project, ".", chrname, ".", mode, ".r", " -dt NONE", sep = ""), outfile)
+	writeLines(paste("  -recalFile ", root, ".", mode, ".recalFile", " \\", sep = ""), outfile)
+	writeLines(paste("  -tranchesFile ", root, ".", mode, ".tranches", " \\", sep = ""), outfile)
+	writeLines(paste("  -rscriptFile ", root, ".", mode, ".r", " -dt NONE", sep = ""), outfile)
 
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))

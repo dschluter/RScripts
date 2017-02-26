@@ -2747,7 +2747,8 @@ g$tstv <- function(REF,ALT){
 	return(R)
 }
 	
-g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname, GATKversion = "3.4.0", 
+g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname, 
+	GATKversion = "3.4.0", Rversion = "3.1.2",
 	genome = "gasAcu1pitx1new.fa", resourceFile = "206sticklebacks_GATKvariants.SNP.filtered.vcf", 
 	an = c("DP", "QD", "FS", "MQ", "MQRankSum", "ReadPosRankSum"), mode = "SNP", 
 	tranche = c("99.9", "99.5", "99.0", "95.0", "90.0"),
@@ -2766,6 +2767,10 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname, GATKver
 		stop("Provide only .vcf or .vcf.gz files as arguments")
 
 	root <- gsub("[.]vcf|[.]vcf[.]gz", "", vcffile)
+	recalFile <- paste(root, mode, "recalFile", sep = ".")
+	tranchesFile <- paste(root, mode, "tranches", sep = ".")
+	rscriptFile <- paste(root, mode, "r", sep = ".")
+	outvcfFile <- paste(root, "_99.0_", mode, ".vcf.gz", sep = "") 
 	
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -2787,16 +2792,42 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname, GATKver
 	writeLines("\necho \"Starting run at: \`date\`\"", outfile)
 		
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
+	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 	
+	# The following produced this:
+	# gatk.sh -Xmx8g -T VariantRecalibrator -R gasAcu1pitx1new.fa \
+	  # -input SculpinNoSculpin.vcf.gz \
+	  # -resource:known=false,training=true,truth=true,prior=6.0 206sticklebacks_filtered.vcf.gz \
+	  # -an DP -an FS -an MQRankSum -an ReadPosRankSum \
+	  # -mode SNP \
+	  # -tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 95.0 -tranche 90.0 \
+	  # -recalFile SculpinNoSculpin.SNP.recalFile \
+	  # -tranchesFile SculpinNoSculpin.SNP.tranches \
+	  # -rscriptFile SculpinNoSculpin.SNP.r -dt NONE
+	  
 	writeLines(paste("gatk.sh -Xmx", mem, "g", " -T VariantRecalibrator -R ", genome, " \\", sep=""), outfile)
 	writeLines(paste("  -input", vcffile, "\\", sep = " "), outfile)
 	writeLines(paste("  -resource:known=false,training=true,truth=true,prior=6.0", resourceFile, "\\", sep=" "), outfile)
 	writeLines(paste(c(" ", paste("-an", an), "\\"), collapse = " "), outfile)
 	writeLines(paste("  -mode", mode, "\\", sep = " "), outfile)
 	writeLines(paste(c(" ", paste("-tranche", tranche), "\\"), collapse = " "), outfile)
-	writeLines(paste("  -recalFile ", root, ".", mode, ".recalFile", " \\", sep = ""), outfile)
-	writeLines(paste("  -tranchesFile ", root, ".", mode, ".tranches", " \\", sep = ""), outfile)
-	writeLines(paste("  -rscriptFile ", root, ".", mode, ".r", " -dt NONE", sep = ""), outfile)
+	writeLines(paste("  -recalFile ", recalFile, " \\", sep = ""), outfile)
+	writeLines(paste("  -tranchesFile ", tranchesFile, " \\", sep = ""), outfile)
+	writeLines(paste("  -rscriptFile ", rscriptFile, " -dt NONE", sep = ""), outfile)
+
+	# Next lines to print:
+	# gatk.sh -Xmx8g -T ApplyRecalibration -R gasAcu1pitx1new.fa \
+		# -input SculpinNoSculpin.vcf.gz -mode SNP --ts_filter_level 99.0 -recalFile SculpinNoSculpin.SNP.recalFile \
+		# -tranchesFile SculpinNoSculpin.SNP.tranches -o SculpinNoSculpin_99.0_SNP.vcf.gz
+
+	writeLines("\n", outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g", " -T ApplyRecalibration -R ", genome, " \\", sep=""), outfile)
+	writeLines(paste("  -input", vcffile, "-mode", mode, "\\", sep = " "), outfile)
+	writeLines(paste("  --ts_filter_level 99.0 -recalFile", recalFile, "\\", sep=" "), outfile)
+	writeLines(paste("  -tranchesFile ", tranchesFile, " \\", sep = ""), outfile)
+	writeLines(paste("  -o", outvcfFile, sep = " "), outfile)
+	
+	# Next step is to select variants - make it another g$ command.
 
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))

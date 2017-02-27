@@ -462,8 +462,12 @@ g$fasta2vec <- function(fastafile){
 	chrvec <- strsplit(chr, split="")[[1]] # break apart genome into individual bases
 	}
 	
-g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24, 
-	GATKversion = "3.4.0", samtoolsVersion = "0.1.19", run = TRUE){
+g$fastaIndex <- function(genome = "", 
+	workdir = "$TMPDIR/tmp", # needed for Picard, says Belaid
+	mem = 2, walltime = 24, 
+	GATKversion = "3.4.0", 
+	samtoolsVersion = "0.1.19", 
+	run = TRUE){
 	# Generates and runs a .pbs file to make
 	# .fai index and .dict dictionary file for a fasta file
 
@@ -499,10 +503,12 @@ g$fastaIndex <- function(genome = "", workdir = "~/tmp/", mem = 4, walltime = 24
 
 	makeindex <- '
 		samtools faidx $fastafile
-		java -Xmx4g -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar R=$fastafile O=$dictfile
+		java -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -jar /global/software/picard-tools-1.89/CreateSequenceDictionary.jar R=$fastafile O=$dictfile
 		'
- 	if(mem !=4) 
-  		makeindex <- sub('Xmx4', paste('Xmx', mem, sep = ""), makeindex, fixed = TRUE)
+ 	if(mem !=2) 
+  		makeindex <- sub('Xmx2', paste('Xmx', mem, sep = ""), makeindex, fixed = TRUE)
+	if(workdir != "$TMPDIR/tmp") makeindex <- sub("[$]TMPDIR/tmp", workdir, makeindex)
+
 	writeLines(makeindex, outfile)
 
 	writeLines('\nexit 0', outfile)

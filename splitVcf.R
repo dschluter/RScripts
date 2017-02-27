@@ -7,11 +7,8 @@
 
 args <- commandArgs(TRUE) # get argument (name of vcf file)
 # args <- c("Benlim.chrM.vcf.gz")
-# args <- c("Benlim.chrXXI.vcf.gz")
+# args <- c("SculpNoSculpByChrom.chrVIIpitx1new.vcf.gz")
 # args <- c("SculpinNoSculpin.vcf.gz") # no chr, is whole genome
-
-# project <- args[1]
-# chrname <- args[2]
 
 vcffile <- args
 
@@ -20,14 +17,14 @@ vcffile <- args
 z <- unlist(strsplit(vcffile, split = "[.]"))
 project <- z[1]
 chrname <- z[grep("chr", z)] # might be character(0)
-projectchr <- gsub("[.]vcf.gz$", "", vcffile)
+root <- gsub("[.]vcf$|[.]vcf[.]gz$||[.]vcf[.]bgz$", "", vcffile)
 
 # OPTIONS
 nFirstLines <- 1000    # first number of lines to read to extract header
 nLinesAtaTime = 100000
 
 # Open file and read nFirstLines lines from vcf file
-INFILE <- file(vcffile, open = "r")
+if(!grepl("gz$", vcffile)) INFILE <- file(vcffile, open = "r") else INFILE <- file(vcffile, open = "r")
 
 x <- readLines(con = INFILE, n = nFirstLines) # this works on vcf.gz file
 
@@ -39,8 +36,8 @@ x <- x[-c(1:nhead)] # keep the non-header part of x
 nlines <- length(x)
 
 # Open 2 output file connections and write headers
-outfile1 <- gzfile(paste(projectchr, "var", "vcf.gz", sep="."), "w")
-outfile2 <- gzfile(paste(projectchr, "DP", "inv.gz", sep="."), "w")
+outfile1 <- gzfile(paste(root, "var", "vcf.gz", sep="."), "w")
+outfile2 <- gzfile(paste(root, "DP", "inv.gz", sep="."), "w")
 
 writeLines(headerlines, outfile1)
 

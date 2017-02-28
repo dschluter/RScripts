@@ -2671,11 +2671,12 @@ g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24,
 		}
 	}
 
-g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, run = TRUE){
+g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, root = NULL, run = TRUE){
 	# Replaces makePbsRunRscript
 	# Creates a *.pbs file to run the full Rscript command "Rscript"
 	# Download .R script file from github before using
 	# The Rscript command executes a particular *.R file and provides any needed arguments
+	# If root is provided, it is included in the pbs file name
 	# if run=TRUE, automatically submits the pbs file to the queue
 	# Example: (note that all the arguments to .R script are included in a single quotation
 	# 	g$submitRscript(Rscript = "countInvariantsByGroup.R BenlimPax22pacMar7 chrXXI 1 paxl paxb marine-pac")
@@ -2692,7 +2693,8 @@ g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime 
 	# Attach date and time to name of file to make unique
 	# pbsfile <- gsub(".pbs$", "", pbsfile)
 	hour <- gsub("[ :]","-",Sys.time())
-	pbsfile <- paste(dotRfile, "-", hour, ".pbs", sep = "")
+	if(!is.null(root)) pbsfile <- paste(dotRfile, "-", root, "-", hour, ".pbs", sep = "") else
+		pbsfile <- paste(dotRfile, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 	
 	writeLines(			"#!/bin/bash", outfile)

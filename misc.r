@@ -1,3 +1,5 @@
+is_number <- function(A){ !grepl("[^0-9]+", A) }
+
 curl <- function(Rfile){
 	system(paste("curl -o " , Rfile, " https://raw.githubusercontent.com/dschluter/RScripts/master/", Rfile, sep = ""))
 	}

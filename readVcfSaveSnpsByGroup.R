@@ -605,7 +605,7 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 		vcfresultsPart$altUsedList <-       vcfresults$altUsedList[vcfresults$newChr == i]
 		vcfresultsPart$snpTypeList <-       vcfresults$snpTypeList[vcfresults$newChr == i]
 		vcfresultsPart$alleleFreqByGroup <- vcfresults$alleleFreqByGroup[vcfresults$newChr == i]
-		vcfresultsPart$fishnames <- 		vcfresults$fishnames[vcfresults$newChr == i]
+		vcfresultsPart$fishnames <- 		vcfresults$fishnames
 		save(vcfresultsPart, file = paste(project, chrname, "vcfresultsPart", i, "rdd", sep = "."))
 		}
 	} # end if(Glazerize)

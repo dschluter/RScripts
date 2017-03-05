@@ -1266,10 +1266,13 @@ g$genotypeChrGVCFs <- function(gvcffiles, outvcfname,
 	if(run) system(paste("qsub", pbsfile))
 	}
 
-g$genotypeGVCFs <- function(gvcffiles, outvcfname, 
+g$genotypeGVCFs <- function(
+	gvcffiles, 
+	outvcfname, 
 	GATKversion = "3.4.0", 
-	mem = 4, walltime = 24, 
-	# threads = 1, # doesn't support -nct
+	mem = 4, 
+	walltime = 24, 
+	threads = 1, # supports -nt
 	genome = "gasAcu1pitx1new.fa", 
 	maxAltAlleles = 3, 
 	run = TRUE){
@@ -1277,6 +1280,12 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname,
 	#	from multiple gvcf files inputted, for a whole genome
 	# Specify the output from any of the steps as a .vcf.gz, and GATK will 
 	# 	properly compress and index
+	# GenotypeGVCFs uses -nt for parallization (number of data threads, whereas -nct refers to CPU threads)
+	# "Each data thread needs to be given the full amount of memory you’d normally give a single run. 
+	# 	So if you’re running a tool that normally requires 2 Gb of memory to run, if you use -nt 4, 
+	# 	the multithreaded run will use 8 Gb of memory. In contrast, CPU threads will share the memory 
+	# 	allocated to their “mother” data thread, so you don’t need to worry about allocating memory 
+	# 	based on the number of CPU threads you use."
 	
 	if( !( all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles)) ) )
 		stop("Provide only g.vcf or g.vcf.gz files as arguments")
@@ -1313,10 +1322,10 @@ g$genotypeGVCFs <- function(gvcffiles, outvcfname,
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
 		writeLines(gvcffiles[i], outfile)
 		}
-	# if(threads > 1){
-		# nct <- paste("     --num_cpu_threads_per_data_thread", threads)
-		# writeLines(paste(nct, "\\"), outfile)
-		# }
+	if(threads > 1){
+		nt <- paste("     --num_threads", threads)
+		writeLines(paste(nt, "\\"), outfile)
+		}
 	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles",
 		maxAltAlleles, "-o", outvcfname), outfile)
 	

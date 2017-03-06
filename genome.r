@@ -1272,9 +1272,11 @@ g$genotypeGVCFs <- function(
 	GATKversion = "3.4.0", 
 	mem = 4, 
 	walltime = 24, 
-	threads = 1, # supports -nt
+	# threads = 1, # supports -nt
 	genome = "gasAcu1pitx1new.fa", 
 	maxAltAlleles = 3, 
+	standCallConf = 30, # is default
+	standEmitConf = 10, # is default
 	run = TRUE){
 	# Generates "genotypeGVCFs.pbs" to carry out genotypeGVCFs to call snps
 	#	from multiple gvcf files inputted, for a whole genome
@@ -1322,10 +1324,15 @@ g$genotypeGVCFs <- function(
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
 		writeLines(gvcffiles[i], outfile)
 		}
-	if(threads > 1){
-		nt <- paste("     --num_threads", threads)
-		writeLines(paste(nt, "\\"), outfile)
-		}
+
+	writeLines(paste("     -stand_call_conf", standCallConf, "-stand_emit_conf", standEmitConf, "\\"), 
+		outfile)
+
+	# if(threads > 1){
+		# nt <- paste("     --num_threads", threads)
+		# writeLines(paste(nt, "\\"), outfile)
+		# }
+
 	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles",
 		maxAltAlleles, "-o", outvcfname), outfile)
 	

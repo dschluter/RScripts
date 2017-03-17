@@ -578,8 +578,8 @@ g$fixBaseQualityScores <- function(samfile = "", mem = 4, walltime = 24, GATKver
 		samtools view -bS -o $bamfile $samfile
 		'
 	fixqualityscores <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T PrintReads -R $fastafile -I $bamfile \\
-			-o $fixedmisencodedbam --fix_misencoded_quality_scores
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $bamfile -o $fixedmisencodedbam \\
+			--fix_misencoded_quality_scores
 			'
 	if(mem !=4) fixqualityscores <- sub('Xmx4', paste('Xmx', mem, sep = ""), fixqualityscores, fixed = TRUE)
 
@@ -807,24 +807,23 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			fixed = TRUE)
 	
 	realignertargetcreater <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T RealignerTargetCreator -R $fastafile -I $sortedbam \\
-			-o $intervals --allow_potentially_misencoded_quality_scores
+		gatk.sh -Xmx4g -T RealignerTargetCreator -R $fastafile -I $sortedbam -o $intervals \\
+			--allow_potentially_misencoded_quality_scores
 			'
 	if(mem !=4) 
 		realignertargetcreater <- sub('Xmx4', paste('Xmx', mem, sep = ""), realignertargetcreater, 
 			fixed = TRUE)
 
 	indelrealigner <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T IndelRealigner -R $fastafile -I $sortedbam \\
-			-targetIntervals $intervals -o $realignedbam -LOD 0.4 --allow_potentially_misencoded_quality_scores
+		gatk.sh -Xmx4g -T IndelRealigner -R $fastafile -I $sortedbam -targetIntervals $intervals \\
+			-o $realignedbam -LOD 0.4 --allow_potentially_misencoded_quality_scores
 			'
 	if(mem !=4) 
 		indelrealigner <- sub('Xmx4', paste('Xmx', mem, sep = ""), indelrealigner, 
 			fixed = TRUE)
 
 	fixqualityscores <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T PrintReads -R $fastafile -I $realignedbam \\
-		-o $fixedmisencodedbam --fix_misencoded_quality_scores
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -o $fixedmisencodedbam --fix_misencoded_quality_scores
 		mv $fixedmisencodedbam $realignedbam
 		mv $fixedmisencodedbai $realignedbai
 			'
@@ -833,12 +832,11 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			fixed = TRUE)
 
 	baserecalibrator <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T BaseRecalibrator -R $fastafile -I $realignedbam \\
+		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites $knownSNPvcf \\
 			-knownSites $knownSNPbed \\
 			-o $recaltable --allow_potentially_misencoded_quality_scores
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T PrintReads -R $fastafile -I $realignedbam \\
-			-BQSR $recaltable -o $recalbam 
+		gatk.sh -Xmx4g -T PrintReads -R $fastafile -I $realignedbam -BQSR $recaltable -o $recalbam 
 			'
 	if(knownSNPvcf == "") 
 			baserecalibrator <- sub("-knownSites [$]knownSNPvcf", "", baserecalibrator)
@@ -849,12 +847,12 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			fixed = TRUE)
 
 	analyzecovariates <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T BaseRecalibrator -R $fastafile -I $realignedbam \\
+		gatk.sh -Xmx4g -T BaseRecalibrator -R $fastafile -I $realignedbam \\
 			-knownSites $knownSNPvcf \\
 			-knownSites $knownSNPbed \\
 			-BQSR $recaltable -o $afterrecaltable \\
 			--allow_potentially_misencoded_quality_scores
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T AnalyzeCovariates -R $fastafile -before $recaltable \\
+		gatk.sh -Xmx4g -T AnalyzeCovariates -R $fastafile -before $recaltable \\
 			-after $afterrecaltable -plots $recalplots		
 			'
 	if(mem !=4) 
@@ -862,7 +860,7 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 			fixed = TRUE)
 
 	haplotypecaller <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T HaplotypeCaller -R $fastafile -I $recalbam \\
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $recalbam \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '
@@ -968,7 +966,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 
 	if(!is.null(drop)){
 		dropfish <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T SelectVariants -R $fastafile -V $vcffile \\
+		gatk.sh -Xmx4g -T SelectVariants -R $fastafile -V $vcffile \\
 			-xl_sn samplename \\
 			-o $selectfile \\
 			--allow_potentially_misencoded_quality_scores
@@ -985,7 +983,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 	if(!is.null(keep)){
 		if(!is.null(drop)) stop("You must drop or keep, not both")
 		keepfish <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T SelectVariants -R $fastafile -V $vcffile \\
+		gatk.sh -Xmx4g -T SelectVariants -R $fastafile -V $vcffile \\
 			-sn samplename \\
 			-o $selectfile \\
 			--allow_potentially_misencoded_quality_scores
@@ -1255,8 +1253,7 @@ g$genotypeChrGVCFs <- function(gvcffiles, outvcfname,
 		
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 	
-	writeLines(paste("gatk.sh -Xmx", mem, "g -Djava.io.tmpdir=$TMPDIR/tmp -R ", 
-						genome, " -T GenotypeGVCFs \\", sep = ""), outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g -R ", genome, " -T GenotypeGVCFs \\", sep = ""), outfile)
 	vcfarguments <- gvcffiles
 	for(i in 1:length(gvcffiles)){
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
@@ -1321,8 +1318,7 @@ g$genotypeGVCFs <- function(
 		
 	writeLines(paste('module load gatk', GATKversion, sep = "/"), outfile)
 	
-	writeLines(paste("gatk.sh -Xmx", mem, "g -Djava.io.tmpdir=$TMPDIR/tmp -R ", 
-						genome, " -T GenotypeGVCFs \\", sep = ""), outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g -R ", genome, " -T GenotypeGVCFs \\", sep = ""), outfile)
 	vcfarguments <- gvcffiles
 	for(i in 1:length(gvcffiles)){
 		gvcffiles[i] <- paste("     --variant", gvcffiles[i], "\\")
@@ -1817,12 +1813,12 @@ g$haplotypeCaller <- function(gatkBamfile = "", mem = 4, walltime = 72, GATKvers
 		'
 
 	haplotypecaller <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T HaplotypeCaller -R $fastafile -I $bamfile \\
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
 		     --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 		      -o $vcffile --allow_potentially_misencoded_quality_scores
 		      '	
 	if(muhua) haplotypecaller <- '
-		gatk.sh -Xmx4g -Djava.io.tmpdir=$TMPDIR/tmp -T HaplotypeCaller -R $fastafile -I $bamfile \\
+		gatk.sh -Xmx4g -T HaplotypeCaller -R $fastafile -I $bamfile \\
 		    --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \\
 			-stand_emit_conf 10.0 -mbq 10 -maxNumHaplotypesInPopulation 128 -out_mode EMIT_ALL_SITES \\
 			-A AlleleBalanceBySample -A BaseCounts -A BaseQualityRankSumTest -A Coverage \\
@@ -2824,7 +2820,7 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname,
 	writeLines(paste('module load R', Rversion, sep = "/"), outfile)
 	
 	# The following produced this:
-	# gatk.sh -Xmx8g -Djava.io.tmpdir=$TMPDIR/tmp -T VariantRecalibrator -R gasAcu1pitx1new.fa \
+	# gatk.sh -Xmx8g -T VariantRecalibrator -R gasAcu1pitx1new.fa \
 	  # -input SculpinNoSculpin.vcf.gz \
 	  # -resource:known=false,training=true,truth=true,prior=6.0 206sticklebacks_filtered.vcf.gz \
 	  # -an DP -an FS -an MQRankSum -an ReadPosRankSum \
@@ -2834,8 +2830,7 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname,
 	  # -tranchesFile SculpinNoSculpin.SNP.tranches \
 	  # -rscriptFile SculpinNoSculpin.SNP.r -dt NONE
 	  
-	writeLines(paste("gatk.sh -Xmx", mem, "g -Djava.io.tmpdir=$TMPDIR/tmp", " -T VariantRecalibrator -R ", 
-						genome, " \\", sep=""), outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g", " -T VariantRecalibrator -R ", genome, " \\", sep=""), outfile)
 	writeLines(paste("  -input", vcffile, "\\", sep = " "), outfile)
 	writeLines(paste("  -resource:known=false,training=true,truth=true,prior=6.0", resourceFile, "\\", sep=" "), outfile)
 	writeLines(paste(c(" ", paste("-an", an), "\\"), collapse = " "), outfile)
@@ -2846,13 +2841,12 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname,
 	writeLines(paste("  -rscriptFile ", rscriptFile, " -dt NONE", sep = ""), outfile)
 
 	# Next lines to print:
-	# gatk.sh -Xmx8g -Djava.io.tmpdir=$TMPDIR/tmp -T ApplyRecalibration -R gasAcu1pitx1new.fa \
+	# gatk.sh -Xmx8g -T ApplyRecalibration -R gasAcu1pitx1new.fa \
 		# -input SculpinNoSculpin.vcf.gz -mode SNP --ts_filter_level 99.0 -recalFile SculpinNoSculpin.SNP.recalFile \
 		# -tranchesFile SculpinNoSculpin.SNP.tranches -o SculpinNoSculpin_99.0_SNP.vcf.gz
 
 	writeLines("\n", outfile)
-	writeLines(paste("gatk.sh -Xmx", mem, "g -Djava.io.tmpdir=$TMPDIR/tmp", " -T ApplyRecalibration -R ", 
-						genome, " \\", sep=""), outfile)
+	writeLines(paste("gatk.sh -Xmx", mem, "g", " -T ApplyRecalibration -R ", genome, " \\", sep=""), outfile)
 	writeLines(paste("  -input", vcffile, "-mode", mode, "\\", sep = " "), outfile)
 	writeLines(paste("  --ts_filter_level 99.0 -recalFile", recalFile, "\\", sep=" "), outfile)
 	writeLines(paste("  -tranchesFile ", tranchesFile, " \\", sep = ""), outfile)

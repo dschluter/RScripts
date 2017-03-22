@@ -2871,7 +2871,7 @@ g$variantRecalibrator <- function(vcffile = "Benlim.vcf.gz", outvcfname,
 	
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
-	pbsfile <- paste("VariantRecalibrator-", root, "-", hour, ".pbs", sep = "")
+	pbsfile <- paste("variantRecalibrator-", root, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 
 	writeLines(			"#!/bin/bash", outfile)

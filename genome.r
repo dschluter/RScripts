@@ -508,6 +508,34 @@ g$dropRareAlleles <- function(){
 	
 	}
 
+g$extractChrFromVcfFile <- function(chrname = "chrM", bgzfile = "Benlim_99.0_SNP.vcf.gz",
+									genome = "gasAcu1pitx1new.fa"){
+	# Uses prefiltering in VariantAnnotation to extract a desired chromosome from a vcf.(b)gz file
+	# Requires a compressed *.vcf.bgz file (might be named *.vcf.gz instead but is actually a bgz file)
+	# 	that has been indexed (*.vcf.gz.tbi exists)
+	
+	library(VariantAnnotation)
+	pattern <- chrname
+	isChr <- function(chr) {
+		grepl(pattern, chr, fixed=TRUE)
+		}
+	prefilters <- FilterRules(list(ischr = isChr))
+	
+	file.gz <- bgzfile
+	file.gz.tbi <- paste(file.gz, "tbi", sep = ".")
+	file.chr.gz <- sub("vcf[.][b]*gz", paste(chrname, "vcf.gz", sep = "."), file.gz)
+	
+	# destination.file <- getwd()
+	destination.file <- tempfile()
+	tabix.file <- TabixFile(file.gz, yieldSize=10000)
+	
+	# This next code just creates a file with a random name in the folder getwd()
+	temp.vcf <- filterVcf(tabix.file, genome = genome, destination = destination.file, 
+		prefilters=prefilters, verbose=TRUE)
+	dest.vcf <- paste(getwd(), file.chr.gz, sep="/")
+	file.copy(from = temp.vcf, to = dest.vcf, overwrite = TRUE)
+	}
+
 g$fasta2list <- function(fastafile){
 	# Reads a fast file and converts to a list of vectors, one element per chromosome
 	# Alternatives

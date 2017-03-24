@@ -509,7 +509,7 @@ g$dropRareAlleles <- function(){
 	}
 
 g$extractChrFromVcfFile <- function(chrname = "chrM", bgzfile = "Benlim_99.0_SNP.vcf.gz",
-									genome = "gasAcu1pitx1new.fa"){
+									genome = "gasAcu1pitx1new.fa", chunksize = 10000){
 	# Uses prefiltering in VariantAnnotation to extract a desired chromosome from a vcf.(b)gz file
 	# Requires a compressed *.vcf.bgz file (might be named *.vcf.gz instead but is actually a bgz file)
 	# 	that has been indexed (*.vcf.gz.tbi exists)
@@ -527,7 +527,7 @@ g$extractChrFromVcfFile <- function(chrname = "chrM", bgzfile = "Benlim_99.0_SNP
 	
 	# destination.file <- getwd()
 	destination.file <- tempfile()
-	tabix.file <- TabixFile(file.gz, yieldSize=10000)
+	tabix.file <- TabixFile(file.gz, yieldSize=chunksize)
 	
 	# This next code just creates a file with a random name in the folder getwd()
 	temp.vcf <- filterVcf(tabix.file, genome = genome, destination = destination.file, 

@@ -1,6 +1,7 @@
 #!/usr/bin/Rscript
 
 # Filters bgzipped Vcf file, pulls out a single CHR 
+# Result is NOT a bgzip file
 
 # Run in Unix as " Rscript extractChrFromVcf.R ... "
 

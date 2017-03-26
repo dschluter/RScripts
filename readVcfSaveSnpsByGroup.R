@@ -45,7 +45,7 @@ for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 # [2] "Benlim_99.0_SNP"                                                                                
 # [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream"
 # [4] "2/3"                                                                                             
-# [5] "TRUE"                                                                                            
+# [5] "TRUE"                                                                                         
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")

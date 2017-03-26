@@ -1,7 +1,6 @@
 #!/usr/bin/Rscript
 
 # Makes vcfresults, containing all snp results
-
 # Run in Unix as " Rscript readSaveDnpdByGroup.R ... "
 
 # groupnames must uniquely be substrings of the fishnames (ignoring case)

@@ -23,16 +23,15 @@ project 	<- NULL
 chrname 	<- NULL
 groupnames 	<- NULL
 GTminFrac 	<- "2/3"
-Glazerize 	<- "FALSE" # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-postDrop 	<- "FALSE"	
-nMaxAlt		<- 3		 # in GATK maximum number of ALT alleles set
+Glazerize 	<- "FALSE" 	# Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
+nMaxAlt		<- 3		# in GATK maximum number of ALT alleles set
 dropRareAlleles	<- FALSE
 plotQualMetrics <- FALSE
 saveBiAllelic 	<- FALSE # saves second data set with 2 snp per marker (not necessarily the REF), removes indels
 plotQualMetrics <- FALSE 
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "GTminFrac=2/3", "postDrop=TRUE")
+# args <- c("chrname=chrM", "project=Benlim_99.0_SNP", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream", "Glazerize=TRUE", "GTminFrac=2/3", "postDrop=TRUE")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -41,12 +40,12 @@ x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 
 # Check args
-# c(chrname, project, groupnames, GTminFrac, Glazerize, drop)
-# [1] "Benlim"                                                                                  
-# [2] "chrM"                                                                                    
-# [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
-# [4] "2/3"                                                                                     
-# [5] "TRUE"                                                                                    
+# c(chrname, project, groupnames, GTminFrac, Glazerize)
+# [1] "chrM"                                                                                            
+# [2] "Benlim_99.0_SNP"                                                                                
+# [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream"
+# [4] "2/3"                                                                                             
+# [5] "TRUE"                                                                                            
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
@@ -60,17 +59,17 @@ cat(groupnames, sep = "\n")
 # groupnames
  # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
  # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
-# [11] "marine-jap" "solitary"   "stream"    
+# [11] "marine-jap" "solitary"   "sculpin"    "stream"    
 
 GTminFrac <- eval(parse(text=GTminFrac)) # convert fraction to numeric
 
 # load "chrvec" for the current chromosome
-chrno 				<- gsub("^chr", "", chrname)
-chrmaskfile         <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
+chrno 			<- gsub("^chr", "", chrname)
+chrmaskfile     <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
 
 fastaname		<- paste(chrname, "fa", sep = ".")
-vcfname			<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
-if(postDrop) vcfname <- paste(project, ".", chrname, ".sel.vcf.gz", sep="")
+# vcfname		<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
+vcfname			<- paste(project, ".", chrname, ".vcf.gz", sep="")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
@@ -101,7 +100,7 @@ gc()
 # ---------------------
 # Alternatives to reading whole vcf file
 
-# 1. Make tabix and use data ranges
+# 1. Make tabix and use data ranges (revise to use VSQR output file)
 # compressedVcfname <- paste(project, chrname, "var.vcf.bgz", sep = ".")
 # zipped <- bgzip(vcfname, compressedVcfname)
 # idx <- indexTabix(zipped, "vcf")
@@ -126,7 +125,7 @@ gc()
 
 # Consider re-doing to include INFO ( change info=NA to info=character() )
 # vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=NA))
-vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL"), geno="GT", info=character()))
+vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL", "FILTER"), geno="GT", info=character()))
 
 # object.size(vcf)
 #  50,514,280 bytes # chrXXI
@@ -137,17 +136,18 @@ cat("\nSuccessfully read vcf file\n")
 # You can import data subsets or fields if desired, see manual
 
 # Useful accessor functions
-# header(vcf) # Header information
+# header(vcf) 				# Header information
 # samples(header(vcf))		# names of fish in sample
 # geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
 # # head(rowRanges(vcf), 3)	# Genomic positions. This command didn't work
 # head(rowData(vcf), 3)		# Genomic positions. This command worked instead
 # To print many rows, do this first:
-# options(showHeadLines=Inf)    # allows you to print many lines
+# options(showHeadLines=Inf)  # allows you to print many lines
 # options("showHeadLines"=NULL) # reverts back to default
 # ref(vcf)					# extract the REF 
 # alt(vcf)					# ALT alleles (DNAStringSetList)
 # qual(vcf)	 				# SNP quality
+# filt(vcf)					# FILTER
 # geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
 #							# 	RGQ is "Unconditional reference genotype confidence"
 # geno(header(vcf))["DS",]	# didn't work - no DS in file
@@ -155,11 +155,17 @@ cat("\nSuccessfully read vcf file\n")
 # SB <-geno(vcf)$SB			# grab the genotype values of SB (Fisher's Exact Test to detect strand bias)
 # info(vcf)					# Didn't give the same columns as in manual, gave
 # names(info(vcf))    
- # [1] "AC"              "AF"              "AN"              "BaseQRankSum"   
- # [5] "ClippingRankSum" "DP"              "DS"              "END"            
- # [9] "FS"              "HaplotypeScore"  "InbreedingCoeff" "MLEAC"          
-# [13] "MLEAF"           "MQ"              "MQRankSum"       "QD"             
-# [17] "ReadPosRankSum"  "SOR"
+ # [1] "AC"                  "AF"                  "AN"                 
+ # [4] "BaseCounts"          "BaseQRankSum"        "DP"                 
+ # [7] "DS"                  "Dels"                "END"                
+# [10] "FS"                  "GQ_MEAN"             "GQ_STDDEV"          
+# [13] "HW"                  "HaplotypeScore"      "InbreedingCoeff"    
+# [16] "LikelihoodRankSum"   "MLEAC"               "MLEAF"              
+# [19] "MQ"                  "MQ0"                 "MQRankSum"          
+# [22] "NCC"                 "NEGATIVE_TRAIN_SITE" "POSITIVE_TRAIN_SITE"
+# [25] "QD"                  "ReadPosRankSum"      "SOR"                
+# [28] "Samples"             "VQSLOD"              "VariantType"        
+# [31] "culprit"             "set"                
 
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
@@ -182,8 +188,9 @@ cat("\ngroupcodes:\n")
 print(groupcodes)  # 
   # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
  # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
- # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12
- # [76] 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1  1  1  1
+ # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 13 13 13 13
+ # [76] 13 13 13 13 12 12 12 12 12 12 12 12 12 14 14 14 14 14 14  2  2  2  2  2  2
+# [101]  1  1  1  1  1  1  1  1  1
 
 # table(groupcodes)
  # 1  2  3  4  5  6  7  8  9 10 11 12 13 
@@ -198,14 +205,15 @@ names(nInd) <- groupnames
 print(nInd)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
         # 16         11         10         10          6          6          6 
-      # ensb marine-pac marine-atl marine-jap   solitary     stream 
-         # 6          8          3          4          8          6 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 6          8          3          4          9          8          6 
 
 nMin <- round(GTminFrac*nInd) # minimum number required in each group
+# nMin
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
         # 11          7          7          7          4          4          4 
-      # ensb marine-pac marine-atl marine-jap   solitary     stream 
-         # 4          5          2          3          5          4 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 4          5          2          3          6          5          4 
 
 nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
 names(nMin) <- groupnames
@@ -214,8 +222,8 @@ cat("\nMinimum no. genotyped individuals needed to use a snp when calculating Fs
 print(nMin)  # 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
          # 5          5          5          5          4          4          4 
-      # ensb marine-pac marine-atl marine-jap   solitary     stream 
-         # 4          5          2          3          5          4 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 4          5          2          3          5          5          4 
 
 # Q: What does QUAL = NA imply?
 
@@ -238,6 +246,13 @@ gc()
 # ------
 # set missing genotypes to NA instead of "."
 geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
+
+# ------
+print(table(filt(vcf)))
+                          # .                     LowQual                        PASS 
+                        # 389                           6                         104 
+ # VQSRTrancheSNP99.00to99.50  VQSRTrancheSNP99.50to99.90 VQSRTrancheSNP99.50to99.90+ 
+                         # 13                          89                        3739 
 
 # -----
 # Drop variants in which fewer than 2 groups have at least one genotype
@@ -311,6 +326,12 @@ samplesByGroup
 	# [7] "Solitary-Tom-01-Sara"     "Solitary-Trout-01-Sara"  
 	
 	# $`13`
+	# [1] "SculpinLake-Ambrose-01-Sara" "SculpinLake-Brown05-Sara"   
+	# [3] "SculpinLake-Cedar-01-Sara"   "SculpinLake-North-05-Sara"  
+	# [5] "SculpinLake-Ormond08-Sara"   "SculpinLake-Pachena03-Sara" 
+	# [7] "SculpinLake-Paq19-Sara"      "SculpinLake-Rosseau1F-Sara" 
+	
+	# $`14`
 	# [1] "Stream-LittleCampbell-01-Sara"       
 	# [2] "Stream-LittleCampbell_23_32_2008-306"
 	# [3] "Stream-LittleCampbell_23_32_2008-324"
@@ -376,7 +397,8 @@ alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[, groupcodes > 0], gr
 	  # marine-pac 14  0  0  0
 	  # marine-atl  0  0  0  0
 	  # marine-jap  8  0  0  0
-	  # solitary   10  0  0  0
+	  # solitary   12  0  0  0
+	  # sculpin    12  0  0  0
 	  # stream      4  0  0  0
 
 gc()
@@ -388,13 +410,9 @@ gc()
 # RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
 # RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
 
-# Moved to g$dropRareAlleles in genome.r
-
 if(dropRareAlleles){
-	
-	gc()
+	# g$dropRareAlleles() # Not working yet as a function
 	}
-
 
 # --------------------------
 # Determine alleles actually used in genotype calls
@@ -530,16 +548,7 @@ snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 # --------------------------------------
 # Transition-transversion ratio
 
-# nrow(geno(vcfresults$vcf)$GT)
-# [1] 281607
-
 tstv <- g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
-# tstv <- g$vcfTsTv(ref(vcfresults$vcf), vcfresults$altUsedList, vcfresults$snpTypeList)
-# Results here are for dropRareAlleles = TRUE
-# Table of variant types used (<*:DEL> and unused are NA)
-# snp
-   # del    ins    snp   <NA> 
- # 24286  20909 216418  34794 
 
 print(tstv)
 # $R

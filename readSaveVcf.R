@@ -1,7 +1,10 @@
 #!/usr/bin/Rscript
 
-# Makes vcfresults, containing snp results
+# Makes vcf, containing snp calling results
 # Run in Unix as " Rscript readSaveByGroup.R ... "
+
+# In this revised function, only clean vcf is saved, not groupnames etc.
+# If Glazerize, then ranges are used to extract bits from chrUn etc before saving.
 
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
@@ -27,6 +30,7 @@ dropRareAlleles	<- FALSE
 plotQualMetrics <- FALSE
 saveBiAllelic 	<- FALSE # saves second data set with 2 snp per marker (not necessarily the REF), removes indels
 plotQualMetrics <- FALSE 
+genome 			<- "gasAcu1pitx1new.fa"
 
 args <- commandArgs(TRUE)
 # args <- c("chrname=chrM", "project=Benlim_99.0_SNP", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream", "Glazerize=TRUE", "GTminFrac=2/3", "postDrop=TRUE")
@@ -69,7 +73,7 @@ fastaname		<- paste(chrname, "fa", sep = ".")
 # vcfname		<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
 vcfname			<- paste(project, ".", chrname, ".vcf.gz", sep="")
 vcftbi 			<- paste(project, ".", chrname, ".vcf.gz.tbi", sep="")
-vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
+vcffile			<- paste(project, ".", chrname, ".vcf.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 
@@ -82,7 +86,7 @@ cat("\nControl settings on this run\n")
 print(control)
 
 library(VariantAnnotation, quietly = TRUE)
-library(WhopGenome, quietly = TRUE)
+# library(WhopGenome, quietly = TRUE)
 
 load(chrmaskfile) 	# object is named "chrvec"
 which.chrvec.M <- which(chrvec == "M") # bases coded as "M" for masked
@@ -117,49 +121,48 @@ if(!file.exists(vcftbi)){
 # one per ALT allele. This would be a straightforward way to get predictCoding for all alleles. 
 
 # Useful accessor functions
-# header(vcf) 				# Header information
-# samples(header(vcf))		# names of fish in sample
-# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
-# rowRanges(vcf)			# Genomic positions. 
-# head(rowData(vcf), 3)		# Genomic positions.
 # To print many rows, do this first:
 # options(showHeadLines=Inf)  # allows you to print many lines
 # options("showHeadLines"=NULL) # reverts back to default
+
+# header(vcf) 				# Header information
+# samples(header(vcf))		# names of fish in sample
+# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
+# rowData(vcf)				# paramRangeID, ALT, QUAL, FILTER
+# mcols(vcf)				# same
+# rowRanges(vcf)			# seqnames, ranges, strant, paramRangeID, REF, ALT QUAL FILTER
 # ref(vcf)					# extract the REF 
 # alt(vcf)					# ALT alleles (DNAStringSetList)
 # qual(vcf)	 				# SNP quality
 # filt(vcf)					# FILTER
 # geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
 #							# 	RGQ is "Unconditional reference genotype confidence"
-# info(vcf)					# Didn't give the same columns as in manual, gave
+# info(vcf)					# INFO field variables
+# info(vcf)$AC				# Allele count for each ALT allele in the same order as listed
+# info(vcf)$AF				# Allele frequency (fraction) for each ALT allele in the same order as listed
+# info(vcf)$AN				# Total number of alleles in called genotypes
 # info(vcf)$VQSLOD			# VQSLOD
 # info(vcf)$VariantType		# all NA, leave out of readVcf
 
 # Reads the whole vcf file
 # vcf <- readVcf(file = vcfname, genome = fastaname) 
+
 # object.size(vcf)
-# 107,877,192 bytes # chrXXI
 
-# Reads only a part of the vcf. ref(), alt(), qual(), geno()$GT still work
-
+# test
 # rngs <- GRanges("chrM", IRanges(c(1, 1000), c(2000, 3000))) # just these lines
-rng1 <- GRanges("chrM", IRanges(1, 1000)) 
-rng2 <- GRanges("chrM", IRanges(2000, 3000))
+# rng1 <- GRanges("chrM", IRanges(1, 1000)) 
+# rng2 <- GRanges("chrM", IRanges(2000, 3000))
 
 # vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL", "FILTER"), 
 			# which = rngs, geno="GT", info=c("DP","FS","VQSLOD")))
-vcf <- readVcf(file = vcfname, genome = "gasAcu1pitx1new.fa", ScanVcfParam(fixed=c("ALT", "QUAL", "FILTER"), 
-			which = c(rng1, rng2), geno="GT", info=c("DP","FS","VQSLOD")))
+vcf <- readVcf(file = vcfname, genome = genome, ScanVcfParam(fixed = c("ALT", "QUAL", "FILTER"), 
+			# which = c(rng1, rng2), 
+			geno="GT", info=c("AC", "DP","FS","VQSLOD")))
 
 # object.size(vcf)
-#  50,514,280 bytes # chrXXI
-# 210,524,096 bytes # chrUn
 
 cat("\nSuccessfully read vcf file\n")
-
-# You can import data subsets or fields if desired, see manual
-
-
 
 # -----
 # fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
@@ -167,10 +170,10 @@ cat("\nSuccessfully read vcf file\n")
 fishnames <- samples(header(vcf))
 
 # FUDGE TO FIX PRIEST in file names
-fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
+# fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
 # These two commands should change the names where they are stored in vcf (need both)
-header(vcf)@samples <- fishnames
-dimnames(vcf)[[2]] <- fishnames
+# header(vcf)@samples <- fishnames
+# dimnames(vcf)[[2]] <- fishnames
 
 cat("\nfishnames:\n")
 print(fishnames)
@@ -196,7 +199,7 @@ nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each g
 cat("\nNumber of individuals (nInd):\n")
 names(nInd) <- groupnames
 
-print(nInd)  # 
+print(nInd) 
       # paxl       paxb       pril       prib       qryl       qryb       ensl 
         # 16         11         10         10          6          6          6 
       # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
@@ -227,6 +230,7 @@ print(nMin)  #
 # 	In windowsmaskerSdust.chrIV, the site is marked as masked.
 
 keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
+
 vcf <- vcf[keep]
 cat("\nCompleted removal of snp corresponding to masked bases\n\n")
 
@@ -250,6 +254,7 @@ print(table(filt(vcf)))
 
 # -----
 # Drop variants in which fewer than 2 groups have at least one genotype
+*** and drop LowQual in FILTER field
 
 # Tally up the number of genotypes in each group
 samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting groups is as in groupnames and groupcodes
@@ -372,10 +377,10 @@ rm(keep)
 gc()
 
 # --------------------------------------
-# Make a table of the allele frequencies
-# Remember to account for dropped individuals
-
+# Make a table of the allele frequencies by group
+if(FALSE){
 alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[, groupcodes > 0], groupnames, groupcodes[groupcodes > 0])
+	}
 	# unname(geno(vcf)$GT[1, ])
 	# groupcodes
 	# alleleFreqByGroup[[1]]     
@@ -404,9 +409,11 @@ gc()
 # RULE1: drop alleles less than 5% total, measured as percent of 2*sum(nInd), the maximum number of alleles possible
 # RULE2: drop alleles less than 5% total, measured as percent of the total number of alleles in the sample.
 
-if(dropRareAlleles){
+# Note that we can get ALT allele counts from info(vcf)$AC (just need to get REF count)
+
+# if(dropRareAlleles){
 	# g$dropRareAlleles() # Not working yet as a function
-	}
+	# }
 
 # --------------------------
 # Determine alleles actually used in genotype calls
@@ -420,18 +427,22 @@ if(dropRareAlleles){
 # <*:DEL>       A      AA     AAA  ...
    # 8338   73896      21       4  ...  
 
-cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
-
 # Enumerate the alt alleles used in actual genotype calls
 # "whichAltAllelesUsed" lists all the ALT alleles used in genotypes by their index (1, 2, ...)
-# unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
-
-altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
-
+# Unused ALT alleles are set to NA -- they are NOT DELETED, in order to preserve indices
 # Note, there are still "<*:DEL>" alleles. 
-
 # Note that NA has length 1, so a nonzero nAltUsed doesn't mean there are real ALT alleles there
 
+# Can also calculate this more quickly using info(vcf)$AC: a "0" implies no called genotypes use it
+cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
+altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
+
+info(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList") # Warning no header
+rm(altUsedList)
+
+# This didn't work
+# mcols(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
+	
 # Compare the number of ALT alleles used vs number of ALT alleles called
 # Number called by GATK
 # table(sapply(alt(vcf), length), useNA = "always")
@@ -450,6 +461,8 @@ altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 
 cat("\nMaking snp type list based on alt alleles actually used\n")
 snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
+info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList") # Warning no header
+rm(snpTypeList)
 
 # Variant type is defined for VCFtools as (http://vcftools.sourceforge.net/VCF-poster.pdf)
 # SNPs
@@ -557,147 +570,7 @@ print(tstv)
 
 gc()
 
-# --------------------------------------
-# Save everything to a list for analyses
+# Save vcf file
 
-vcfresults <- list()
-vcfresults$fishnames <- fishnames
-vcfresults$groupnames <- groupnames
-vcfresults$groupcodes <- groupcodes
-vcfresults$control <- control
-vcfresults$nInd <- nInd
-vcfresults$nMin <- nMin
-
-vcfresults$vcf <- vcf
-rm(vcf)
-
-vcfresults$altUsedList <- altUsedList # remember: unused alt alleles are set to NA not deleted
-rm(altUsedList)
-
-vcfresults$snpTypeList <- snpTypeList # based on altUsedList
-rm(snpTypeList)
-
-vcfresults$alleleFreqByGroup <- alleleFreqByGroup
-rm(alleleFreqByGroup)
-
-if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in current working directory
-	pos <- start(rowData(vcfresults$vcf))
-	
-	if(chrno != "M" & !grepl("pitx1", chrno) ){
-		newCoords <- g$glazerConvertOld2New(chrname, pos)
-		} else {
-		newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
-		}
-
-	vcfresults$newChr <- newCoords$newChr
-	vcfresults$newPos <- newCoords$newPos
-	
-	z <- unique(vcfresults$newChr)
-	# [1] "21" "Un"
-	
-	for(i in z){ # saved object is "vcfresultsPart"
-		vcfresultsPart <- list()
-		vcfresultsPart$groupnames <-        vcfresults$groupnames
-		vcfresultsPart$groupcodes <-        vcfresults$groupcodes
-		vcfresultsPart$control <-           vcfresults$control
-		vcfresultsPart$nInd <-              vcfresults$nInd
-		vcfresultsPart$nMin <-              vcfresults$nMin
-		vcfresultsPart$vcf <-               vcfresults$vcf[vcfresults$newChr == i]
-		vcfresultsPart$newChr <-            vcfresults$newChr[vcfresults$newChr == i]
-		vcfresultsPart$newPos <-            vcfresults$newPos[vcfresults$newChr == i]
-		vcfresultsPart$altUsedList <-       vcfresults$altUsedList[vcfresults$newChr == i]
-		vcfresultsPart$snpTypeList <-       vcfresults$snpTypeList[vcfresults$newChr == i]
-		vcfresultsPart$alleleFreqByGroup <- vcfresults$alleleFreqByGroup[vcfresults$newChr == i]
-		vcfresultsPart$fishnames <- 		vcfresults$fishnames
-		save(vcfresultsPart, file = paste(project, chrname, "vcfresultsPart", i, "rdd", sep = "."))
-		}
-	} # end if(Glazerize)
-
-save(vcfresults, file = vcfresultsfile)	# saved object is "vcfresults"
-# load(file = vcfresultsfile) 
-
-gc()
-
-
-# REDO to Glazerize; include only snp retained in vcfresults; use only for GT[,groupcodes > 0]
-if(plotQualMetrics){ 
-	# --------------------------------------
-	# Plots of quality metrics - uses only the old assembly results
-	# Current version drops only the rows corresponding to M in chrvec
-	# IE, rare alleles not excluded, etc.
-	
-	vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("QUAL"), geno=c("GT", "GQ", "DP"), 
-		info=c("FS", "QD", "DP")))	
-	gc()
-	keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
-	vcf <- vcf[keep]
-	rm(keep)
-
-	cat("\nPlotting quality metrics\n")
-	pdf(file = paste(project, ".", chrname, ".vcfPlots", ".pdf", sep=""))
-	
-	# QUAL ---
-	# QUAL is probability of a polymorphism at the site, not a measure of quality of genotypes
-	# It is "Phred scaled Probability that REF/ALT polymorphism exists at this site given sequencing data"
-	# A value of 10 indicates p = 0.99, i.e., 1 - 0.01
-	# It depends on the quality of genotypes, but is not itself a measure of genotype quality.
-	# GATK2 drops snp with QUAL <= 30
-	
-	hist(qual(vcf)[qual(vcf) <= 2000], breaks = 100, right = FALSE, col = "red", 
-		main = "QUAL (prob of polymorphism) for called variants")
-	
-	# ---
-	# Individual fish genotype quality scores GQ for called genotypes
-	# "if GT is 0/1, then GQ is really L(0/1) / (L(0/0) + L(0/1) + L(1/1))"
-	
-	GQ <- matrix(geno(vcf)$GQ, ncol=1)
-	GT <- matrix(geno(vcf)$GT, ncol=1)
-	hist(GQ[!is.na(GT)], right = FALSE, col = "red", breaks = 50, 
-		main = "Histogram of individual fish genotype quality score, GQ,\nfor called genotypes")
-
-	# ---
-	# Individual fish read depth DP for called genotypes
-	
-	DP <- matrix(geno(vcf)$DP, ncol=1)
-	hist(DP[DP <= 50 & !is.na(GT)], right = FALSE, col = "red", breaks = 50,
-		main = "Histogram of individual fish read depth, DP,\nfor called genotypes")
-	
-	# ---
-	# Relationship between GQ and DP for called genotypes
-	# Commented out - requires a lot of memory
-
-	# plot(GQ[DP <= 10 & !is.na(GT)] ~ jitter(DP[DP <= 10 & !is.na(GT)]), pch = ".", col = "red",
-		# main = "Relationship between GQ and DP for called genotypes,\n(note that GQ of called genotypes is often very low)")
-	
-	rm(GT)
-	rm(DP)
-	rm(GQ)
-
-	# ---
-	# Strand bias
-	# From the GATK pages: "Higher SB values denote more bias (and therefore are more likely to indicate false positive calls)."
-	# SB <- geno(vcf)$SB # all NA
-	
-	# Phred-scaled P-value for Fisher exact test of strand bias (higher is more biased)
-	
-	FS <- info(vcf)$FS
-	hist(FS[FS <= 40], col="red", breaks = 100, right=FALSE, xlab = "Phred-scaled P",
-		main = "Results of Fisher exact test of strand bias \n(higher P is more biased)") # peaks at 0
-		
-	# Strand bias vs Quality by Depth (see Fig 4a,b in de Pristo et al 2011)
-	
-	QD <- info(vcf)$QD
-	plot(FS ~ QD, pch = ".", col = "red", ylab = "FS (Fisher test of strand bias)", 
-		xlab = "QD (Quality by Depth)", main = "Strand Bias vs Quality by Depth (cf. Fig 4a,b in de Pristo et al 2011)")
-
-	rm(FS)
-	rm(QD)	
-
-	# ---
-	# Total read depth
-	DPtot <- info(vcf)$DP
-	hist(DPtot[DPtot <= length(groupcodes)*50], right = FALSE, col = "red", breaks = 200, 
-		main = "Total read depth") 
-	
-	dev.off()
-	}
+save(vcf, file = vcffile)
+# load(vcffile) # object is "vcf"

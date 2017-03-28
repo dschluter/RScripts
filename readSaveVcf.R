@@ -4,6 +4,7 @@
 # Run in Unix as " Rscript readSaveByGroup.R ... "
 
 # In this revised function, only clean vcf is saved, not groupnames etc.
+# Useful variables are added to the vcf object, not to a new list containing the vcf object.
 # If Glazerize, then ranges are used to extract bits from chrUn etc before saving.
 
 # groupnames must uniquely be substrings of the fishnames (ignoring case)
@@ -437,8 +438,13 @@ gc()
 cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
 altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 
-info(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList") # Warning no header
-rm(altUsedList)
+newInfo <- DataFrame(Number=1, Type="CompressedList",
+                      Description="ALT alleles actually used in genotype calls",
+                      row.names="altUsedList")
+info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
+# rownames(info(header(vcf)))
+
+info(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
 
 # This didn't work
 # mcols(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
@@ -461,8 +467,18 @@ rm(altUsedList)
 
 cat("\nMaking snp type list based on alt alleles actually used\n")
 snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
-info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList") # Warning no header
+
+newInfo <- DataFrame(Number=1, Type="CompressedList",
+                      Description="Type of ALT allele",
+                      row.names="snpTypeList")
+info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
+# rownames(info(header(vcf)))
+
+info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList")
+# info(vcf)
+
 rm(snpTypeList)
+rm(altUsedList)
 
 # Variant type is defined for VCFtools as (http://vcftools.sourceforge.net/VCF-poster.pdf)
 # SNPs

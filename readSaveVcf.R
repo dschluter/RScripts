@@ -23,18 +23,9 @@
 # Expect to read these arguments from args
 project 	<- NULL
 chrname 	<- NULL
-groupnames 	<- NULL
-GTminFrac 	<- "2/3"
-Glazerize 	<- "FALSE" 	# Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
-nMaxAlt		<- 3		# in GATK maximum number of ALT alleles set
-dropRareAlleles	<- FALSE
-plotQualMetrics <- FALSE
-saveBiAllelic 	<- FALSE # saves second data set with 2 snp per marker (not necessarily the REF), removes indels
-plotQualMetrics <- FALSE 
-genome 			<- "gasAcu1pitx1new.fa"
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim_99.0_SNP", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream", "Glazerize=TRUE", "GTminFrac=2/3", "postDrop=TRUE")
+# args <- c("chrname=chrM", "project=Benlim_99.0_SNP")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -42,13 +33,18 @@ args <- commandArgs(TRUE)
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 
+# Read remaining parameters from parameter file
+vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
+load(vcfparamFile) # object is vcfparam
+# Assign list elements to variables whose names are in names(vcfparam)
+x <- names(vcfparam)
+for(i in 1:length(vcfparam)){ assign(x[i], vcfparam[[i]]) }
+
 # Check args
-# c(chrname, project, groupnames, GTminFrac, Glazerize)
+# print(chrname); print(project); print(fishnames); print(groupcodes)
 # [1] "chrM"                                                                                            
-# [2] "Benlim_99.0_SNP"                                                                                
-# [3] "paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,sculpin,stream"
-# [4] "2/3"                                                                                             
-# [5] "TRUE"                                                                                         
+# [1] "Benlim_99.0_SNP" 
+# ...                                                                               
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")

@@ -50,13 +50,22 @@ if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
 
-cat("\nchrname is", chrname, "\n") # chrXXI
+cat("\nchrname is", chrname, "\n")
 
-# ------------------------
-# File names required
-chrno 			<- gsub("^chr", "", chrname) # XXI
-chrNumeric		<- g$chrname2numeric(chrname) # 21
+groupnames <- unlist(strsplit(groupnames, split = ","))
+cat("\ngroupnames\n")
+cat(groupnames, sep = "\n")
+# groupnames
+ # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
+ # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
+# [11] "marine-jap" "solitary"   "sculpin"    "stream"    
+
+GTminFrac <- eval(parse(text=GTminFrac)) # convert fraction to numeric
+
+# load "chrvec" for the current chromosome
+chrno 			<- gsub("^chr", "", chrname)
 chrmaskfile     <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
+
 fastaname		<- paste(chrname, "fa", sep = ".")
 # vcfname		<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
 vcfname			<- paste(project, ".", chrname, ".vcf.gz", sep="")
@@ -65,168 +74,184 @@ vcffile			<- paste(project, ".", chrname, ".vcf.rdd", sep = "")
 
 GTmissing		<- "."	# how GATK represents missing genotypes in the vcf file "./."
 
+control <- list()
+control$nMaxAlt <- nMaxAlt
+control$snpOptions <- c(dropRareAlleles = dropRareAlleles)
+control$GTminFrac <- GTminFrac
+
 cat("\nControl settings on this run\n")
-print(vcfparam)
+print(control)
 
 library(VariantAnnotation, quietly = TRUE)
 # library(WhopGenome, quietly = TRUE)
 
-# -------------------------
+load(chrmaskfile) 	# object is named "chrvec"
+which.chrvec.M <- which(chrvec == "M") # bases coded as "M" for masked
+
+# object.size(chrvec)
+#  93,740,176 bytes # chrXXI
+# 500,401,968 bytes # chrUn
+
+rm(chrvec)
+
 # Garbage collection -- current memory consumption
-# gcinfo(TRUE) # sends messages about memory garbage collection
+gcinfo(TRUE) # sends messages about memory garbage collection
 gc()
 
-if(Glazerize){ 
-	if(chrno != "M" & !grepl("pitx1", chrno)){
-		glazer <- read.csv(Glazerfile, stringsAsFactors = FALSE)
-		glazer <- glazer[glazer$NewChr == chrNumeric, ] # all those rows that are converted to current chrno
-		chrFrom <- unique(glazer$OldChr) # [1] "Un" "21"
-		vcfList <- vector(mode = "list", length = 2) 
-		names(vcfList) <- chrFrom
-		for(i in 1:length(chrFrom)){
-			# i <- 2
-			chrFromName <- g$chrnumeric2chrname(chrFrom[i]) # chrXXI
-			chrFromNo 	<- gsub("^chr", "", chrFromName)    # XXI
-			chrFromMaskfile <- paste("chrvec.", chrno, ".masked.rdd", sep = "") 
-			fastaFromName	<- paste(chrFromName, "fa", sep = ".")
-			vcfFromName		<- paste(project, ".", chrFromName, ".vcf.gz", sep="")
-			vcfFromTbi 		<- paste(project, ".", chrFromName, ".vcf.gz.tbi", sep="")
-			
-			# ------------------------
-			# Identify snps corresponding to masked bases
-			load(chrFromMaskfile) 	# object is named "chrvec"
-			which.chrvec.M <- which(chrvec == "M") # bases coded as "M" for masked
-			
-			# object.size(chrvec)
-			#  93,740,176 bytes # chrXXI
-			# 500,401,968 bytes # chrUn
-			
-			rm(chrvec)
-					
-			# -------------------------
-			# Build .tbi index file, if not exist
-			
-			if(!file.exists(vcfFromTbi)){
-				root <- sub("[.]gz$", "", vcfFromName) # remove the "gz" if present
-				compressedVcfname <- paste(root, "bgz", sep = ".")
-				# compress and save file name
-				bgzname <- bgzip(vcfFromName, compressedVcfname)
-				file.rename(bgzname, vcfFromName)
-				# Create the index
-				idx <- indexTabix(vcfFromName, "vcf")
-				}			
-			
-			# ---------------------
-			# Read variant VCF file
-			
-			cat("\nReading vcf file\n")
-			
-			# Use "vcfLong <- expand(vcf)" if want variants having multiple ALT alleles to appear on multiple rows, 
-			# one per ALT allele. This would be a straightforward way to get predictCoding for all alleles. 
-			
-			# Useful accessor functions
-			# To print many rows, do this first:
-			# options(showHeadLines=Inf)  # allows you to print many lines
-			# options("showHeadLines"=NULL) # reverts back to default
-			
-			# header(vcf) 				# Header information
-			# samples(header(vcf))		# names of fish in sample
-			# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
-			# rowData(vcf)				# paramRangeID, ALT, QUAL, FILTER
-			# mcols(vcf)				# same
-			# rowRanges(vcf)			# seqnames, ranges, strant, paramRangeID, REF, ALT QUAL FILTER
-			# ref(vcf)					# extract the REF 
-			# alt(vcf)					# ALT alleles (DNAStringSetList)
-			# qual(vcf)	 				# SNP quality
-			# filt(vcf)					# FILTER
-			# geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
-			#							# 	RGQ is "Unconditional reference genotype confidence"
-			# info(vcf)					# INFO field variables
-			# info(vcf)$AC				# Allele count for each ALT allele in the same order as listed
-			# info(vcf)$AF				# Allele frequency (fraction) for each ALT allele in the same order as listed
-			# info(vcf)$AN				# Total number of alleles in called genotypes
-			# info(vcf)$VQSLOD			# VQSLOD
-			# info(vcf)$VariantType		# all NA, leave out of readVcf
-			
-			# Reads the whole vcf file
-			# vcf <- readVcf(file = vcfname, genome = fastaname) 
-			
-			# object.size(vcf)
-			
-			# test
-			# rngs <- GRanges("chrM", IRanges(c(1, 1000), c(2000, 3000))) # just these lines
-			# rng1 <- GRanges("chrM", IRanges(1, 1000)) 
-			# rng2 <- GRanges("chrM", IRanges(2000, 3000))
-			
-			glazerFrom <- glazer[glazer$OldChr == chrFrom[i], ]
-			oldranges <- glazerFrom[, c("OldStart", "OldEnd")]  # oldstart is always < oldend
-			oldranges <- oldranges[order(oldranges$OldStart), ] # make sure they are in order low to high
-			
-			rngs <- GRanges(chrFromName, IRanges(start = oldranges$OldStart, end = oldranges$OldEnd))
-			vcfList[[i]] <- readVcf(file = vcfFromName, genome = genome, 
-						ScanVcfParam(fixed = c("ALT", "QUAL", "FILTER"), geno=geno, info=info,
-						which = rngs))
-			
-			# object.size(vcf)
-			
-			# -------------------------
-			# Drop masked SNP (variants whose start position is masked in the chromosome)
-			# ** applied to CHRIV, this step removes base "12811481", the putative site of the Eda mutation **
-			# 	In windowsmaskerSdust.chrIV, the site is marked as masked.
-			
-			# Includes only the good bases: only upper case, no "M"
-			cat("\nRemoving snp corresponding to masked bases\n\n")
-			keep <- !(start(ranges(vcf)) %in% which.chrvec.M) 
-			
-			vcf <- vcf[keep]
-			
-			rm(keep)
-			# rm(which.chrvec.M) # remove later
-			
-			# object.size(vcf)
-			# 36,360,752 bytes # chrXXI
-			gc()
-			
-			
-			} # end for(i in chrFrom)
-		
-		} # end if(chrno != "M" & !grepl("pitx1", chrno))
-	
-	# pos <- start(rowData(vcfresults$vcf))	
-	# if( ){
-		# newCoords <- g$glazerConvertOld2New(chrname, pos)
-		# } else {
-		# newCoords <- data.frame(newChr = rep(chrno, length(pos)), newPos = pos)
-		# }
-
-	# vcfresults$newChr <- newCoords$newChr
-	# vcfresults$newPos <- newCoords$newPos
-
-	} # end if(Glazerize)
-
-
-
-
-
-
-
 # -------------------------
+# Build index, if not exist
+
+if(!file.exists(vcftbi)){
+	root <- sub("[.]gz$", "", vcfname) # remove the "gz" if present
+	compressedVcfname <- paste(root, "bgz", sep = ".")
+	# compress and save file name
+	bgzname <- bgzip(vcfname, compressedVcfname)
+	file.rename(bgzname, vcfname)
+	# Create the index
+	idx <- indexTabix(vcfname, "vcf")
+	}
+
+# ---------------------
+# Read variant VCF file
+
+# Use "vcfLong <- expand(vcf)" if want variants having multiple ALT alleles to appear on multiple rows, 
+# one per ALT allele. This would be a straightforward way to get predictCoding for all alleles. 
+
+# Useful accessor functions
+# To print many rows, do this first:
+# options(showHeadLines=Inf)  # allows you to print many lines
+# options("showHeadLines"=NULL) # reverts back to default
+
+# header(vcf) 				# Header information
+# samples(header(vcf))		# names of fish in sample
+# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
+# rowData(vcf)				# paramRangeID, ALT, QUAL, FILTER
+# mcols(vcf)				# same
+# rowRanges(vcf)			# seqnames, ranges, strant, paramRangeID, REF, ALT QUAL FILTER
+# ref(vcf)					# extract the REF 
+# alt(vcf)					# ALT alleles (DNAStringSetList)
+# qual(vcf)	 				# SNP quality
+# filt(vcf)					# FILTER
+# geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
+#							# 	RGQ is "Unconditional reference genotype confidence"
+# info(vcf)					# INFO field variables
+# info(vcf)$AC				# Allele count for each ALT allele in the same order as listed
+# info(vcf)$AF				# Allele frequency (fraction) for each ALT allele in the same order as listed
+# info(vcf)$AN				# Total number of alleles in called genotypes
+# info(vcf)$VQSLOD			# VQSLOD
+# info(vcf)$VariantType		# all NA, leave out of readVcf
+
+# Reads the whole vcf file
+# vcf <- readVcf(file = vcfname, genome = fastaname) 
+
+# object.size(vcf)
+
+# test
+# rngs <- GRanges("chrM", IRanges(c(1, 1000), c(2000, 3000))) # just these lines
+# rng1 <- GRanges("chrM", IRanges(1, 1000)) 
+# rng2 <- GRanges("chrM", IRanges(2000, 3000))
+
+# vcf <- readVcf(file = vcfname, genome = fastaname, ScanVcfParam(fixed=c("ALT", "QUAL", "FILTER"), 
+			# which = rngs, geno="GT", info=c("DP","FS","VQSLOD")))
+vcf <- readVcf(file = vcfname, genome = genome, ScanVcfParam(fixed = c("ALT", "QUAL", "FILTER"), 
+			# which = c(rng1, rng2), 
+			geno="GT", info=c("AC", "DP","FS","VQSLOD")))
+
+# object.size(vcf)
+
+cat("\nSuccessfully read vcf file\n")
+
+# -----
+# fish group codes 1, 2, ... Order is determined by sequence of groupnames, eg "paxl", "paxb", "marine-pac"
+
+fishnames <- samples(header(vcf))
+
+# FUDGE TO FIX PRIEST in file names
+# fishnames <- gsub("Priest", "Pri", fishnames, ignore.case = TRUE) 
+# These two commands should change the names where they are stored in vcf (need both)
+# header(vcf)@samples <- fishnames
+# dimnames(vcf)[[2]] <- fishnames
+
+cat("\nfishnames:\n")
+print(fishnames)
+
+# assign numbers corresponding to groups
+groupcodes <- g$groupFishCodes(fishnames, groupnames)
+
+cat("\ngroupcodes:\n")
+print(groupcodes)  # 
+  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
+ # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
+ # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 13 13 13 13
+ # [76] 13 13 13 13 12 12 12 12 12 12 12 12 12 14 14 14 14 14 14  2  2  2  2  2  2
+# [101]  1  1  1  1  1  1  1  1  1
+
+# table(groupcodes)
+ # 1  2  3  4  5  6  7  8  9 10 11 12 13 
+# 16 11 10 10  6  6  6  6  8  3  4  8  6 
+ 
+nInd <- as.vector(table(groupcodes)) # number of individuals genotyped in each group
+ # [1] 16 11 10 10  6  6  6  6  8  3  4  8  6
+
+cat("\nNumber of individuals (nInd):\n")
+names(nInd) <- groupnames
+
+print(nInd) 
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+        # 16         11         10         10          6          6          6 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 6          8          3          4          9          8          6 
+
+nMin <- round(GTminFrac*nInd) # minimum number required in each group
+# nMin
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+        # 11          7          7          7          4          4          4 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 4          5          2          3          6          5          4 
+
+nMin <- mapply(rep(5, length(groupnames)), nMin, FUN = min) # criterion is 5 or nMin, whichever is smaller, eg 5 5 4
+names(nMin) <- groupnames
+
+cat("\nMinimum no. genotyped individuals needed to use a snp when calculating Fst etc (nMin):\n")
+print(nMin)  # 
+      # paxl       paxb       pril       prib       qryl       qryb       ensl 
+         # 5          5          5          5          4          4          4 
+      # ensb marine-pac marine-atl marine-jap   solitary    sculpin     stream 
+         # 4          5          2          3          5          5          4 
+
+# Q: What does QUAL = NA imply?
+
+# ------
+# Drop masked SNP (variants whose start position is masked in the chromosome)
+# ** applied to CHRIV, this step removes base "12811481", the putative site of the Eda mutation **
+# 	In windowsmaskerSdust.chrIV, the site is marked as masked.
+
+keep <- !(start(ranges(vcf)) %in% which.chrvec.M) # i.e., includes only the good bases: only upper case, no "M"
+
+vcf <- vcf[keep]
+cat("\nCompleted removal of snp corresponding to masked bases\n\n")
+
+rm(keep)
+# rm(which.chrvec.M) # remove later
+
+# object.size(vcf)
+# 36,360,752 bytes # chrXXI
+gc()
+
+# ------
 # set missing genotypes to NA instead of "."
 geno(vcf)$GT[geno(vcf)$GT == GTmissing] <- NA
 
-# -------------------------
-# Delete low quality FILTER categories
-cat("\nFILTER categories -- deleting . and LowQual\n\n")
+# ------
 print(table(filt(vcf)))
                           # .                     LowQual                        PASS 
                         # 389                           6                         104 
  # VQSRTrancheSNP99.00to99.50  VQSRTrancheSNP99.50to99.90 VQSRTrancheSNP99.50to99.90+ 
                          # 13                          89                        3739 
 
-keep <- !is.element(filt(vcf), c(".", "LowQual"))
-vcf <- vcf[keep]
-rm(keep)
-
+# -----
+# Drop variants in which fewer than 2 groups have at least one genotype
+*** and drop LowQual in FILTER field
 
 # Tally up the number of genotypes in each group
 samplesByGroup <- split(samples(header(vcf)), groupcodes) # Order of resulting groups is as in groupnames and groupcodes
@@ -350,10 +375,9 @@ gc()
 
 # --------------------------------------
 # Make a table of the allele frequencies by group
-
-# SKIP this now
-
-# alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[, groupcodes > 0], groupnames, groupcodes[groupcodes > 0])
+if(FALSE){
+alleleFreqByGroup <- g$tableAlleleFreqByGroup(geno(vcf)$GT[, groupcodes > 0], groupnames, groupcodes[groupcodes > 0])
+	}
 	# unname(geno(vcf)$GT[1, ])
 	# groupcodes
 	# alleleFreqByGroup[[1]]     
@@ -385,7 +409,7 @@ gc()
 # Note that we can get ALT allele counts from info(vcf)$AC (just need to get REF count)
 
 # if(dropRareAlleles){
-	# g$dropRareAlleles(..) # Not working yet as a function
+	# g$dropRareAlleles() # Not working yet as a function
 	# }
 
 # --------------------------
@@ -406,16 +430,16 @@ gc()
 # Note, there are still "<*:DEL>" alleles. 
 # Note that NA has length 1, so a nonzero nAltUsed doesn't mean there are real ALT alleles there
 
-cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
-
 # Can also calculate this more quickly using info(vcf)$AC: a "0" implies no called genotypes use it
-
+cat("\n\nDetermining which ALT alleles actually used in genotype calls; others ALT alleles set to NA\n")
 altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 
 newInfo <- DataFrame(Number=1, Type="CompressedList",
                       Description="ALT alleles actually used in genotype calls",
                       row.names="altUsedList")
 info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
+# rownames(info(header(vcf)))
+
 info(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
 
 # This didn't work
@@ -444,8 +468,9 @@ newInfo <- DataFrame(Number=1, Type="CompressedList",
                       Description="Type of ALT allele",
                       row.names="snpTypeList")
 info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
-info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList")
+# rownames(info(header(vcf)))
 
+info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList")
 # info(vcf)
 
 rm(snpTypeList)
@@ -542,7 +567,7 @@ rm(altUsedList)
 # --------------------------------------
 # Transition-transversion ratio
 
-tstv <- g$vcfTsTv(ref(vcf), info(vcf)$altUsedList, info(vcf)$snpTypeList)
+tstv <- g$vcfTsTv(ref(vcf), altUsedList, snpTypeList)
 
 print(tstv)
 # $R

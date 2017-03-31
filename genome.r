@@ -2913,7 +2913,9 @@ g$readChrVcf <- function(project, chrname, vcfparamFile, iranges = NULL,
 	# Save vcf
 	# save(vcf, file = vcfresultsfile) # saved object is "vcf"
 
-	{
+	vcf
+	
+	}
 
 g$recode<-function (..., ret = c("numeric", "factor"), none = if (ret == "numeric") 0 else "none", na){
 	# stolen from the Hmisc library

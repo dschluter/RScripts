@@ -59,6 +59,7 @@ chrNumeric		<- g$chrname2numeric(chrname) # 21
 chrmaskfile     <- paste("chrvec.", chrno, ".masked.rdd", sep = "") # chrvec.XXI.masked.rdd
 fastaname		<- paste(chrname, "fa", sep = ".")
 # vcfname		<- paste(project, ".", chrname, ".var.vcf.gz", sep="")
+
 vcfname			<- paste(project, ".", chrname, ".vcf.gz", sep="")
 vcftbi 			<- paste(project, ".", chrname, ".vcf.gz.tbi", sep="")
 vcffile			<- paste(project, ".", chrname, ".vcf.rdd", sep = "")

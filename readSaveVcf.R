@@ -36,6 +36,7 @@ if(is.null(project)) stop("Provide project= in arguments")
 
 cat("\nchrname is", chrname, "\n") # chrXXI
 
+chrno 			<- gsub("^chr", "", chrname)
 vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
 vcfresultsfile	<- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")
 
@@ -228,13 +229,13 @@ if(Glazerize){ # Requires conversion file "glazerFileS4 NewScaffoldOrder.csv" in
 	                      Description="Glazer assembly chromosome",
 	                      row.names="newChr")
 	info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
-	info(vcf)$newChr <- as(unname(newChr), "Character")
+	info(vcf)$newChr <- newCoords$newChr
 
 	newInfo <- DataFrame(Number=1, Type="Integer",
 	                      Description="Glazer assembly chromosome positions",
 	                      row.names="newPos")
 	info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
-	info(vcf)$newPos <- as(unname(newPos), "Integer")
+	info(vcf)$newPos <- newCoords$newPos
 
 	
 	z <- unique(info(vcf)$newChr)

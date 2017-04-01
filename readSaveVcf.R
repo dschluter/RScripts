@@ -18,7 +18,7 @@ project 	<- NULL
 chrname 	<- NULL
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim_99.0_SNP")
+# args <- c("chrname=chrXXI", "project=Benlim_99.0_SNP")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -33,7 +33,6 @@ for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
-if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separated by commas, no spaces)")
 
 cat("\nchrname is", chrname, "\n") # chrXXI
 

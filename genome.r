@@ -2763,27 +2763,12 @@ g$readChrVcf <- function(project, chrname, vcfparamFile, iranges = NULL,
 	altUsedList <- g$makeAltUsedList(geno(vcf)$GT[ , groupcodes > 0], alt(vcf))
 	
 	# Save altUsedList in INFO of vcf file
-	newInfo <- DataFrame(Number=1, Type="CompressedList",
+	newInfo <- DataFrame(Number=1, Type="List",
 	                      Description="ALT alleles actually used in genotype calls",
 	                      row.names="altUsedList")
 	info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
-	info(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
+	info(vcf)$altUsedList <- as(unname(altUsedList), "List")
 	
-	# This didn't work
-	# mcols(vcf)$altUsedList <- as(unname(altUsedList), "CompressedList")
-		
-	# Compare the number of ALT alleles used vs number of ALT alleles called
-	# Number called by GATK
-	# table(sapply(alt(vcf), length), useNA = "always")
-	     # 1      2      3      4      5   <NA>
-	# 267591  13243    763      9      1      0
-	
-	# Number of ALT alleles actually used in genotype calls ( if(FALSE) comments everything out )
-		# nAltUsed <- sapply(altUsedList, function(x){ length( x[!is.na(x)] ) })
-		# table(nAltUsed, useNA = "always")
-		     # # 0      1      2      3   <NA> # if dropRareAlleles = FALSE
-		 # # 26102 243415  11398    692      0
-		# rm(nAltUsed)
 
 	# Types of variants
 	# -----------------
@@ -2792,11 +2777,11 @@ g$readChrVcf <- function(project, chrname, vcfparamFile, iranges = NULL,
 	snpTypeList <- g$makeSnpTypeList(REF = ref(vcf), ALTlist = altUsedList)
 	
 	# Save snpTypeList in INFO of vcf file
-	newInfo <- DataFrame(Number=1, Type="CompressedList",
+	newInfo <- DataFrame(Number=1, Type="List",
 	                      Description="Type of ALT allele",
 	                      row.names="snpTypeList")
 	info(header(vcf)) <- rbind(info(header(vcf)), newInfo)
-	info(vcf)$snpTypeList <- as(unname(snpTypeList), "CompressedList")
+	info(vcf)$snpTypeList <- as(unname(snpTypeList), "List")
 	
 	# info(vcf)
 	

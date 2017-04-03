@@ -9,7 +9,7 @@
 # module load R/3.1.2
 # R
 
-# Expect to read these arguments from args
+# Expect to read these arguments from args 
 project <- NULL
 chrname <- NULL
 groupnames <- NULL

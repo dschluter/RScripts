@@ -14,11 +14,10 @@ project <- NULL
 chrname <- NULL
 groupnames <- NULL
 DPmin <- 1 			 # default if not provided
-postDrop <- "FALSE"
 Glazerize <- "FALSE" # Requires file "glazerFileS4 NewScaffoldOrder.csv" in current directory
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "DPmin=1", "postDrop=TRUE")
+# args <- c("chrname=chrM", "project=Benlim", "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream", "Glazerize=TRUE", "DPmin=1")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
@@ -32,7 +31,6 @@ for(i in 1:nrow(x)){ assign(x[i,1], x[i,2]) }
 # [3] "groupnames=paxl,paxb,pril,prib,qryl,qryb,ensl,ensb,marine-pac,marine-atl,marine-jap,solitary,stream"
 # [4] "Glazerize=TRUE"                                                                                     
 # [5] "DPmin=1"                                                                                            
-# [6] "postDrop=TRUE"                                                             
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
@@ -42,7 +40,6 @@ if(is.null(groupnames)) stop("Provide groupnames= in arguments (grounames separa
 cat("\nproject is", project, "\n")
 cat("\nchrname is", chrname, "\n")
 cat("\nGlazerize is", Glazerize, "\n")
-cat("\npostDrop is", postDrop, "\n")
 
 GTmissing <- "."  # how GATK represents missing genotypes in the vcf file "./."
 
@@ -55,7 +52,6 @@ load(chrmaskfile) 		# object is named "chrvec"
  # 8754452  7589050  7570271 29869838  8766600 
 
 invariantsummaryname    <- paste(project, ".", chrname, ".DP.inv.gz", sep="")
-if(postDrop == "TRUE") invariantsummaryname <- paste(project, ".", chrname, ".sel.inv.gz", sep="")
 textfile				<- paste(project, ".", chrname, ".goodInv.gz", sep="")
 goodInvariantsFile 		<- paste(project, ".", chrname, ".goodInv.rdd", sep="")
 

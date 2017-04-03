@@ -35,3 +35,13 @@ tbiFile <- paste(vcfFile, "tbi", sep = ".")
 if(!file.exists(tbiFile)) stop(paste("tabix file", tbiFile, "missing"))
 
 g$extractChrFromVcfFile(chrname = chrname, bgzfile = vcfFile, genome = genome, chunksize = chunksize)
+
+file.chr.gz <- sub("vcf[.][b]*gz", paste(chrname, "vcf.gz", sep = "."), vcfFile)
+
+root <- sub("[.]gz$", "", file.chr.gz) # remove the "gz" if present
+compressedVcfname <- paste(root, "bgz", sep = ".")
+# compress and save file name
+bgzname <- bgzip(file.chr.gz, compressedVcfname)
+file.rename(bgzname, file.chr.gz)
+# Create the index
+idx <- indexTabix(file.chr.gz, "vcf")

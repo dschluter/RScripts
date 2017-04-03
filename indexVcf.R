@@ -19,9 +19,9 @@ compressedVcfname <- paste(root, "bgz", sep = ".") # save to this instead of .gz
 # compress and save file name
 bgzname <- bgzip(vcfname, compressedVcfname)
 
-# Create the index
-idx <- indexTabix(bgzname, "vcf")
+# rename file
+file.rename(bgzname, vcfname)
 
-# optional: rename .bgz to .gz (this will overwrite original gz file)
-# file.rename(bgzname, sub("vcf.bgz", "vcf.gz", bgzname))
-# file.rename(idx, sub("vcf.bgz.tbi", "vcf.gz.tbi", idx))
+# Create the index
+idx <- indexTabix(vcfname, "vcf")
+

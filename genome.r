@@ -517,7 +517,8 @@ g$extractChrFromVcfFile <- function(chrname = "chrM", bgzfile = "Benlim_99.0_SNP
 	library(VariantAnnotation)
 	pattern <- chrname
 	isChr <- function(chr) {
-		grepl(pattern, chr, fixed=TRUE)
+		# grepl(pattern, chr, fixed=TRUE)
+		grepl(paste(pattern,"\t", sep=""), chr, fixed=TRUE) # include the tab after to end chr name
 		}
 	prefilters <- FilterRules(list(ischr = isChr))
 	

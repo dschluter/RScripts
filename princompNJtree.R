@@ -9,7 +9,6 @@
 # This code assumes that we are working only with ONE chromosome at a time
 # Note: At most 3 ALT alleles permitted per snp in this version
 
-# To hard filter (this should really be done earlier, when making vcfresults)
 # Muhua's VSQR filters are: 
 #	QD < 2.00 || FS > 60.000 || MQ < 50.00 || MQRankSum < -12.500 || ReadPosRankSum < -8.000")
 # GATK Best Practices recommends cutoffs: 
@@ -25,124 +24,79 @@
 # module load R/3.1.2
 # R
 
-chrname <- NULL
-project <- NULL
-groupnames <- NULL
-Glazerize 	<- TRUE # *Default*
-removeIndels <- FALSE # *Default*
-filterFS <- TRUE # *Default*  # currently this means only drop nonmissing cases with FS > 60
+# Filter based on FILTER
+# NULL, LowQual, PASS, VQSRTrancheSNP99.00to99.50, VQSRTrancheSNP99.50to99.90, VQSRTrancheSNP99.50to99.90+
+
+library(VariantAnnotation)
+
+project 	<- NULL
+chrInclude  <- NULL
+removeIndels<- FALSE # Default
+filter 		<- NULL 
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM","project=Benlim","Glazerise=TRUE", "removeIndels=FALSE","filterFS=TRUE")
+# args <- c("project=Benlim", "chrInclude=chrM,chrXXI", "removeIndels=FALSE", "filter=PASS")
 
 # Parses the args into a data frame with two columns (V1=left and V2=right of each "=" sign)
 # and then assigns V2 to variables whose names are in V1 
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
 
-if(is.null(chrname)) stop("Provide chrname= in arguments")
+chrname <- unlist(strsplit(chrInclude, split = ","))
+
+vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
+load(vcfparamFile) # object is vcfparam
+
+Glazerize <- vcfparam$Glazerize
+fishnames <- vcfparam$fishnames
+groupcodes<- vcfparam$groupcodes
+groupnames<- vcfparam$groupnames
+print(groupnames)
+ # [1] "paxl"       "paxb"       "pril"       "prib"       "qryl"      
+ # [6] "qryb"       "ensl"       "ensb"       "marine-pac" "marine-atl"
+# [11] "marine-jap" "solitary"   "sculpin"    "stream"    
+
+if(is.null(chrInclude)) stop("Provide chrInclude= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 
-pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
+for(i in chrname){
+	# i <- "chrM"
+	pcaResFile 	<- paste(project, chrname, "pcaRes.rdd", sep = ".")
 
-cat("\nProject, chrname, groupnames:\n")
-cat(project, chrname, "\n", paste(groupnames, collapse = ","), "\n")
+	cat("\nProject, chrname, groupnames:\n")
+	cat(project, chrname, "\n", paste(groupnames, collapse = ","), "\n")
 
-if(Glazerize){
-	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
-	} else {
-	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
+	if(Glazerize){
+		vcfresultsfile <- paste(project, ".", i, ".vcfNew.rdd", sep = "")
+		} else {
+		vcfresultsfile <- paste(project, ".", i, ".vcfresults.rdd", sep = "")}
 
-cat("\nLoading vcfresults file\n")
-load(file = vcfresultsfile)   # object is "vcfresults"
-
-# *Note*: if Glazerise, vcfresults$vcf is a list, one element for each old chromosome
-
-# names(vcfresults)
- # [1] "groupnames"        "groupcodes"        "control"          
- # [4] "nInd"              "nMin"              "vcf"              
- # [7] "newChr"            "newPos"            "altUsedList"      
-# [10] "snpTypeList"       "alleleFreqByGroup" "fishnames"        
-
-print(vcfresults$control)
-# $nMaxAlt
-# [1] 3
-# $snpOptions
-# dropRareAlleles 
-          # FALSE 
-# $GTminFrac
-# [1] 0.6666667
-
-# object.size(vcfresults)
-
-# dropRareAlleles	<- vcfresults$control$snpOptions["dropRareAlleles"]
-# saveBiAllelic 	<- vcfresults$control$snpOptions["saveBiAllelic"]
-# nMaxAlt			<- vcfresults$control$nMaxAlt
-
-gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  14201705  758.5   17756025  948.3  16864700  900.7
-# Vcells 146561218 1118.2  211583004 1614.3 159676022 1218.3
-
-library(VariantAnnotation, quietly = TRUE)
-
-fishnames <- vcfresults$fishnames
-groupcodes <- vcfresults$groupcodes
-groupnames <- vcfresults$groupnames
-
-cat("\ngroupcodes:\n")
-print(groupcodes)
-  # [1]  8  8  8  8  8  8  7  7  7  7  7  7 10 10 10 11 11 11 11  9  9  9  9  9  9
- # [26]  9  9  4  4  4  4  4  4  3  3  3  3  3  3  3  3  2  2  2  2  2  1  1  1  1
- # [51]  1  1  1  4  4  4  4  3  3  6  6  6  6  6  6  5  5  5  5  5  5 12 12 12 12
- # [76] 12 12 12 12 13 13 13 13 13 13  2  2  2  2  2  2  1  1  1  1  1  1  1  1  1
-
-print(groupnames)
-
-# -----
-# Reminder: Accessor functions. 
-# Apply to vcfresults$vcf[[1]]
-
-# header(vcf) # Header information
-# samples(header(vcf))		# names of fish in sample
-# geno(header(vcf))			# info on GT, AD, DP, GQ, MIN_DP, PGT, PID PL RGQ SB
-# head(rowData(vcf), 3)		# Genomic positions. This command worked instead
-# ref(vcf)					# extract the REF 
-# alt(vcf)					# ALT alleles (DNAStringSetList)
-# qual(vcf)	 				# SNP quality
-# geno(vcf)					# Genotype data: List of length 10 names(10): GT AD DP GQ MIN_DP PGT PID PL RGQ SB
-#							# 	RGQ is "Unconditional reference genotype confidence"
-# geno(header(vcf))["DS",]	# didn't work - no DS in file
-# geno(header(vcf))["SB",]	# Info on what a given genotype item is
-# SB <-geno(vcf)$SB			# grab the genotype values of SB (Fisher's Exact Test to detect strand bias)
-# info(vcf)					# info
-
-# names(info(vcf))    
- # [1] "AC"              "AF"              "AN"              "BaseQRankSum"   
- # [5] "ClippingRankSum" "DP"              "DS"              "END"            
- # [9] "FS"              "HaplotypeScore"  "InbreedingCoeff" "MLEAC"          
-# [13] "MLEAF"           "MQ"              "MQRankSum"       "QD"             
-# [17] "ReadPosRankSum"  "SOR"
-
-cat("\nExtracting genotypes\n")
-# Pull out genotypes 
-if(Glazerize){
-	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT})
-	genotypes <- do.call("rbind", genotypes)
-	pos <- vcfresults$newPos
-	FS <- unlist(lapply(vcfresults$vcf, function(x){info(x)$FS}))
-	# QD <- unlist(lapply(vcfresults$vcf, function(x){info(x)$QD}))
-	# MQ <- unlist(lapply(vcfresults$vcf, function(x){info(x)$MQ}))
-	# MQRankSum <- unlist(lapply(vcfresults$vcf, function(x){info(x)$MQRankSum}))
-	# ReadPosRankSum <- unlist(lapply(vcfresults$vcf, function(x){info(x)$ReadPosRankSum}))
-	} else {
-	genotypes <- geno(vcfresults$vcf)$GT
-	pos <- start(rowData(vcfresults$vcf))
-	FS <- info(x)$FS
-	}
+	cat("\nLoading vcfresults file\n")
+	load(file = vcfresultsfile)   # object is "vcf"
 	
-# Don't need this object any more
-rm(vcfresults)
+	gc()
+	            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  14201705  758.5   17756025  948.3  16864700  900.7
+	# Vcells 146561218 1118.2  211583004 1614.3 159676022 1218.3
+
+	# keep only cases corresponding to FILTER
+	keep <- casefold(filt(vcf)) == casefold(filter)
+	# table(keep)
+	# keep
+	# FALSE  TRUE 
+	 # 4236   104
+	
+	vcf <- vcf[keep]
+	
+	cat("\nExtracting genotypes\n")
+	genotypes <- geno(vcf)$GT
+	pos <- info(vcf)$newPos
+	
+	# Don't need this object any more
+	rm(vcf)
+
+
+** CONTINUE HERE **
 
 # For chrM test how many snp left if apply all hard filters:
 # z <- cbind(QD,FS,MQ,MQRankSum,ReadPosRankSum)

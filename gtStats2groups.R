@@ -18,7 +18,7 @@
 # They are used in a "grep" to divide the fish uniquely into groups
 
 project 		<- NULL
-chrInclude  	<- NULL
+chrname  		<- NULL
 includePfisher 	<- NULL
 includeFst     	<- NULL
 includePsd		<- NULL
@@ -27,7 +27,7 @@ fishPair		<- NULL
 filter 			<- NULL 
 
 args <- commandArgs(TRUE)
-# args <- c("project=Benlim", "chrInclude=chrXXI", "filter=PASS", "includePfisher=FALSE", "includeFst=TRUE", "includePsd=TRUE", "trueSnpOnly=FALSE", "fishPair=paxl,paxb")
+# args <- c("project=Benlim", "chrname=chrXXI", "includePfisher=FALSE", "includeFst=TRUE", "includePsd=TRUE", "fishPair=paxl,paxb")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
@@ -35,24 +35,18 @@ for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
 # x
               # V1        V2
 # 1        project    Benlim
-# 2     chrInclude    chrXXI
-# 3         filter      PASS
-# 4 includePfisher     FALSE
-# 5     includeFst      TRUE
-# 6     includePsd      TRUE
-# 7    trueSnpOnly     FALSE
-# 8       fishPair paxl,paxb
+# 2        chrname    chrXXI
+# 3 includePfisher     FALSE
+# 4     includeFst      TRUE
+# 5     includePsd      TRUE
+# 6       fishPair paxl,paxb
 
-if(is.null(chrInclude)) stop("Provide chrInclude= in arguments")
+if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 if(is.null(includePfisher)) stop("Provide includePfisher= in arguments")
 if(is.null(includeFst)) stop("Provide includeFst= in arguments")
 if(is.null(includePsd)) stop("Provide includePsd= in arguments")
 if(is.null(fishPair)) stop("Provide fishPair= in arguments")
-
-chrname <- unlist(strsplit(chrInclude, split = ","))
-chrname <- g$chrOrderRoman(chrname)
-filter	<- unlist(strsplit(filter, split=","))
 
 vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
 load(vcfparamFile) # object is vcfparam
@@ -62,6 +56,11 @@ GTminFrac <- vcfparam$GTminFrac
 fishnames <- vcfparam$fishnames
 groupcodes<- vcfparam$groupcodes
 groupnames<- vcfparam$groupnames
+nInd <- vcfparam$nInd[fishPair]
+nMin <- vcfparam$nMin[fishPair]
+
+cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
+print( data.frame(nInd, nMin) )
 
 fishPair <- unlist(strsplit(fishPair, split = ","))
 if(length(fishPair) > 2 ) stop("Provide names of only two groups")
@@ -71,7 +70,7 @@ if(length(fishPair) > 2 ) stop("Provide names of only two groups")
 
 library(VariantAnnotation)
 
-# vcfparam$groupnames[vcfparam$groupcodes]
+# groupnames[groupcodes]
 	  # [1] "ensb"       "ensb"       "ensb"       "ensb"       "ensb"      
 	  # [6] "ensb"       "ensl"       "ensl"       "ensl"       "ensl"      
 	 # [11] "ensl"       "ensl"       "marine-atl" "marine-atl" "marine-atl"
@@ -95,13 +94,12 @@ library(VariantAnnotation)
 	# [101] "paxl"       "paxl"       "paxl"       "paxl"       "paxl"      
 	# [106] "paxl"       "paxl"       "paxl"       "paxl"      
 
-# which(is.element(vcfparam$groupnames[vcfparam$groupcodes], fishPair))
+# which(is.element(groupnames[groupcodes], fishPair))
  # [1]  42  43  44  45  46  47  48  49  50  51  52  53  95  96  97  98  99 100 101
 # [20] 102 103 104 105 106 107 108 109
 
 # Redo group codes for the two groups of interest here
 # 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
-fishnames <- vcfparam$fishnames
 groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
 	x <- grep(fishPair[i], fishnames, ignore.case = TRUE)
@@ -120,58 +118,48 @@ groups <- groupcodes[groupcodes > 0]
 # groups
  # [1] 2 2 2 2 2 1 1 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1
 
-nInd <- vcfparam$nInd[fishPair]
-nMin <- vcfparam$nMin[fishPair]
+if(Glazerize){
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfNew.rdd", sep = "")
+	} else {
+	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
 
-cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
-print( data.frame(nInd, nMin) )
+cat("\nLoading vcfresults file\n")
+load(file = vcfresultsfile)   # object is "vcf"
 
+gtstatsfile <- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
+gtstats <- list()
 
-for(i in chrname){
-	# i <- "chrXXI"
-
-	if(Glazerize){
-		vcfresultsfile <- paste(project, ".", i, ".vcfNew.rdd", sep = "")
-		} else {
-		vcfresultsfile <- paste(project, ".", i, ".vcfresults.rdd", sep = "")}
-
-	cat("\nLoading vcfresults file\n")
-	load(file = vcfresultsfile)   # object is "vcf"
-
-	gtstatsfile <- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
-	gtstats <- list()
-
-	cat("\nProject, chromosome, 2groups:", project, chrname, fishPair, "\n")
+cat("\nProject, chromosome, 2groups:", project, chrname, fishPair, "\n")
 
 # ** todo: in saveSnpsByGroup.R convert alleleFreqByGroup into a data frame, saves so much memory (see below) **
 
+# keep only cases corresponding to filter - filter later, not here?
+# if(all(!is.na(filter) & filter != "NULL")){
+	# keep <- casefold(filt(vcf)) %in% casefold(filter)
+	# # table(keep)
+	 # # FALSE   TRUE 
+	# # 456617 471867 		 
+	# vcf <- vcf[keep]
+	# rm(keep)
+ 		# }
 
-	# keep only cases corresponding to filter
-	if(all(!is.na(filter) & filter != "NULL")){
-		keep <- casefold(filt(vcf)) %in% casefold(filter)
-		# table(keep)
-		 # FALSE   TRUE 
-		# 456617 471867 		 
-		vcf <- vcf[keep]
-		rm(keep)
+# ----------
+# Pull out the genotypes for just the two groups being analyzed. 
 
- 		}
+genotypes <- geno(vcf)$GT[ , groupcodes > 0]		
 
-	# ----------
-	# Pull out the genotypes for just the two groups being analyzed. 
+# Wipe out the genotypes in vcf to save memory?
+geno(vcf)$GT <- NULL
 
-	genotypes <- geno(vcf)$GT[ , groupcodes > 0]		
-	
-	# Wipe out the genotypes in vcf to save memory?
-	geno(vcf)$GT <- NULL
+# gcinfo(TRUE)
+gc()
+           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+# Ncells  5851880 312.6    8572058  457.8   5953281  318.0
+# Vcells 50900300 388.4  224100271 1709.8 254709358 1943.3
 
-	# gcinfo(TRUE)
-	gc()
-	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-	# Ncells  4455507 238.0    8572058  457.8   8572058  457.8
-	# Vcells 27668965 211.1  213368640 1627.9 266686046 2034.7
+cat("\nCount allele frequencies for each locus for the two populations being analyzed\n")
 
-	cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
+g$tableAlleleFreqByGroup <- function(GT = geno(vcf)$GT, groupnames, groupcodes, nMaxAlt = 3, split = "/"){
 
 ** HERE **
 

@@ -11,163 +11,169 @@
 # module load R/3.1.2
 # R
 
+# Filter based on FILTER
+# NULL, LowQual, PASS, VQSRTrancheSNP99.00to99.50, VQSRTrancheSNP99.50to99.90, VQSRTrancheSNP99.50to99.90+
+
 # fishPair must uniquely be substrings of the group names (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
-chrname 		<- NULL
 project 		<- NULL
+chrInclude  	<- NULL
 includePfisher 	<- NULL
 includeFst     	<- NULL
 includePsd		<- NULL
 trueSnpOnly		<- NULL # If TRUE, this must be evaluated separately for each pair of populations
 fishPair		<- NULL
-
-Glazerize 		<- TRUE  # *Default*
-filterFS 		<- TRUE  # *Default*  # currently this means only drop nonmissing cases with FS > 60
+filter 			<- NULL 
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM","project=Benlim","includePfisher=FALSE","includeFst=TRUE","includePsd=TRUE","trueSnpOnly=FALSE","Glazerise=TRUE","filterFS=TRUE","fishPair=paxl,paxb")
+# args <- c("project=Benlim", "chrInclude=chrXXI", "filter=PASS", "includePfisher=FALSE", "includeFst=TRUE", "includePsd=TRUE", "trueSnpOnly=FALSE", "fishPair=paxl,paxb")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
 # x
               # V1        V2
-# 1        chrname      chrM
-# 2        project    Benlim
-# 3 includePfisher     FALSE
-# 4     includeFst      TRUE
-# 5     includePsd      TRUE
-# 6    trueSnpOnly     FALSE
-# 7      Glazerise      TRUE
-# 8       filterFS      TRUE
-# 9       fishPair paxl,paxb
+# 1        project    Benlim
+# 2     chrInclude    chrXXI
+# 3         filter      PASS
+# 4 includePfisher     FALSE
+# 5     includeFst      TRUE
+# 6     includePsd      TRUE
+# 7    trueSnpOnly     FALSE
+# 8       fishPair paxl,paxb
 
-if(is.null(chrname)) stop("Provide chrname= in arguments")
+if(is.null(chrInclude)) stop("Provide chrInclude= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
 if(is.null(includePfisher)) stop("Provide includePfisher= in arguments")
 if(is.null(includeFst)) stop("Provide includeFst= in arguments")
 if(is.null(includePsd)) stop("Provide includePsd= in arguments")
 if(is.null(fishPair)) stop("Provide fishPair= in arguments")
 
-if(Glazerize){
-	vcfresultsfile <- paste(project, ".", chrname, ".vcfresultsNew.rdd", sep = "")
-	} else {
-	vcfresultsfile <- paste(project, ".", chrname, ".vcfresults.rdd", sep = "")}
+chrname <- unlist(strsplit(chrInclude, split = ","))
+chrname <- g$chrOrderRoman(chrname)
+filter	<- unlist(strsplit(filter, split=","))
 
-cat("\nLoading vcfresults file\n")
-load(file = vcfresultsfile)   # object is "vcfresults"
-# lapply(vcfresults, object.size)
+vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
+load(vcfparamFile) # object is vcfparam
+
+Glazerize <- vcfparam$Glazerize
+GTminFrac <- vcfparam$GTminFrac
+fishnames <- vcfparam$fishnames
+groupcodes<- vcfparam$groupcodes
+groupnames<- vcfparam$groupnames
 
 fishPair <- unlist(strsplit(fishPair, split = ","))
 if(length(fishPair) > 2 ) stop("Provide names of only two groups")
-
-gtstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
-gtstats <- list()
-
-cat("\nProject, chromosome, 2groups:", project, chrname, fishPair, "\n")
-
-# ** todo: in saveSnpsByGroup.R convert alleleFreqByGroup into a data frame, saves so much memory (see below) **
-
-gc()
-
-# names(vcfresults)
- # [1] "groupnames"        "groupcodes"        "control"          
- # [4] "nInd"              "nMin"              "vcf"              
- # [7] "newChr"            "newPos"            "altUsedList"      
-# [10] "snpTypeList"       "alleleFreqByGroup" "fishnames"        
-
-control <- vcfresults$control
-GTminFrac <- control$GTminFrac
-control$gtstatsOptions <- c(includePfisher = includePfisher, includeFst = includeFst, 
-	includePsd = includePsd, trueSnpOnly = trueSnpOnly)
-control$Glazerize <- Glazerize
+	
+# ----------------
+# Manage group codes for this fish pair
 
 library(VariantAnnotation)
-# library(GenomicFeatures)
 
-# fishPair
-# [1] "paxl" "paxb"
+# vcfparam$groupnames[vcfparam$groupcodes]
+	  # [1] "ensb"       "ensb"       "ensb"       "ensb"       "ensb"      
+	  # [6] "ensb"       "ensl"       "ensl"       "ensl"       "ensl"      
+	 # [11] "ensl"       "ensl"       "marine-atl" "marine-atl" "marine-atl"
+	 # [16] "marine-jap" "marine-jap" "marine-jap" "marine-jap" "marine-pac"
+	 # [21] "marine-pac" "marine-pac" "marine-pac" "marine-pac" "marine-pac"
+	 # [26] "marine-pac" "marine-pac" "prib"       "prib"       "prib"      
+	 # [31] "prib"       "prib"       "prib"       "pril"       "pril"      
+	 # [36] "pril"       "pril"       "pril"       "pril"       "pril"      
+	 # [41] "pril"       "paxb"       "paxb"       "paxb"       "paxb"      
+	 # [46] "paxb"       "paxl"       "paxl"       "paxl"       "paxl"      
+	 # [51] "paxl"       "paxl"       "paxl"       "prib"       "prib"      
+	 # [56] "prib"       "prib"       "pril"       "pril"       "qryb"      
+	 # [61] "qryb"       "qryb"       "qryb"       "qryb"       "qryb"      
+	 # [66] "qryl"       "qryl"       "qryl"       "qryl"       "qryl"      
+	 # [71] "qryl"       "sculpin"    "sculpin"    "sculpin"    "sculpin"   
+	 # [76] "sculpin"    "sculpin"    "sculpin"    "sculpin"    "solitary"  
+	 # [81] "solitary"   "solitary"   "solitary"   "solitary"   "solitary"  
+	 # [86] "solitary"   "solitary"   "solitary"   "stream"     "stream"    
+	 # [91] "stream"     "stream"     "stream"     "stream"     "paxb"      
+	 # [96] "paxb"       "paxb"       "paxb"       "paxb"       "paxb"      
+	# [101] "paxl"       "paxl"       "paxl"       "paxl"       "paxl"      
+	# [106] "paxl"       "paxl"       "paxl"       "paxl"      
 
-# vcfresults$groupnames[vcfresults$groupcodes]
-  # [1] "ensb"       "ensb"       "ensb"       "ensb"       "ensb"      
-  # [6] "ensb"       "ensl"       "ensl"       "ensl"       "ensl"      
- # [11] "ensl"       "ensl"       "marine-atl" "marine-atl" "marine-atl"
- # [16] "marine-jap" "marine-jap" "marine-jap" "marine-jap" "marine-pac"
- # [21] "marine-pac" "marine-pac" "marine-pac" "marine-pac" "marine-pac"
- # [26] "marine-pac" "marine-pac" "prib"       "prib"       "prib"      
- # [31] "prib"       "prib"       "prib"       "pril"       "pril"      
- # [36] "pril"       "pril"       "pril"       "pril"       "pril"      
- # [41] "pril"       "paxb"       "paxb"       "paxb"       "paxb"      
- # [46] "paxb"       "paxl"       "paxl"       "paxl"       "paxl"      
- # [51] "paxl"       "paxl"       "paxl"       "prib"       "prib"      
- # [56] "prib"       "prib"       "pril"       "pril"       "qryb"      
- # [61] "qryb"       "qryb"       "qryb"       "qryb"       "qryb"      
- # [66] "qryl"       "qryl"       "qryl"       "qryl"       "qryl"      
- # [71] "qryl"       "solitary"   "solitary"   "solitary"   "solitary"  
- # [76] "solitary"   "solitary"   "solitary"   "solitary"   "stream"    
- # [81] "stream"     "stream"     "stream"     "stream"     "stream"    
- # [86] "paxb"       "paxb"       "paxb"       "paxb"       "paxb"      
- # [91] "paxb"       "paxl"       "paxl"       "paxl"       "paxl"      
- # [96] "paxl"       "paxl"       "paxl"       "paxl"       "paxl"
-
-# which(is.element(vcfresults$groupnames[vcfresults$groupcodes], fishPair))
- # [1]  42  43  44  45  46  47  48  49  50  51  52  53  86  87  88  89  90  91  92
-# [20]  93  94  95  96  97  98  99 100
+# which(is.element(vcfparam$groupnames[vcfparam$groupcodes], fishPair))
+ # [1]  42  43  44  45  46  47  48  49  50  51  52  53  95  96  97  98  99 100 101
+# [20] 102 103 104 105 106 107 108 109
 
 # Redo group codes for the two groups of interest here
 # 1 and 2 will indicate the two groups of interest; all other fish are assigned a code of 0
-fishnames <- vcfresults$fishnames
+fishnames <- vcfparam$fishnames
 groupcodes <- rep(0, length(fishnames))		 # initialize
 for(i in 1:length(groupcodes)){
 	x <- grep(fishPair[i], fishnames, ignore.case = TRUE)
 	groupcodes[x] <- i
 	}
-	
-cat("\ngroupcodes:\n")
-print(groupcodes)
- # [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
-# [39] 2 2 2 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2
-# [77] 2 2 2 2 1 1 1 1 1 1
+
+# cat("\ngroupcodes:\n")
+# print(groupcodes)
+  # [1] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ # [38] 0 0 0 0 2 2 2 2 2 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ # [75] 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1
 
 # which(groupcodes > 0)
- # [1]  42  43  44  45  46  47  48  49  50  51  52  53  86  87  88  89  90  91  92
-# [20]  93  94  95  96  97  98  99 100
 
 groups <- groupcodes[groupcodes > 0]
 # groups
- # [1] 2 2 2 2 2 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1
+ # [1] 2 2 2 2 2 1 1 1 1 1 1 1 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1
 
-nInd <- vcfresults$nInd[fishPair]
-nMin <- vcfresults$nMin[fishPair]
+nInd <- vcfparam$nInd[fishPair]
+nMin <- vcfparam$nMin[fishPair]
 
 cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
 print( data.frame(nInd, nMin) )
 
-# ----------
-# Pull out the genotypes for just the two groups being analyzed. 
-# Bring over coding annotations too, if present
-if(Glazerize){
-	genotypes <- lapply(vcfresults$vcf, function(x){geno(x)$GT[ , groupcodes > 0]})
-	genotypes <- do.call("rbind", genotypes)
-	if(filterFS) FS <- unlist(lapply(vcfresults$vcf, function(x){info(x)$FS}))
-	} else{
-	genotypes <- geno(vcfresults$vcf)$GT[ , groupcodes > 0]
-	if(filterFS) FS <- info(x)$FS
-	}
+
+for(i in chrname){
+	# i <- "chrXXI"
+
+	if(Glazerize){
+		vcfresultsfile <- paste(project, ".", i, ".vcfNew.rdd", sep = "")
+		} else {
+		vcfresultsfile <- paste(project, ".", i, ".vcfresults.rdd", sep = "")}
+
+	cat("\nLoading vcfresults file\n")
+	load(file = vcfresultsfile)   # object is "vcf"
+
+	gtstatsfile <- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
+	gtstats <- list()
+
+	cat("\nProject, chromosome, 2groups:", project, chrname, fishPair, "\n")
+
+# ** todo: in saveSnpsByGroup.R convert alleleFreqByGroup into a data frame, saves so much memory (see below) **
+
+
+	# keep only cases corresponding to filter
+	if(all(!is.na(filter) & filter != "NULL")){
+		keep <- casefold(filt(vcf)) %in% casefold(filter)
+		# table(keep)
+		 # FALSE   TRUE 
+		# 456617 471867 		 
+		vcf <- vcf[keep]
+		rm(keep)
+
+ 		}
+
+	# ----------
+	# Pull out the genotypes for just the two groups being analyzed. 
+
+	genotypes <- geno(vcf)$GT[ , groupcodes > 0]		
 	
-# Wipe out the genotypes in vcf to save memory?
-if(Glazerize){
-	for(i in 1:length(vcfresults$vcf)) geno(vcfresults$vcf[[i]])$GT <- NULL
-	} else geno(vcfresults$vcf)$GT <- NULL
+	# Wipe out the genotypes in vcf to save memory?
+	geno(vcf)$GT <- NULL
 
-# gcinfo(TRUE)
-gc()
-           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells 15852434 846.7   21754962 1161.9  17756025  948.3
-# Vcells 89044870 679.4  247242869 1886.4 245339434 1871.8
+	# gcinfo(TRUE)
+	gc()
+	           # used  (Mb) gc trigger   (Mb)  max used   (Mb)
+	# Ncells  4455507 238.0    8572058  457.8   8572058  457.8
+	# Vcells 27668965 211.1  213368640 1627.9 266686046 2034.7
 
-cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
+	cat("\nExtracting allele frequencies for each locus for the two populations being analyzed\n")
+
+** HERE **
 
 alleleFreqByGroup <- lapply(vcfresults$alleleFreqByGroup, function(x){x[fishPair,]})
 vcfresults$alleleFreqByGroup <- NULL

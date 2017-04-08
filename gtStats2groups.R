@@ -27,12 +27,12 @@ fishPair			<- NULL
 # filter 			<- NULL 
 
 args <- commandArgs(TRUE)
-# args <- c("project=Benlim", "chrname=chrXXI", "includePfisher=FALSE", "includeFst=TRUE", "includePsd=TRUE", "fishPair=paxl,paxb")
+# args <- c("project=Benlim","chrname=chrXXI","includePfisher=FALSE","includeFst=TRUE","includePsd=TRUE","fishPair=paxl,paxb")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
-# x
+print(x)
               # V1        V2
 # 1        project    Benlim
 # 2        chrname    chrXXI
@@ -56,15 +56,17 @@ GTminFrac <- vcfparam$GTminFrac
 fishnames <- vcfparam$fishnames
 groupcodes<- vcfparam$groupcodes
 groupnames<- vcfparam$groupnames
+nMaxAlt <- vcfparam$nMaxAlt
+
+fishPair <- unlist(strsplit(fishPair, split = ","))
+if(length(fishPair) > 2 ) stop("Provide names of only two groups")
+
 nInd <- vcfparam$nInd[fishPair]
 nMin <- vcfparam$nMin[fishPair]
-nMaxAlt <- vcfparam$nMaxAlt
 
 cat("\nMinimum sample size criterion based on GTminFrac = ", GTminFrac, "*nInd or 5, whichever is smaller\n", sep = "")
 print( data.frame(nInd, nMin) )
 
-fishPair <- unlist(strsplit(fishPair, split = ","))
-if(length(fishPair) > 2 ) stop("Provide names of only two groups")
 	
 # ----------------
 # Manage group codes for this fish pair

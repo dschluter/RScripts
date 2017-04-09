@@ -9,6 +9,12 @@
 
 # GATK 3.4 no longer gives multiple rows of snps at the same value of POS
 
+# Filter based on FILTER
+# NULL means all, others can be chained, e.g., "PASS,." to include "PASS" and "."
+# NULL, LowQual, PASS, VQSRTrancheSNP99.00to99.50, VQSRTrancheSNP99.50to99.90, VQSRTrancheSNP99.50to99.90+
+# filter 	 	<- "PASS,." # PASSandDOT result files
+# filter		<- "PASS"	# PASS result files - for now include everybody, and filter later
+
 # qsub -I -l walltime=04:00:00 -l mem=4gb 
 # module load R/3.1.2
 # R
@@ -24,26 +30,26 @@ project 		<- NULL
 fishPair		<- NULL
 stepsize 		<- NULL
 psdMissingAction<- NULL 
-genomeDir		<- NULL 
+# genomeDir		<- NULL 
 
 args <- commandArgs(TRUE)
-# args <- c("chrname=chrM","project=Benlim", "fishPair=paxl,paxb", "stepsize=500", "psdMissingAction=meanBW", "genomeDir=~/tmp")
+# args <- c("project=Benlim","chrname=chrXXI","psdMissingAction=meanBW","stepsize=500","filter=PASS,.","fishPair=paxl,paxb")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
-# x
+print(x)
                 # V1        V2
-# 1          chrname      chrM
-# 2          project    Benlim
-# 3         fishPair paxl,paxb
+# 1          project    Benlim
+# 2          chrname    chrXXI
+# 3 psdMissingAction    meanBW
 # 4         stepsize       500
-# 5 psdMissingAction    meanBW
-# 6        genomeDir     ~/tmp
+# 5           filter    PASS,.
+# 6         fishPair paxl,paxb
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
-if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
+# if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
 if(is.null(stepsize)) stop("Provide stepsize= in arguments")
 if(is.null(psdMissingAction)) stop("Provide psdMissingAction= in arguments")
 if(is.null(fishPair)) stop("Provide fishPair= in arguments")
@@ -55,6 +61,7 @@ if(is.null(fishPair)) stop("Provide fishPair= in arguments")
 #		identified by missingGroups.
 #		For example, pairs that are "1,1", "1,2" and "2,2" are treated separately, whereas "meanBW" treats
 #		"1,1" and "2,2" as the same (i.e., both are within-group).
+
 if( !is.element(psdMissingAction, c("meanAll", "meanBW", "meanGroup")) )
 	stop("psdMissingAction must be one of meanAll, meanBW, or meanGroup")
 
@@ -63,8 +70,21 @@ chrno <- gsub("chr", "", chrname)
 cat("\nProject, chrname, fishPair, stepsize, psdMissingAction\n", 
 	project, chrname, fishPair, stepsize, psdMissingAction, "\n")
 
+vcfparamFile <- paste(project, "vcfparam.rdd", sep = ".")
+load(vcfparamFile) # object is vcfparam
+
+Glazerize <- vcfparam$Glazerize
+GTminFrac <- vcfparam$GTminFrac
+fishnames <- vcfparam$fishnames
+groupcodes<- vcfparam$groupcodes
+groupnames<- vcfparam$groupnames
+nMaxAlt <- vcfparam$nMaxAlt
+
 fishPair <- unlist(strsplit(fishPair, split = ","))
 if(length(fishPair) > 2 ) stop("Provide names of only two groups")
+
+nInd <- vcfparam$nInd[fishPair]
+nMin <- vcfparam$nMin[fishPair]
 
 gtstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "gtstats.rdd", sep = ".")
 blockstatsfile 	<- paste(project, chrname, paste(fishPair, collapse = "."), "blockstats", stepsize, "rdd", sep = ".")
@@ -73,55 +93,74 @@ cat("\nLoading gtstats file\n")
 
 load(gtstatsfile) # object is gtstats
 # names(gtstats)
- # [1] "vcf"       "fishPair"  "groups"    "nInd"      "nMin"      "control"  
- # [7] "genotypes" "status"    "newPos"    "fst"       "psd"      
+ # [1] "fishPair"    "groups"      "genotypes"   "status"      "newPos"     
+ # [6] "altUsedList" "snpTypeList" "FILTER"      "fst"         "psd"        
 
 # object.size(gtstats) 
-# 3111541328 bytes # 3Gb wow (chrXXI paxl paxb) - will be less when not including alleleFreqByGroups (newer version)
+# 3,127,131,704 bytes # 3Gb wow (chrXXI paxl paxb)
 
 # library(data.table)
 
-control <- gtstats$control
-Glazerize <- control$Glazerize
-groups <- gtstats$groups
-nInd <- gtstats$nInd 	# n individuals genotyped in each group eg 7 11
-nMin <- gtstats$nMin 	# criterion is 5 or nMin, whichever is smaller, eg 4 5
-status <- gtstats$status
-fst <- gtstats$fst # will be NULL if absent
-psd <- gtstats$psd # will be NULL if absent
+groups 	<- gtstats$groups
+status 	<- gtstats$status
+fst 		<- gtstats$fst # will be NULL if absent
+psd 		<- gtstats$psd # will be NULL if absent
+FILTER 	<- gtstats$FILTER
+
+
 # library(data.table)
 # psd <- as.data.table(gtstats$psd) # will be NULL if absent
 
-
 gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  10093132  539.1   15229393  813.4  10101556  539.5
-# Vcells 255284629 1947.7  274105541 2091.3 255309030 1947.9
+
 
 if(Glazerize){
-	goodInvariantsFile <- paste(project, ".", chrname, ".goodInvNew.rdd", sep="")
-	chrvecfile = paste(genomeDir, "/chrvec.", chrno, ".glazer.rdd", sep = "")
+	goodInvariantsFile <- paste(project, chrname, "goodInvNew.rdd", sep=".")
+	chrvecfile = paste("chrvec", chrno, "glazer.rdd", sep = ".")
 	pos <- gtstats$newPos # pos is for the variants, use POS for the invariants file
 	
 	} else {
 		
-	# *Need to confirm that this works if not glazerizing* (because gtstats$vcf is a vcf not a list)
-
+	# *Need to confirm that this works if not glazerizing
 	goodInvariantsFile <- paste(project, ".", chrname, ".goodInv.rdd", sep="") # object is goodInvariants
-	chrvecfile = paste(genomeDir, "/chrvec.", chrno, ".masked.rdd", sep = "")
-	library(VariantAnnotation)
-	pos <- start(rowData(gtstats$vcf)) # pos is for the variants, use POS for the invariants file
+	chrvecfile = paste("chrvec", chrno, "masked.rdd", sep = ".")
+	pos <- gtstats$pos # pos is for the variants, use POS for the invariants file
 	}
+
+# Filter the SNPs using FILTER
+table(FILTER)
+                          # .                     LowQual 
+                     # 204698                        9657 
+                       # PASS  VQSRTrancheSNP99.00to99.50 
+                     # 466788                       53132 
+ # VQSRTrancheSNP99.50to99.90 VQSRTrancheSNP99.50to99.90+ 
+                     # 120577                       31566 
+
+filter	<- unlist(strsplit(filter, split=","))
+filter
+# [1] "PASS" "." 
+if(all(!is.na(filter) & filter != "NULL")){
+	keep <- casefold(FILTER) %in% casefold(filter)
+	 # FALSE   TRUE 
+	# 214932 671486 
+	 
+	status 	<- status[keep]
+	fst 		<- fst[keep,]
+	psd 		<- psd[keep,]
+	FILTER 	<- FILTER[keep]
+	pos 		<- pos[keep]
+	rm(keep)
+ 	}
 
 rm(gtstats)
 cat("\nRemoving gtstats file from memory after extracting relevant elements\n")
 
 # head(pos)
-# [1] 1794949 1794951 1794957 1794962 1794969 1794974
+# [1] 1510759 1512807 1513124 1513272 1513334 1547865
 
 # All start positions are unique, snps and indels at the same start POS are just different alleles
 # c( length(pos), length(unique(pos)) )
-# [1] 871120 871120
+# [1] 671486 671486
 
 
 # -------------
@@ -135,6 +174,8 @@ cat("\nLoading masked genome\n")
 # chrvec is a vector of the whole MASKED chromosome, all nucleotides as distinct elements, obtained by:
 #       Masked bases are indicates with an "M"
 load(chrvecfile) # object is chrvec
+print(length(chrvec))
+# [1] 17357772
 
 # Establish the break points of the bins into which nucleotides will be grouped (e.g., k = 500 bases per bin)
 # The last bin goes from the final bin of fully k nucleotides to the last nucleotide. 
@@ -180,9 +221,7 @@ rm(midbase)
 rm(nUnmasked)
 
 gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2247472  120.1    6237958  333.2  10162262  542.8
-# Vcells 214258536 1634.7  333521806 2544.6 317563341 2422.9
+
 
 # ----
 # 2) Count up the number of snp and number of invariants in each bin
@@ -192,19 +231,14 @@ cat("\nLoading good invariants file\n")
 load(goodInvariantsFile) # object is goodInvariants
 
 # object.size(goodInvariants) 
-# 1560947856 bytes # 1.6 Gb
+# 1652726128 bytes # 1.65 Gb
 
 cat("\nFinished loading good invariants file\n")
 
 gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13724133  733.0   14562966  777.8  13724272  733.0
-# Vcells 359852242 2745.5  518283907 3954.2 359852403 2745.5
 
-
-# Fix the names in goodInvariants (change "marine.pac" to "marine-pac", etc)
+# Fix the names in goodInvariants (eg change "marine.pac" to "marine-pac", etc)
 names(goodInvariants) <- gsub("[.]", "-", names(goodInvariants))
-	# setnames(goodInvariants, names(goodInvariants), gsub("[.]", "-", names(goodInvariants)))
 
 if(Glazerize){
 	goodInvariants <- goodInvariants[, c("newPos", fishPair)] # grab the columns of interest
@@ -213,11 +247,6 @@ if(Glazerize){
 	} else{
 	goodInvariants <- goodInvariants[, c("POS", fishPair)] # grab the columns of interest
 	}
-
-# gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells  13724116  733.0   15331114  818.8  13751976  734.5
-# Vcells 273770656 2088.8  518283907 3954.2 359931884 2746.1
 	
 cat("\nDropping invariants not meeting the minimum number of genotypes\n")
 
@@ -229,14 +258,14 @@ i <- goodInvariants[,2] >= nMin[1] & goodInvariants[,3] >= nMin[2]
 goodInvariants <- goodInvariants[i, ]
 rm(i)
 
-# head(goodInvariants)
+head(goodInvariants)
                   # POS paxl paxb
-# chrUn.3907275 1794692    5    7
-# chrUn.3907276 1794693    5    7
-# chrUn.3907277 1794694    5    7
-# chrUn.3907278 1794695    5    7
-# chrUn.3907279 1794697    5    7
-# chrUn.3907280 1794698    5    7
+# chrUn.3918179 1793078    6   11
+# chrUn.3918180 1793079    6   11
+# chrUn.3918181 1793082    6   11
+# chrUn.3918182 1793083    6   11
+# chrUn.3918183 1793085    6   11
+# chrUn.3918184 1793086    6   11
 
 cat("\nBinning the good invariants\n")
 
@@ -281,34 +310,31 @@ rm(nInvariants)
 rm(nMonomorphic) 
 
 gc()
-            # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-# Ncells   2318481  123.9   12264891  655.1  14568721  778.1
-# Vcells 223260813 1703.4  518283907 3954.2 515655976 3934.2
 
 
 # blockstats[110:130,]
-	    # ibase midbase nUnmasked nSnp nInvariants
-	# 110 54501   54751         0    0           0
-	# 111 55001   55251         0    0           0
-	# 112 55501   55751        28    0           0
-	# 113 56001   56251         0    0           0
-	# 114 56501   56751         9    0           0
-	# 115 57001   57251         9    0           0
-	# 116 57501   57751         5    0           0
-	# 117 58001   58251        99    4          60
-	# 118 58501   58751       193   33         160
-	# 119 59001   59251        89    6          83
-	# 120 59501   59751       411   19         389
-	# 121 60001   60251       398    3         194
-	# 122 60501   60751       343    5         222
-	# 123 61001   61251       314    3         266
-	# 124 61501   61751       456    5         180
-	# 125 62001   62251       336    8          88
-	# 126 62501   62751         4    0           0
-	# 127 63001   63251         8    0           0
-	# 128 63501   63751       106    0           0
-	# 129 64001   64251       283    0           0
-	# 130 64501   64751       363    0           6
+    # ibase midbase nUnmasked nSnp nInvariants
+# 110 54501   54751         0    0           0
+# 111 55001   55251         0    0           0
+# 112 55501   55751        28    0           0
+# 113 56001   56251         0    0           0
+# 114 56501   56751         9    0           0
+# 115 57001   57251         9    0           0
+# 116 57501   57751         5    0           0
+# 117 58001   58251        99    0          56
+# 118 58501   58751       193   12         142
+# 119 59001   59251        89    0          79
+# 120 59501   59751       411    4         364
+# 121 60001   60251       398    0         183
+# 122 60501   60751       343    0         213
+# 123 61001   61251       314    0         258
+# 124 61501   61751       456    0         229
+# 125 62001   62251       336    1         104
+# 126 62501   62751         4    0           0
+# 127 63001   63251         8    0           0
+# 128 63501   63751       106    0           0
+# 129 64001   64251       283    0           0
+# 130 64501   64751       363    0           0
 	
 # ----
 # 3) Calculate Fst summary stats
@@ -414,101 +440,6 @@ if( !is.null(psd) ){
 	# were dropped in "gtstats2groups.R". However, psd was calculated and saved only for loci with status == "v",
 	# which means that psd for all the invariants are NA rather than 0.
 
-
-	# This is slightly wasteful because it still includes monomorphic sites
-	
-		# if(FALSE){ # Data table way - requires more memory than data frame way
-		
-		# library(data.table) # doesn't use as much memory if do here rather than use "as.data.table(gtstats$psd)" at start
-		# psd <- as.data.table(psd)
-		
-		# cat("\nConverted psd to data table\n")
-		# gc()
-		            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-		# # Ncells   2411082  128.8    8262486  441.3  14189900  757.9
-		# # Vcells 230305282 1757.1  551359436 4206.6 433308962 3305.9
-		
-		# psdUnique <- unique(names(psd)) # this assumes that we have many duplicate names -- haven't changed
-		# # [1] "w" "b"
-		
-		# for(p in psdUnique){
-			# # p <- psdUnique[1]
-			
-			# doCols <- c(grep(p, names(psd))) # which columns are of interest on this iteration of loop?
-			# # doCols
-			  # # [1]   1   2   3   4  10  11  12  13  14  15  22  23  24  30  31  32  33  34  35  42  43  49  50  51  52  53
-			 # # [27]  54  61  67  68  69  70  71  72  84  85  86  87  88  89  96  97  98  99 106 107 108 109 110 111 112 113
-			 # # [53] 114 121 122 123 124 125 126 127 128 135 136 137 138 139 140 141 148 149 150 151 152 153 160 161 162 163
-			 # # [79] 164 165 166 167 168 169 170 177 178 179 180 187 188 189 196 197 204 217 218 219 220 221 222 223 224 225
-			# # [105] 226 227 228 229 230 231
-			
-			# saveNames <- names(psd)[doCols]
-			
-			# # Give the columns a temporary standard name to help next step
-	
-			# setnames(psd, doCols, paste("column", doCols, sep = ""))
-			# # names(psd)
-			  # # [1] "column1"   "column2"   "column3"   "column4"   "b"         "b"         "b"         "b"        
-			  # # [9] "b"         "column10"  "column11"  "column12"  "column13"  "column14"  "column15"  "b"        
-			 # # [17] "b"         "b"         "b"         "b"         "b"         "column22"  "column23"  "column24" 
-				# # ....		
-			# useCols <- names(psd)[doCols] # [1] "column1"   "column2"   "column3"   "column4"   "column10" ....
-			
-			# psd[ , rowMean := apply(.SD, 1, mean, na.rm=TRUE),, .SDcols = doCols ]
-			# psd[ is.nan(rowMean ), `:=`(rowMean = NA)]
-	
-			# # gc()
-			            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-			# # Ncells   2426601  129.6    8262486  441.3  14189900  757.9
-			# # Vcells 231207554 1764.0  670525648 5115.8 670253610 5113.7 # whoa! this is from p <- psdUnique[1]
-	
-			# for(k in useCols){
-				# # k <- useCols[1]
-				# i <- parse( text = paste("is.na(", k, ")") )
-				# j <- parse( text = paste("`:=`(", k, "= rowMean)") )
-				# psd[eval(i), eval(j)]
-				# }
-			# setnames(psd, doCols, saveNames)
-			
-			# }
-	
-		# # Delete rowMean
-		# psd[ , c("rowMean") := NULL]
-		
-		# gc()
-		            # # used   (Mb) gc trigger   (Mb)  max used   (Mb)
-		# # Ncells   2429347  129.8    8262486  441.3  14189900  757.9
-		# # Vcells 231211996 1764.1  704131930 5372.2 703966666 5370.9 # whoa!
-		
-		# psd$snpBins <- snpBins
-	
-		# psdSum <- psd[ , lapply(.SD, sum, na.rm = TRUE), keyby = snpBins] # keyby orders the snpBins but adds column
-			# # head(psdSum)
-		         # # snpBins         w         w         w         w          b          b
-		# # 1: [11501,12001) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
-		# # 2: [12001,12501) 6.8913043 6.8913043 6.8913043 6.8913043 7.40000000 7.40000000
-		# # 3: [12501,13001) 1.2434409 1.2434409 1.2434409 1.2434409 4.06031746 4.06031746
-		# # 4: [15001,15501) 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
-		# # 5: [16001,16501) 0.2585139 0.2585139 0.2585139 0.2585139 0.24735450 0.24735450
-		# # 6: [42501,43001) 0.0000000 0.0000000 0.0000000 0.0000000 0.07142857 0.07142857
-		# # .....
-	
-		# # nrow(psdSum) 
-		# # [1] 30342
-		# # nrow(blockstats)
-		# # [1] 34716
-		
-		# ** Not finished yet **
-		# ** Need to match column 1 of psdSum to blockstats **
-	
-		# blockstats <- cbind.data.frame(blockstats, psdSum, stringsAsFactors = FALSE)
-		
-		# rm(psd)
-		# rm(psdSum)
-		# gc()
-	
-		# } # End modified data.table way
-	
 
 	psdUnique <- unique(names(psd))
 	# [1] "w" "b"

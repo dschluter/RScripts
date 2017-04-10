@@ -21,37 +21,37 @@
 chrname 		<- NULL # "chrXXI" or "all" (must be a single chromosome or all chromosomes)
 project 		<- NULL
 pairtype		<- NULL # "speciesPairs", "marinepacPairs" or "solitaryBenthic"
-method			<- NULL # "vara" is totVarA, variance among, per base; 
+method		<- NULL # "vara" is totVarA, variance among, per base; 
 						# "fst" is weir-cockerham Fst
 						# "css" is my slightly modified version of felicity's CSS score, per base
 stepsize 		<- 500
 nsteps.per.window <- 5  # window size is (nsteps.per.window)*(stepsize), e.g., 5*500 = 2500
 windowNmin 		<- 100 	# windowNmin is minimum number of good bases in window
-ymax	  		<-   0  # maximum y-value in plots; 0 means not specified
-genomeDir		<- NULL # where genomes and "glazerFileS4 NewScaffoldOrder.csv" are located
-
-# Defaults (can't be overridden yet)
-# orderChr  <- TRUE
-Glazerize <- TRUE
-scafFile  <- "glazerFileS4 NewScaffoldOrder.csv"
+ymax	  			<-   0  # maximum y-value in plots; 0 means not specified
+# genomeDir		<- NULL # where genomes and "glazerFileS4 NewScaffoldOrder.csv" are located
 
 args <- commandArgs(TRUE) 
-# args <- c("chrname=chrVIIpitx1new","project=Benlim", "pairtype=speciesPairs", "method=css", "stepsize=500", "nsteps.per.window=5", "windowNmin=100", "ymax=0", "genomeDir=~/tmp")
+# args <- c("project=Benlim","chrname=all","pairtype=speciesPairs","method=vara","stepsize=500","nsteps.per.window=5","windowNmin=100","ymax=0")
 
 # Parses the args into a data frame with two columns and then assigns variables 
 x <- read.table(text = args, sep = "=", colClasses = "character")
 for(i in 1:nrow(x)){assign(x[i,1], x[i,2])}
-# x
-                 # V1            V2
-# 1           chrname          chrM
-# 2           project        Benlim
-# 3          pairtype  speciesPairs
-# 4            method          vara
-# 5          stepsize           500
-# 6 nsteps.per.window             5
-# 7        windowNmin           100
-# 8              ymax             0
-# 9         genomeDir         ~/tmp
+print(x)
+                 # V1           V2
+# 1           project       Benlim
+# 2           chrname          all
+# 3          pairtype speciesPairs
+# 4            method         vara
+# 5          stepsize          500
+# 6 nsteps.per.window            5
+# 7        windowNmin          100
+# 8              ymax            0
+
+vcfparamFile<- paste(project, "vcfparam.rdd", sep = ".")
+load(vcfparamFile) # object is vcfparam
+
+Glazerize <- vcfparam$Glazerize
+scafFile  <- vcfparam$Glazerfile
 
 if(is.null(chrname)) stop("Provide chrname= in arguments")
 if(is.null(project)) stop("Provide project= in arguments")
@@ -61,7 +61,7 @@ if(is.null(stepsize)) stop("Provide stepsize= in arguments")
 if(is.null(nsteps.per.window)) stop("Provide nsteps.per.window= in arguments")
 if(is.null(windowNmin)) stop("Provide windowNmin= in arguments")
 if(is.null(ymax)) stop("Provide ymax= in arguments")
-if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
+# if(is.null(genomeDir)) stop("Provide genomeDir= in arguments")
 
 ymax 				<- as.numeric(ymax)
 stepwise 			<- as.numeric(stepsize)
@@ -70,7 +70,7 @@ windowNmin 			<- as.numeric(windowNmin)
 
 # get all chrnames if chrname="all", and order them automatically
 if(chrname == "all"){
-	z <- list.files(pattern=glob2rx("*.vcfresultsNew.rdd"))	# finds Roman chr names
+	z <- list.files(pattern=glob2rx("*.vcfNew.rdd"))	# finds Roman chr names
 	chrname <- read.table(text = z, sep = ".", colClasses = "character")$V2
 	chrname <- g$chrOrderRoman(chrname)
 	}  
@@ -101,6 +101,16 @@ if(pairtype == "solitaryBenthic")
 		c("paxb", "solitary"), c("prib", "solitary"), c("qryb", "solitary"), c("ensb", "solitary")
 		)
 
+if(pairtype == "sculpinSolitary") 
+	interestingPairs <- list(
+		c("sculpin", "solitary")
+		)
+
+if(pairtype == "streamSolitary") 
+	interestingPairs <- list(
+		c("stream", "solitary")
+		)
+
 npairs <- length(interestingPairs)
 
 
@@ -113,21 +123,17 @@ if( !all(file.exists(z)) ){
 	stop("The above blockstats files are missing\n")
 	}
 
-if(Glazerize) x <- read.csv(paste(genomeDir, scafFile, sep = "/"))
+if(Glazerize) x <- read.csv(scafFile)
 
-# Order the chromosomes by their numeric values, leaving out the specially named ones
-# if(orderChr){
-	# chrSpecial <- intersect(chrname, c("chrVIIpitx1", "chrUn", "chrM"))
-	# if(length(chrSpecial) > 0) chrname <- chrname[!is.element(chrname, chrSpecial)]
-	# chrNumeric <- sapply(chrname, g$chrname2numeric)
-	# chrname <- chrname[ order(chrNumeric) ]
-	# if(length(chrSpecial) > 0) chrname <- c(chrname, chrSpecial)
-	# }
+# # Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
+# pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 
+				# height = max(11, round((npairs + 1) * 1.5)) )
+# par(mfrow = c(npairs+1, 1), mar = c(2, 2, 1.5, 1) + 0.1)
 
-# Adjust page size according to the number of interestingPairs (plus 1 for the unweighted mean scan)
+# Adjust page size according to the number of interestingPairs
 pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 
-				height = max(11, round((npairs + 1) * 1.5)) )
-par(mfrow = c(npairs+1, 1), mar = c(2, 2, 1.5, 1) + 0.1)
+				height = max(11, round((npairs) * 1.5)) )
+par(mfrow = c(npairs,1), mar = c(2, 2, 1.5, 1) + 0.1)
 
 # If ymax is set, include in header
 ymaxHeader <- ""
@@ -247,13 +253,13 @@ for(i in chrname){
 			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
 					col = "blue", lwd = 2)
 			}
-		# plot average scan
-		ylim = range(meanCssPerBase, na.rm=TRUE)
-		if(ymax > 0) ylim[2] <- ymax
-		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
-		plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
-		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanCssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
-		} else stop("Method must be vara, fst, or css")
+		# # plot average scan
+		# ylim = range(meanCssPerBase, na.rm=TRUE)
+		# if(ymax > 0) ylim[2] <- ymax
+		# header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
+		# plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
+		# if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanCssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
+		# } else stop("Method must be vara, fst, or css")
 	
 	}
 dev.off()

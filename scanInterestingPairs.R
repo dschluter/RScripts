@@ -133,7 +133,7 @@ if(Glazerize) x <- read.csv(scafFile)
 # Adjust page size according to the number of interestingPairs
 pdf( paste(project, pairtype, method, "slidewin", "pdf", sep = "."), 
 				height = max(11, round((npairs) * 1.5)) )
-par(mfrow = c(npairs,1), mar = c(2, 2, 1.5, 1) + 0.1)
+par(mfrow = c(npairs + 1,1), mar = c(2, 2, 1.5, 1) + 0.1)
 
 # If ymax is set, include in header
 ymaxHeader <- ""
@@ -253,12 +253,12 @@ for(i in chrname){
 			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
 					col = "blue", lwd = 2)
 			}
-		# plot average scan
-		# ylim = range(meanCssPerBase, na.rm=TRUE)
-		# if(ymax > 0) ylim[2] <- ymax
-		# header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
-		# plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
-		# if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanCssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
+		plot average scan
+		ylim = range(meanCssPerBase, na.rm=TRUE)
+		if(ymax > 0) ylim[2] <- ymax
+		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")
+		plot(meanCssPerBase ~ ibaseMillions, type="l", lwd = 0.5, col = "red", main = "Average scan", ylim = ylim)
+		if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(meanCssPerBase, na.rm=TRUE), col = "blue", lwd = 2)
 		
 		} else stop("Method must be vara, fst, or css")
 	

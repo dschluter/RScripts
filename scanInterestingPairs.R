@@ -253,7 +253,7 @@ for(i in chrname){
 			if(drawOldAssembly)	segments(x0 = zstart, x1 = zend, y0 = min(slideWinList[[k]], na.rm=TRUE), 
 					col = "blue", lwd = 2)
 			}
-		plot average scan
+		# plot average scan
 		ylim = range(meanCssPerBase, na.rm=TRUE)
 		if(ymax > 0) ylim[2] <- ymax
 		header <- paste(c(i, "   /    ", ymaxHeader), collapse = " ")

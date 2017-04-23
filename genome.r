@@ -571,6 +571,9 @@ g$fastaIndex <- function(genome = "",
 	run = TRUE){
 	# Generates and runs a .pbs file to make
 	# .fai index and .dict dictionary file for a fasta file
+	
+	# OR: use "fai_build" in WhopGenome to do this
+
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())

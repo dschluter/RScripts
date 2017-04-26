@@ -7,6 +7,7 @@
 
 # Obtains stats on one pair of populations
 # qsub -I -l walltime=04:00:00 -l mem=4gb # work interactively; use "exit" to exit
+# cd ~/BenlimResults/
 # module load R/3.1.2
 # R
 
@@ -16,7 +17,7 @@
 # fishPair must uniquely be substrings of the group names (ignoring case)
 # They are used in a "grep" to divide the fish uniquely into groups
 
-project 		<- NULL
+project 	<- NULL
 chrname  	<- NULL
 
 args <- commandArgs(TRUE)
@@ -50,6 +51,8 @@ nLims <- sum(vcfparam$nInd[lims])
 nBens <- sum(vcfparam$nInd[bens])
 
 print( data.frame(nLims, nBens) )
+
+fixedLBfile <- paste(project, chrname, "unsharedAlleles.lim.ben.vcf.rdd", sep = ".")
 	
 # ----------------
 # Manage group codes for this fish pair
@@ -112,14 +115,11 @@ if(Glazerize){
 cat("\nLoading vcfresults file\n")
 load(file = vcfresultsfile)   # object is "vcf"
 
-fixedLBfile <- paste(project, chrname, "fixedDiffLB.vcf.rdd", sep = ".")
-gtstats <- list()
-
 # ----------
 # Count the number of non-missing genotypes and drop locus if not all genotypes
 z <- apply( geno(vcf)$GT[ , groupcodes > 0], 1, function(x){sum(!is.na(x))} )
 
-# Drop the loci without complete genotypes
+# Drop the loci with any missing values
 	# nrow(vcf)
 	# [1] 928484
 vcf <- vcf[z == nLims + nBens]
@@ -142,20 +142,45 @@ vcf <- vcf[z > 1]
 
 # ----------
 # Drop cases where alleles are shared between L and B
-
 # one-way genotype freq tables, separately for L and B:
-genoL <- apply( geno(vcf)$GT[, groupcodes ==1], 1, function(x){table(x)})
-genoB <- apply( geno(vcf)$GT[, groupcodes ==2], 1, function(x){table(x)})
+# genoL <- apply( geno(vcf)$GT[, groupcodes ==1], 1, function(x){table(x)})
+# genoB <- apply( geno(vcf)$GT[, groupcodes ==2], 1, function(x){table(x)})
 
-allelesL <- lapply(genoL, function(x){unique(unlist(strsplit(names(x), split="/")))})
-allelesB <- lapply(genoB, function(x){unique(unlist(strsplit(names(x), split="/")))})
+# allelesL <- lapply(genoL, function(x){unique(unlist(strsplit(names(x), split="/")))})
+# allelesB <- lapply(genoB, function(x){unique(unlist(strsplit(names(x), split="/")))})
 
-z <- mapply(allelesL, allelesB, FUN = function(x,y){!any(x %in% y)})
+# none!
+# z <- mapply(allelesL, allelesB, FUN = function(x,y){!any(x %in% y)})
+	# table(z)
+	 # FALSE 
+	# 282366 
 
-vcf <- vcf[z]
-	# nrow(vcf)
-	# [1]
+# * At this point it might be more useful just to produce the two-way table *
+# * because it would allow for frequency differences too *
 
+# two-way tables:
+genoFreq <- apply( geno(vcf)$GT[, groupcodes > 0], 1, function(x){table(x, groups)})
+
+# Try an allele freq table
+allelesL <- apply(geno(vcf)$GT[ , groupcodes ==1], 1, function(x){unlist(strsplit(unname(x), split="/"))})
+allelesB <- apply(geno(vcf)$GT[ , groupcodes ==2], 1, function(x){unlist(strsplit(unname(x), split="/"))})
+# dim(allelesL) # is a matrix, loci are columns
+# [1] 76 282366
+z1 <- data.frame(allelesL, stringsAsFactors = FALSE)
+z2 <- data.frame(allelesB, stringsAsFactors = FALSE)
+species <- rep(c(1,2), c(2*nLims, 2*nBens))
+alleleFreq <- mapply(z1, z2, FUN = function(x,y){table(species, c(x,y))}, SIMPLIFY=FALSE)
+
+# Convert to allele proportions and calculate proportional similarity
+alleleProp <- lapply(alleleFreq, prop.table, margin = 1)
+# species          0          1
+      # 1 0.97368421 0.02631579
+      # 2 1.00000000 0.00000000
+PS <- sapply(alleleProp, function(x){sum(apply(x, 2, min))})
+
+# hist(PS); dev.off()
+
+# Finally, save PropSim into the vcf file. (**not done yet**)
 
 # ----------
 cat("\nSaving results\n")

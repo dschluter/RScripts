@@ -8,7 +8,7 @@ g$bwaIndex <- function(mem = 4, walltime = 24, BWAversion = "0.7.7",
 		genome = "", run = TRUE){
 	# Creates bwa index files, including .amb, .ann, .bwt, .pac, .sa
 	# required for running bwa mem
-	 file that runs BWA-mem on paired read fastq files
+	# file that runs BWA-mem on paired read fastq files
 	# inputfish determines the name of the sam output file
 	# Include chrname in inputfish name if running on a single chromosome
 	# Based on "bwa077mem.pbs"

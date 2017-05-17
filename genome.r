@@ -62,7 +62,7 @@ g$bwaMem <- function(inputfish = "", mem = 2, walltime = 24, BWAversion = "0.7.7
 	if(inputfish == "") stop("You need to provide inputfish")
 	if(fastq1 == "") stop("You need to provide fastq1 file name")
 	if(fastq2 == "") stop("You need to provide fastq2 file name")
-	if(genome != "gasAcu1pitx1new.fa") stop("Code currently works only with gasAcu1pitx1new.fa")
+	# if(genome != "gasAcu1pitx1new.fa") stop("Code currently works only with gasAcu1pitx1new.fa")
 	
 	if(fastqdir != ""){
 		fastq1 <- paste(fastqdir, "/", fastq1, sep = "")

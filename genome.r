@@ -1429,6 +1429,7 @@ g$genotypeGVCFs <- function(
 		maxAltAlleles = 3, 
 		standCallConf = 30, # is default
 		standEmitConf = 10, # is default
+		invariantsites = TRUE,
 		run = TRUE){
 	# Generates "genotypeGVCFs.pbs" to carry out genotypeGVCFs to call snps
 	#	from multiple gvcf files inputted, for a whole genome
@@ -1485,8 +1486,11 @@ g$genotypeGVCFs <- function(
 		# writeLines(paste(nt, "\\"), outfile)
 		# }
 
-	writeLines(paste("     --includeNonVariantSites --max_alternate_alleles",
-		maxAltAlleles, "-o", outvcfname), outfile)
+	if(invariantsites)
+		writeLines(paste("     --includeNonVariantSites --max_alternate_alleles",
+			maxAltAlleles, "-o", outvcfname), outfile) else
+		writeLines(paste("     --max_alternate_alleles",
+			maxAltAlleles, "-o", outvcfname), outfile)
 	
 	close(outfile)
 	if(run) system(paste("qsub", pbsfile))

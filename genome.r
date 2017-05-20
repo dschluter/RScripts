@@ -3212,8 +3212,7 @@ g$splitGVCF <- function(
 	chunksize = 10000,
 	nFirstLines = 10000,
 	nLinesAtaTime = 10000,
-	includeAllContigs = TRUE,
-	run = TRUE){
+	includeAllContigs = TRUE){
 	# Function to split a g.vcf.gz file into about equal-sized parts
 	# nFirstLines must be large enough to contain the entire header (~10000 lines in pupfish)
 	# ngroups is the number of contig groups to split into
@@ -3280,6 +3279,8 @@ g$splitGVCF <- function(
 	for(i in chrnames) outfiles[[i]] <- file(paste(gvcfname, i, "g.vcf", sep="."), "w")
 	# for(i in chrnames) close(outfiles[[i]])
 	
+	filenames <- paste(gvcfname, chrnames, "g.vcf", sep=".")
+
 	# Write header lines to files
 	for( i in 1:length(chrnames) ){
 		writeLines(headerlines, outfiles[[chrnames[i]]])
@@ -3309,7 +3310,11 @@ g$splitGVCF <- function(
 		} # end while loop
 	
 	close(INFILE)
+	
 	for(i in chrnames) close(outfiles[[i]])
+	
+	for(i in 1:length(chrnames)) g$vcfBgzip(filenames[i])
+	
 	}
 
 g$submitRscript <- function(Rscript = "", Rversion = "3.1.2", mem = 2, walltime = 24, root = NULL, run = TRUE){
@@ -3662,6 +3667,24 @@ g$vcf2twoAlleles <- function(vcfresults){
 	save(vcfresultsBiAllelic, file = vcfBiAllelicFile)
 	# load(file = vcfBiAllelicFile) # saved object is "vcfresultsBiAllelic"
 
+	}
+
+g$vcfBgzip <- function(vcfname = "", renameAsGz = FALSE){
+	library(VariantAnnotation, quietly = TRUE)
+
+	root <- sub("[.]gz$", "", vcfname) # remove the "gz" if present (need not be)
+	compressedVcfname <- paste(root, "bgz", sep = ".") 
+		
+	# compress and save file name
+	bgzname <- bgzip(vcfname, compressedVcfname)
+	
+	# rename file
+	if(renameAsGz){
+		file.rename(bgzname, vcfname)
+		idx <- indexTabix(vcfname, "vcf")
+		} else {
+		idx <- indexTabix(bgzname, "vcf")
+		}
 	}
 
 g$vcfTsTv <- function(REF, ALTlist, snpTypeList){

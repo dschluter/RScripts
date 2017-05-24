@@ -1376,8 +1376,9 @@ g$genotypeGVCFs <- function(
 	# 	allocated to their “mother” data thread, so you don’t need to worry about allocating memory 
 	# 	based on the number of CPU threads you use."
 	
-	if( !( all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles)) ) )
-		stop("Provide only g.vcf or g.vcf.gz files as arguments")
+	if( !( all(grepl("[.]g.vcf$", gvcffiles)) | all(grepl("[.]g.vcf.gz$", gvcffiles)) | 
+		all(grepl("[.]g.vcf.bgz$", gvcffiles)) ) )
+		stop("Only g.vcf, g.vcf.gz, or g.vcf.bgz files allowed")
 
 	cat("\n", length(gvcffiles), " gvcf files included:\n", sep = "")
 	for(i in 1:length(gvcffiles)){

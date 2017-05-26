@@ -1073,17 +1073,19 @@ g$gatk <- function(samfile = "", mem = 4, walltime = 72,
 
 
 g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, walltime = 24, 
-	workdir = "~/tmp/", GATKversion = "3.4.0", genome = "gasAcu1pitx1new.fa", run = TRUE){
+	selectType = NULL, removeUnusedAlternates = FALSE, biAllelicOnly = FALSE,
+	GATKversion = "3.4.0", genome = "gasAcu1pitx1new.fa", run = TRUE){
 	# Run "indexVcfGz.R" beforehand to generate "var.vcf.bgz.tbi"
 	#
 	# Creats a pbs file to run SelectVariants in GATK to subset a var.vcf.bgz file as follows
-	# 	- drop individuals ( -xl_sn samplename ) ** Only this is working so far
-	#   - keep individuals ( -sn samplename )
+	# 	drop individuals: vector of sample names 				* working *
+	#   keep only individuals: vector of sample names 			* working *
+	#	selectType: valid includes "SNP" "INDEL" "MIXED" etc 	* working *
+	# 	removeUnusedAlternates: TRUE or FALSE					* working *
+	#	biAllelicOnly: TRUE or FALSE							* working *
 	#	- exclude indels ( -xlSelectType INDEL )
 	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION, so this
 	#		might keep all those others except pure indels
-	#	- include only true snp ( -selectType )
-	# 		Valid types are INDEL, SNP, MIXED, MNP, SYMBOLIC, NO_VARIATION
 	# 	- remove alternate alleles not present in any genotypes ( --removeUnusedAlternates )
 	#	[- restrict alleles to bi-allelic ( --restrictAllelesTo BIALLELIC ) **drops sites** not alleles!]
 	# in progress
@@ -1092,8 +1094,8 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 	hour <- gsub("[ :]", "-", Sys.time())
 	pbsfile <- paste("gatk.selectVariants-", vcffile, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
-	selectfile <- sub(".var.",".sel.", vcffile)
-	selectfile <- sub(".bgz$",".gz", selectfile)
+	root <- gsub("[.]vcf[.gz]*","", vcffile)
+	selectfile <- paste(root, 'sel.gz', sep=".")
 	
 	writeLines(			"#!/bin/bash", outfile)
 	writeLines(			"#PBS -S /bin/bash", outfile)
@@ -1116,36 +1118,43 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 	writeLines(paste('vcffile="', vcffile, '"', sep = ""), outfile)
 	writeLines(paste('selectfile="', selectfile, '"', sep = ""), outfile)
 
-	if(!is.null(drop)){
-		dropfish <- '
-		gatk.sh -Xmx4g -T SelectVariants -R $fastafile -V $vcffile \\
-			-xl_sn samplename \\
-			-o $selectfile \\
-			--allow_potentially_misencoded_quality_scores
-			'
-		# cat dropfish
-	dropfish <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-xl_sn "), dropfish)
-		writeLines(dropfish, outfile)
-		}
+	cmd <- '
+		gatk.sh -Xmx4g -T SelectVariants -R $fastafile -V $vcffile \\'
  	if(mem !=4) 
- 		dropfish <- gsub('Xmx4', paste('Xmx', mem, sep = ""), dropfish, 
- 			fixed = TRUE)
+ 		cmd <- gsub('Xmx4', paste('Xmx', mem, sep = ""), cmd, fixed = TRUE)
 
+	if(!is.null(drop)){
+		cmd <- paste(cmd,	'
+			-xl_sn samplename \\')
+		cmd <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-xl_sn "), cmd)
+		# cat cmd
+		}
 
 	if(!is.null(keep)){
 		if(!is.null(drop)) stop("You must drop or keep, not both")
-		keepfish <- '
-		gatk.sh -Xmx4g -T SelectVariants -R $fastafile -V $vcffile \\
-			-sn samplename \\
+		cmd <- paste(cmd,	'
+			-sn samplename \\')
+		cmd <- gsub("samplename", paste(keep, collapse = " \\\\\n\t\t\t-sn "), cmd)
+		}
+		
+	if(!is.null(selectType))
+		cmd <- paste(cmd,	'
+			-selectType', selectType,' \\')	
+			
+	if(removeUnusedAlternates)
+		cmd <- paste(cmd,	'
+			--removeUnusedAlternates  \\')	
+
+	if(biAllelicOnly)
+		cmd <- paste(cmd,	'
+			-restrictAllelesTo BIALLELIC \\')	
+
+	cmd <- paste(cmd,	'
 			-o $selectfile \\
 			--allow_potentially_misencoded_quality_scores
-			'
-		keepfish <- gsub("samplename", paste(keep, collapse = " \\\\\n\t\t\t-sn "), keepfish)
-		writeLines(keepfish, outfile)
-		}
- 	if(mem !=4) 
- 		keepfish <- gsub('Xmx4', paste('Xmx', mem, sep = ""), keepfish, 
- 			fixed = TRUE)
+			')
+
+	writeLines(cmd, outfile)
 
 	writeLines("\necho \"Job finished with exit code $? at: \`date\`\"", outfile)
 	

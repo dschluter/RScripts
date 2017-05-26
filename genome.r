@@ -1095,7 +1095,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 	pbsfile <- paste("gatk.selectVariants-", vcffile, "-", hour, ".pbs", sep = "")
 	outfile <- file(pbsfile, "w")
 	root <- gsub("[.]vcf[.gz]*","", vcffile)
-	selectfile <- paste(root, 'sel.gz', sep=".")
+	selectfile <- paste(root, 'sel.vcf.gz', sep=".")
 	
 	writeLines(			"#!/bin/bash", outfile)
 	writeLines(			"#PBS -S /bin/bash", outfile)

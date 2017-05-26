@@ -1124,7 +1124,7 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
  		cmd <- gsub('Xmx4', paste('Xmx', mem, sep = ""), cmd, fixed = TRUE)
 
 	if(!is.null(drop)){
-		cmd <- paste(cmd, '\n\t\t\t-xl_sn samplename \\', sep = "")
+		cmd <- paste(cmd, '\n\t\t\t-xl_sn samplename \\', sep = "") # MUST USE sep = "", no spaces after "\"
 		cmd <- gsub("samplename", paste(drop, collapse = " \\\\\n\t\t\t-xl_sn "), cmd)
 		# cat cmd
 		}
@@ -1136,17 +1136,15 @@ g$gatk.selectVariants <- function(vcffile, drop = NULL, keep = NULL, mem = 4, wa
 		}
 		
 	if(!is.null(selectType))
-		cmd <- paste(cmd, '\n\t\t\t-selectType', selectType,' \\', sep = " ")	
+		cmd <- paste(cmd, '\n\t\t\t-selectType ', selectType,' \\', sep = "")	
 			
 	if(removeUnusedAlternates)
-		cmd <- paste(cmd, '\n\t\t\t--removeUnusedAlternates  \\', sep = " ")	
+		cmd <- paste(cmd, '\n\t\t\t--removeUnusedAlternates \\', sep = "")	
 
 	if(biAllelicOnly)
-		cmd <- paste(cmd, '\n\t\t\t-restrictAllelesTo BIALLELIC \\', sep = " ")	
+		cmd <- paste(cmd, '\n\t\t\t-restrictAllelesTo BIALLELIC \\', sep = "")	
 
-	cmd <- paste(cmd, '\n\t\t\t-o $selectfile \\
-			\t\t\t--allow_potentially_misencoded_quality_scores
-			', sep = " ")
+	cmd <- paste(cmd, '\n\t\t\t-o $selectfile --allow_potentially_misencoded_quality_scores', sep = "")
 
 	writeLines(cmd, outfile)
 

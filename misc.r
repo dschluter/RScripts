@@ -4,11 +4,13 @@ curl <- function(Rfile){
 	system(paste("curl -o " , Rfile, " https://raw.githubusercontent.com/dschluter/RScripts/master/", Rfile, sep = ""))
 	}
 
-showq <- function(){system("showq -u schluter")}
+showq <- function(){system("squeue -u schluter")}
+squeue <- function(){system("squeue -u schluter")}
+scontrol <- function(jobid){system( paste("scontrol show jobid -dd", jobid) )}
+scancel <- function(jobid){system( paste("scancel", jobid) )}
+scancelAllJobs <- function(){system("scancel -u schluter")}
+scancelAllPendingJobs <- function(){system("scancel -t PENDING -u schluter")}
 
-qdel <- function(x){system( paste("qdel", x) )}
-
-qstat <- function(x){system( paste("qstat -f", x) )}
 
 month2integer <- function(x){
 	z1 <- casefold(substr(x, 1, 3)) # round to 3 digits

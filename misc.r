@@ -11,6 +11,14 @@ scancel <- function(jobid){system( paste("scancel", jobid) )}
 scancelAllJobs <- function(){system("scancel -u schluter")}
 scancelAllPendingJobs <- function(){system("scancel -t PENDING -u schluter")}
 
+chunpair<-function(a,sep=","){
+# Returns c("a") if "a" does not contain sep, otherwise returns c("a1","a2")
+# ***This routine fails if a is a vector***
+	a<-as.character(a)
+	z<-unlist(strsplit(a,split=sep))
+	if(length(z)!=2) return(a)
+	else {return(z)}
+}
 
 month2integer <- function(x){
 	z1 <- casefold(substr(x, 1, 3)) # round to 3 digits

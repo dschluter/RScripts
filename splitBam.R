@@ -1,7 +1,6 @@
 #!/usr/bin/Rscript
 
 # Splits the bamfile by chromosomes and saves the results as indexed bam files.
-# Use as "Rscript splitBam.R BAMFILENAME"
 
 # Uses filterBam from Rsamtools:
 # filterBam parses records in file. Records satisfying the bamWhich bamFlag and bamSimpleCigar
@@ -20,12 +19,19 @@ bamFileName <- args[1]
 print(bamFileName)
 
 library(Rsamtools, quietly = TRUE)
-root <- gsub("[.]bam$", "", bamFileName) # fishname part of bam file name
+root <- gsub("[.]bam$", "", bamFileName) # part of file name
 
-# Extract chromosome information from the bamfile header
+# Extract the chromosome names
+# param <- ScanBamParam(what = c("rname"))
+# x <- scanBam(bamFileName, param = param)[[1]]
+# chrname <- unique(as.character(x$rname))
+# chrname <- chrname[!is.na(chrname)]
+
+# A better way: extract chromosome names from the bamfile header
 z <- scanBamHeader(bamFileName)[[1]]
-maxLen <- max(z$targets) + 1 # Must be a number larger than no. bases in largest chromosome
 chrname <- names(z$targets)
+
+maxLen <- 10^8 # a number larger than the largest chromosome
 
 # This didn't work, no destination file was created
 # for(i in chrname){

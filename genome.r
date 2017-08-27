@@ -3120,14 +3120,26 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 	results
 }
 
-g$slurm <- function(mem = 2, walltime = 24, slurmCommand = "", prefix = "slurm", run = TRUE){
+g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter", 
+	implicitThreading = FALSE, nThreads = 1, cpus-per-task = 1,
+	mem-per-cpu = 8, time = 1, ntasks-per-node = 1, 
+	run = TRUE){
 	# R code to create .sh job file to submit and execute a command
 	# Change "prefix" to serve as prefix for .sh file name
-	# memory ("mem") must be in Gb
-	# walltime must be in hours
+	# Number of nodes is fixed at 1 (each node has 32 cpu's or cores)
+	# "mem" here refers to mem-per-cpu in Gb
+	# 	Note: Each Cedar core (cpu) has 8Gb, with 8x32=256 the total per node.
+	# 	With 1 node, can use --mem= up to 256, but it is shared among cores.
+	# 	NB: if total mem (--mem=) is more than 8Gb, then extra must come from another cpu
+	# 		within the same node (when running only on one node)
+	# "time" must be in hours
+	# Set "ntasks-per-node" to 16 if need 16 cpus, etc (max is 32)
+	# If "implicitThreading" is FALSE, implicit threading is turned off (e.g., if running R, Python)
+	# 	using "export OMP_NUM_THREADS=1" (forces one thread per cpu)
 	# Date and time are appended to .sh file name to make it unique
 	
-	if(slurmCommand == "") stop("You need to provide slurm command")
+	if(myCommand == "") stop("You need to provide a job command")
+	myCommand <- gsub("\t", "", myCommand) # clean tabs from command
 	
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -3135,11 +3147,21 @@ g$slurm <- function(mem = 2, walltime = 24, slurmCommand = "", prefix = "slurm",
 	outfile <- file(shFile, "w")
 
 	fileHeader <- 
-	 '#!/bin/bash\n#SBATCH --time=HOURS:00:00\n#SBATCH --mem=MEMG\n#SBATCH --output=SHFILE-%J.out\n'
-	fileHeader <- sub("HOURS", walltime, fileHeader)
-	fileHeader <- sub("MEM", mem, fileHeader)
+	'#!/bin/bash
+	#SBATCH --account=def-USER
+	#SBATCH --time=HOURS:00:00
+	#SBATCH --nodes=1
+	#SBATCH --mem-per-cpu=MEMG
+	#SBATCH --ntasks-per-node=TASKSPERNODE
+	#SBATCH --output=SHFILE-%J.out
+	'
+	fileHeader <- gsub("\t", "", fileHeader) # remove tabs
+	fileHeader <- sub("USER", account, fileHeader)
+	fileHeader <- sub("HOURS", time, fileHeader)
+	fileHeader <- sub("MEM", mem-per-cpu, fileHeader)
+	fileHeader <- sub("CPUS", cpus, fileHeader)
+	fileHeader <- sub("TASKSPERNODE", nThreads, fileHeader)
 	fileHeader <- sub("SHFILE", shFile, fileHeader)
-
 	writeLines(fileHeader, outfile)
 
 	writeLines("\n# sh file to execute commands", outfile)
@@ -3147,8 +3169,10 @@ g$slurm <- function(mem = 2, walltime = 24, slurmCommand = "", prefix = "slurm",
 	
 	writeLines('\necho \"Current working directory is `pwd`\"',outfile)
 	writeLines('\necho \"Starting run at: \`date\`\"\n', outfile)
+	if(!implicitThreading)
+		writeLines("\nexport OMP_NUM_THREADS=1", outfile)
 	
-	writeLines(slurmCommand, outfile)
+	writeLines(myCommand, outfile)
 
 	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)
 	
@@ -3157,9 +3181,95 @@ g$slurm <- function(mem = 2, walltime = 24, slurmCommand = "", prefix = "slurm",
 	if(run){
 		qsub <- paste("sbatch", shFile)
 		system(qsub)
+		} else{
+		cat("bash file name is", shFile, "\nSubmit with 'sbatch'")
 		}
 	}
 
+g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schluter",
+	implicitThreading = FALSE, time = 1, ncores = 32, mem-per-cpu = 8, ntasks-per-node = 32, 
+	run = FALSE){
+	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
+	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node
+	# Change "prefix" to serve as prefix for .sh file name
+	# Number of nodes is here set to 1 (each node has 32 cpu's or cores)
+	# "mem" here refers to mem-per-cpu in Gb
+	# Total memory ("--mem=") is not specified, for now	
+	# 	Note: Each Cedar core (cpu) has 8Gb, with 8x32=256 the total per node.
+	# 	With 1 node, can use --mem= up to 256, but it is shared among cores.
+	# 	NB: if total mem (--mem=) is more than 8Gb, then extra must come from another cpu
+	# 		within the same node (when running only on one node)
+	# If ncores = 1 a single serial job is scheduled 
+	# If ncores > 1, serial jobs are run in parallel using the program gnu parallel.
+	# 	The maximum number is ncores = 32.
+	# If "implicitThreading" is FALSE, implicit threading is turned off (e.g., if running R, Python)
+	# 	using "export OMP_NUM_THREADS=1" (forces one thread per cpu)
+	# "time" is job run time, in hours
+	# Date and time are appended to .sh job file name to make it unique
+	# There is no need to 'module load parallel'
+	# In parallel command, j refers to the number of cores
+	# Use "--halt soon,fail=20% echo {}" to keep parallel spawning jobs until 20% of jobs fail
+
+	if(myCommand == "") stop("You need to provide job command")
+
+	# Attach date and time to name of pbs file to make unique
+	hour <- gsub("[ :]", "-", Sys.time())
+	shFile <- paste(prefix, "-", hour, ".sh", sep = "")
+	outfile <- file(shFile, "w")
+	if(ncores = 1) stop("use g$slurm for single-cpu jobs")
+	if(ncores > 32) warning("Each node has only 32 cores")
+
+	# Default headers for .sh file
+	fileHeader <- '#!/bin/bash
+	#SBATCH --account=def-USER
+	#SBATCH --time=HOURS:00:00
+	#SBATCH --nodes=1
+	#SBATCH --mem-per-cpu=MEMG
+	#SBATCH --ntasks-per-node=TASKSPERNODE
+	#SBATCH --output=SHFILE-%J.out
+	'
+	# Modify headers to incorporate user values
+	fileHeader <- gsub("\t", "", fileHeader) # remove tabs
+	fileHeader <- sub("USER", account, fileHeader)
+	fileHeader <- sub("HOURS", time, fileHeader)
+	fileHeader <- sub("MEM", mem-per-cpu, fileHeader)
+	fileHeader <- sub("TASKSPERNODE", ncores, fileHeader)
+	fileHeader <- sub("SHFILE", shFile, fileHeader)
+	# fileHeader <- sub("MEM", mem, fileHeader)
+	writeLines(fileHeader, outfile)
+	
+	gnuParallelCommand <- 
+		paste("parallel --no-run-if-empty -j", ncores, "--halt soon,fail=50% echo {} <<EOF")
+
+	# File body
+	writeLines(fileHeader, outfile)
+	writeLines("\n# sh file to execute commands", outfile)
+	writeLines("\n# THIS FILE IS GENERATED BY R, DO NOT EDIT\n", outfile)
+	writeLines('\necho \"Current working directory is `pwd`\"',outfile)
+	writeLines('\necho \"Starting run at: \`date\`\"\n', outfile)
+	if(!implicitThreading)	writeLines("export OMP_NUM_THREADS=1", outfile)
+	writeLines("START=$(date +%s.%N)", outfile)
+
+	writeLines("# ", outfile)
+	writeLines(gnuParallelCommand, outfile)
+
+	writeLines(myCommand, outfile)
+	writeLines("EOF", outfile)
+
+	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)
+
+	writeLines("END=$(date +%s.%N)", outfile)
+	writeLines('DIFF=$(echo "$END - $START" | bc)', outfile)
+	writeLines("echo Start minus end time \\(sec\\) is $DIFF", outfile)
+	
+	close(outfile)
+	if(run){
+		qsub <- paste("sbatch", shFile)
+		system(qsub)
+		} else{
+		cat("bash file name is", shFile, "\nSubmit with 'sbatch'")
+		}
+	}
 
 g$sortRGsam <- function(inputfish = "", mem = 4, walltime = 24, 
 		workdir = "$TMPDIR/tmp", 	# needed for Picard, says Belaid

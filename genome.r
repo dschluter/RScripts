@@ -3214,7 +3214,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	hour <- gsub("[ :]", "-", Sys.time())
 	shFile <- paste(prefix, "-", hour, ".sh", sep = "")
 	outfile <- file(shFile, "w")
-	if(ncores = 1) stop("use g$slurm for single-cpu jobs")
+	if(ncores == 1) stop("use g$slurm for single-cpu jobs")
 	if(ncores > 32) warning("Each node has only 32 cores")
 
 	# Default headers for .sh file

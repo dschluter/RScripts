@@ -3121,8 +3121,7 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 }
 
 g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter", 
-	implicitThreading = FALSE, nThreads = 1, cpus-per-task = 1,
-	mem-per-cpu = 8, time = 1, ntasks-per-node = 1, 
+	implicitThreading = TRUE, memPerCpu = 8, time = 1, ntaskPerNode = 1, 
 	run = TRUE){
 	# R code to create .sh job file to submit and execute a command
 	# Change "prefix" to serve as prefix for .sh file name
@@ -3158,9 +3157,8 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	fileHeader <- gsub("\t", "", fileHeader) # remove tabs
 	fileHeader <- sub("USER", account, fileHeader)
 	fileHeader <- sub("HOURS", time, fileHeader)
-	fileHeader <- sub("MEM", mem-per-cpu, fileHeader)
-	fileHeader <- sub("CPUS", cpus, fileHeader)
-	fileHeader <- sub("TASKSPERNODE", nThreads, fileHeader)
+	fileHeader <- sub("MEM", memPerCpu, fileHeader)
+	fileHeader <- sub("TASKSPERNODE", ntaskPerNode, fileHeader)
 	fileHeader <- sub("SHFILE", shFile, fileHeader)
 	writeLines(fileHeader, outfile)
 
@@ -3187,7 +3185,7 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	}
 
 g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schluter",
-	implicitThreading = FALSE, time = 1, ncores = 32, mem-per-cpu = 8, ntasks-per-node = 32, 
+	implicitThreading = FALSE, time = 1, ncores = 32, memPerCpu = 8, 
 	run = FALSE){
 	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
 	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node
@@ -3232,7 +3230,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	fileHeader <- gsub("\t", "", fileHeader) # remove tabs
 	fileHeader <- sub("USER", account, fileHeader)
 	fileHeader <- sub("HOURS", time, fileHeader)
-	fileHeader <- sub("MEM", mem-per-cpu, fileHeader)
+	fileHeader <- sub("MEM", memPerCpu, fileHeader)
 	fileHeader <- sub("TASKSPERNODE", ncores, fileHeader)
 	fileHeader <- sub("SHFILE", shFile, fileHeader)
 	# fileHeader <- sub("MEM", mem, fileHeader)

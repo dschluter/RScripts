@@ -3121,8 +3121,8 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 }
 
 g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter", 
-	implicitThreading = TRUE, memPerCpu = 8, time = 1, ntaskPerNode = 1, 
-	run = TRUE){
+	implicitThreading = TRUE, nCpu = 1, memPerCpu = 8, time = 1, 
+	run = FALSE){
 	# R code to create .sh job file to submit and execute a command
 	# Change "prefix" to serve as prefix for .sh file name
 	# Number of nodes is fixed at 1 (each node has 32 cpu's or cores)
@@ -3132,7 +3132,7 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	# 	NB: if total mem (--mem=) is more than 8Gb, then extra must come from another cpu
 	# 		within the same node (when running only on one node)
 	# "time" must be in hours
-	# Set "ntasks-per-node" to 16 if need 16 cpus, etc (max is 32)
+	# Set "nCpu" to 16 if want to use 16 cpu's, etc (max is 32)
 	# If "implicitThreading" is FALSE, implicit threading is turned off (e.g., if running R, Python)
 	# 	using "export OMP_NUM_THREADS=1" (forces one thread per cpu)
 	# Date and time are appended to .sh file name to make it unique
@@ -3151,14 +3151,14 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	#SBATCH --time=HOURS:00:00
 	#SBATCH --nodes=1
 	#SBATCH --mem-per-cpu=MEMG
-	#SBATCH --ntasks-per-node=TASKSPERNODE
+	#SBATCH --ntasks-per-node=CPUS
 	#SBATCH --output=SHFILE-%J.out
 	'
 	fileHeader <- gsub("\t", "", fileHeader) # remove tabs
 	fileHeader <- sub("USER", account, fileHeader)
 	fileHeader <- sub("HOURS", time, fileHeader)
 	fileHeader <- sub("MEM", memPerCpu, fileHeader)
-	fileHeader <- sub("TASKSPERNODE", ntaskPerNode, fileHeader)
+	fileHeader <- sub("CPUS", nCpu, fileHeader)
 	fileHeader <- sub("SHFILE", shFile, fileHeader)
 	writeLines(fileHeader, outfile)
 
@@ -3180,12 +3180,12 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 		qsub <- paste("sbatch", shFile)
 		system(qsub)
 		} else{
-		cat("bash file name is", shFile, "\nSubmit with 'sbatch'")
+		cat("Created bash file '", shFile, "'\nSubmit in unix using 'sbatch ", shFile, "'", sep = "")
 		}
 	}
 
-g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schluter",
-	implicitThreading = FALSE, time = 1, ncores = 32, memPerCpu = 8, 
+g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "schluter",
+	implicitThreading = FALSE, time = 1, nCpu = 32, memPerCpu = 8, 
 	run = FALSE){
 	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
 	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node
@@ -3205,17 +3205,28 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	# "time" is job run time, in hours
 	# Date and time are appended to .sh job file name to make it unique
 	# There is no need to 'module load parallel'
-	# In parallel command, j refers to the number of cores
-	# Use "--halt soon,fail=20% echo {}" to keep parallel spawning jobs until 20% of jobs fail
+	# j option on parallel is the number of cores, or cpu's
+	# Use "--halt soon,fail=50% echo {}" to keep parallel spawning jobs until 50% of jobs fail
 
 	if(myCommand == "") stop("You need to provide job command")
+	myCommand <- gsub("\t", "", myCommand) # clean tabs from command
+	myCommand <- sub("^\n", "", myCommand) # remove leading carriage return if present
+	z <- unlist(strsplit(myCommand, split = "\n"))
+	modLoads <- z[grep('module load', z)]  # grab lines with "module load"
+	if(length(modLoads) < 1) 
+		warning("No modules are loaded") else
+		gnuCommands <- z[-grep('module load', z)]
+	if(length(gnuCommands) < 1) stop("No commands were included in 'myCommand'")
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
 	shFile <- paste(prefix, "-", hour, ".sh", sep = "")
 	outfile <- file(shFile, "w")
-	if(ncores == 1) stop("use g$slurm for single-cpu jobs")
-	if(ncores > 32) warning("Each node has only 32 cores")
+	if(nCpu == 1) stop("Use g$slurm for single-cpu jobs")
+	if(nCpu > 32){
+		warning("Each node has only 32 cores")
+		nCpu <- 32
+		}
 
 	# Default headers for .sh file
 	fileHeader <- '#!/bin/bash
@@ -3223,7 +3234,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	#SBATCH --time=HOURS:00:00
 	#SBATCH --nodes=1
 	#SBATCH --mem-per-cpu=MEMG
-	#SBATCH --ntasks-per-node=TASKSPERNODE
+	#SBATCH --ntasks-per-node=CPUS
 	#SBATCH --output=SHFILE-%J.out
 	'
 	# Modify headers to incorporate user values
@@ -3231,13 +3242,9 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	fileHeader <- sub("USER", account, fileHeader)
 	fileHeader <- sub("HOURS", time, fileHeader)
 	fileHeader <- sub("MEM", memPerCpu, fileHeader)
-	fileHeader <- sub("TASKSPERNODE", ncores, fileHeader)
+	fileHeader <- sub("CPUS", nCpu, fileHeader)
 	fileHeader <- sub("SHFILE", shFile, fileHeader)
-	# fileHeader <- sub("MEM", mem, fileHeader)
 	writeLines(fileHeader, outfile)
-	
-	gnuParallelCommand <- 
-		paste("parallel --no-run-if-empty -j", ncores, "--halt soon,fail=50% echo {} <<EOF")
 
 	# File body
 	writeLines(fileHeader, outfile)
@@ -3248,11 +3255,13 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	if(!implicitThreading)	writeLines("export OMP_NUM_THREADS=1", outfile)
 	writeLines("START=$(date +%s.%N)", outfile)
 
-	writeLines("# ", outfile)
-	writeLines(gnuParallelCommand, outfile)
-
-	writeLines(myCommand, outfile)
-	writeLines("EOF", outfile)
+	writeLines("\n", outfile)
+	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
+	
+	# No need to module load gnu parallel on Cedar
+	writeLines(paste("parallel --no-run-if-empty -j", nCpu, "--halt soon,fail=50% echo {} <<ok"), outfile)
+	writeLines(paste(gnuCommands, collapse = "\n"), outfile)
+	writeLines("ok", outfile)
 
 	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)
 
@@ -3262,10 +3271,10 @@ g$slurm.parallel <- function(myCommand = "", prefix = "slurm",  account = "schlu
 	
 	close(outfile)
 	if(run){
-		qsub <- paste("sbatch", shFile)
-		system(qsub)
+		cmd <- paste("sbatch", shFile)
+		system(cmd)
 		} else{
-		cat("bash file name is", shFile, "\nSubmit with 'sbatch'")
+		cat("Created bash file '", shFile, "'\nSubmit in unix using 'sbatch ", shFile, "'", sep = "")
 		}
 	}
 

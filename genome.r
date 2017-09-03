@@ -3185,7 +3185,7 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	}
 
 g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "schluter",
-	implicitThreading = TRUE, time = 1, nCpu = 32, memPerCpu = 8, 
+	implicitThreading = TRUE, time = 1, nCpu = 32, nParallelCommands = 32, memPerCpu = 8, 
 	run = FALSE){
 	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
 	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node
@@ -3205,7 +3205,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	# "time" is job run time, in hours
 	# Date and time are appended to .sh job file name to make it unique
 	# There is no need to 'module load parallel'
-	# j option on parallel is the number of cores, or cpu's
+	# nParallelCommands is the number of jobs to run at once (j option in parallel)
 	# Use "--halt soon,fail=50% echo {}" to keep parallel spawning jobs until 50% of jobs fail
 
 	if(myCommand == "") stop("You need to provide job command")
@@ -3259,7 +3259,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
 	
 	# No need to module load gnu parallel on Cedar
-	writeLines(paste("parallel --no-run-if-empty -j", nCpu, "--halt soon,fail=50% echo {} <<ok"), outfile)
+	writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% echo {} <<ok"), outfile)
 	writeLines(paste(gnuCommands, collapse = "\n"), outfile)
 	writeLines("ok", outfile)
 

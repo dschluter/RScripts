@@ -3185,7 +3185,7 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	}
 
 g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "schluter",
-	implicitThreading = FALSE, time = 1, nCpu = 32, memPerCpu = 8, 
+	implicitThreading = TRUE, time = 1, nCpu = 32, memPerCpu = 8, 
 	run = FALSE){
 	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
 	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node

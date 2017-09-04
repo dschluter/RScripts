@@ -2776,7 +2776,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	# Date and time are appended to .sh job file name to make it unique
 	# There is no need to 'module load parallel'
 	# nParallelCommands is the number of jobs to run at once (j option in parallel)
-	# Use "--halt soon,fail=50% echo {}" to keep parallel spawning jobs until 50% of jobs fail
+	# Use "--halt soon,fail=50%" to keep parallel spawning jobs until 50% of jobs fail
 
 	if(myCommand == "") stop("You need to provide job command")
 	myCommand <- gsub("\t", "", myCommand) # clean tabs from command
@@ -2829,7 +2829,7 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
 	
 	# No need to module load gnu parallel on Cedar
-	writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% echo {} <<ok"), outfile)
+	writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% <<ok"), outfile)
 	writeLines(paste(gnuCommands, collapse = "\n"), outfile)
 	writeLines("ok", outfile)
 

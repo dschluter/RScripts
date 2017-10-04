@@ -2767,14 +2767,14 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	# 	With 1 node, can use --mem= up to 256, but it is shared among cores.
 	# 	NB: if total mem (--mem=) is more than 8Gb, then extra must come from another cpu
 	# 		within the same node (when running only on one node)
-	# If ncores = 1 a single serial job is scheduled 
-	# If ncores > 1, serial jobs are run in parallel using the program gnu parallel.
-	# 	The maximum number is ncores = 32.
+	# nCpu refers to the number of cores (cpu's); the maximum number in a node is 32.
+	#   If nCpu = 1 a single serial job is scheduled 
+	#   If nCpu > 1, more than one serial job can be run using the gnu parallel.
 	# If "implicitThreading" is FALSE, implicit threading is turned off (e.g., if running R, Python)
 	# 	using "export OMP_NUM_THREADS=1" (forces one thread per cpu)
-	# "time" is job run time, in hours
+	# "time" is whole job run time, in hours
 	# Date and time are appended to .sh job file name to make it unique
-	# There is no need to 'module load parallel'
+	# There is no need to load gnu parallel using 'module load parallel'
 	# nParallelCommands is the number of jobs to run at once (j option in parallel)
 	# Use "--halt soon,fail=50%" to keep parallel spawning jobs until 50% of jobs fail
 
@@ -2785,8 +2785,8 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	modLoads <- z[grep('module load', z)]  # grab lines with "module load"
 	if(length(modLoads) < 1) 
 		warning("No modules are loaded") else
-		gnuCommands <- z[-grep('module load', z)]
-	if(length(gnuCommands) < 1) stop("No commands were included in 'myCommand'")
+		jobCommands <- z[-grep('module load', z)]
+	if(length(jobCommands) < 1) stop("No commands were included in 'myCommand'")
 
 	# Attach date and time to name of pbs file to make unique
 	hour <- gsub("[ :]", "-", Sys.time())
@@ -2827,10 +2827,13 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	writeLines("\n", outfile)
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
 	
-	# No need to module load gnu parallel on Cedar
-	writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% <<ok"), outfile)
-	writeLines(paste(gnuCommands, collapse = "\n"), outfile)
-	writeLines("ok", outfile)
+	if(nParallelCommands > 1){
+		writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% <<gnu"), outfile)
+		writeLines(paste(jobCommands, collapse = "\n"), outfile)
+		writeLines("gnu", outfile)
+		} else{
+		writeLines(paste(jobCommands, collapse = "\n"), outfile)
+		}
 
 	writeLines('\necho \"Job finished with exit code $? at: \`date\`\"', outfile)
 

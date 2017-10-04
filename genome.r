@@ -2690,7 +2690,7 @@ g$slidewin <- function(blockstats, method = "FST", nsteps.per.window, windowNmin
 	results
 }
 
-g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter", 
+g$slurm.bak <- function(myCommand = "", prefix = "slurm", account = "schluter", 
 	implicitThreading = TRUE, nCpu = 1, memPerCpu = 8, time = 1, 
 	run = FALSE){
 	# R code to create .sh job file to submit and execute a command
@@ -2754,29 +2754,29 @@ g$slurm <- function(myCommand = "", prefix = "slurm", account = "schluter",
 		}
 	}
 
-g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "schluter",
-	implicitThreading = TRUE, time = 1, nCpu = 32, nParallelCommands = 32, memPerCpu = 8, 
+g$slurm <- function(myCommand = "", prefix = "slurm",  account = "schluter",
+	implicitThreading = TRUE, time = 1, nCpu = 32, gnuJ = 32, memPerCpu = 8, 
 	run = FALSE){
-	# R code to create a jobname.sh file to submit a gnu parallel job to the scheduler
-	# Jobs are serial, but gnu parallel will run them in parallel on multiple cores of a node
+	# R code to create a jobname.sh file to submit a job to the scheduler
 	# Change "prefix" to serve as prefix for .sh file name
-	# Number of nodes is here set to 1 (each node has 32 cpu's or cores)
-	# "mem" here refers to mem-per-cpu in Gb
-	# Total memory ("--mem=") is not specified, for now	
+	# If myCommand is a chain of serial jobs, use gnu parallel to run in parallel
+	# Number of nodes is here fixed at 1 (each node has 32 cpu's or cores)
+	# memPerCpu here refers to mem-per-cpu in Gb (Total memory "--mem=" is not specified for now)	
 	# 	Note: Each Cedar core (cpu) has 8Gb, with 8x32=256 the total per node.
 	# 	With 1 node, can use --mem= up to 256, but it is shared among cores.
-	# 	NB: if total mem (--mem=) is more than 8Gb, then extra must come from another cpu
+	# 	NB: if memPerCpu > 8Gb, then extra must come from other cpu's
 	# 		within the same node (when running only on one node)
 	# nCpu refers to the number of cores (cpu's); the maximum number in a node is 32.
-	#   If nCpu = 1 a single serial job is scheduled 
-	#   If nCpu > 1, more than one serial job can be run using the gnu parallel.
+	#   If nCpu = 1 a single serial job is scheduled.
+	#   Use nCpu > 1 for multi-threading a single job or running gnu parallel.
+	# gnuJ > 1 implies a chain of commands in myCommand is scheduled using gnu parallel
+	# 	gnuJ is then the number of commands to run simultaneously (j option in gnu parallel)
+	# 	Using "--halt soon,fail=50%" to keep gnu parallel spawning jobs until 50% of jobs fail
+	# 	There is no need to load gnu parallel using 'module load parallel'
 	# If "implicitThreading" is FALSE, implicit threading is turned off (e.g., if running R, Python)
 	# 	using "export OMP_NUM_THREADS=1" (forces one thread per cpu)
-	# "time" is whole job run time, in hours
-	# Date and time are appended to .sh job file name to make it unique
-	# There is no need to load gnu parallel using 'module load parallel'
-	# nParallelCommands is the number of jobs to run at once (j option in parallel)
-	# Use "--halt soon,fail=50%" to keep parallel spawning jobs until 50% of jobs fail
+	# time is whole job run time, in hours
+	# 	Date and time are appended to .sh job file name to make it unique
 
 	if(myCommand == "") stop("You need to provide job command")
 	myCommand <- gsub("\t", "", myCommand) # clean tabs from command
@@ -2827,8 +2827,8 @@ g$slurm.parallel <- function(myCommand = "", prefix = "parallel",  account = "sc
 	writeLines("\n", outfile)
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
 	
-	if(nParallelCommands > 1){
-		writeLines(paste("parallel --no-run-if-empty -j", nParallelCommands, "--halt soon,fail=50% <<gnu"), outfile)
+	if(gnuJ > 1){
+		writeLines(paste("parallel --no-run-if-empty -j", gnuJ, "--halt soon,fail=50% <<gnu"), outfile)
 		writeLines(paste(jobCommands, collapse = "\n"), outfile)
 		writeLines("gnu", outfile)
 		} else{

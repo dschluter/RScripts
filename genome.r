@@ -2755,7 +2755,7 @@ g$slurm.bak <- function(myCommand = "", prefix = "slurm", account = "schluter",
 	}
 
 g$slurm <- function(myCommand = "", prefix = "slurm",  account = "schluter",
-	implicitThreading = TRUE, time = 1, nCpu = 32, gnuJ = 32, memPerCpu = 8, 
+	implicitThreading = TRUE, time = 1, nCpu = 32, gnuJ = 1, memPerCpu = 8, 
 	run = FALSE){
 	# R code to create a jobname.sh file to submit a job to the scheduler
 	# Change "prefix" to serve as prefix for .sh file name

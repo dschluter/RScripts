@@ -2,8 +2,11 @@ time2hr <- function(x){
 	# x <- "3-03:03:26"
 	# x <- "07:10:51"
 	# x <- "00:43:48"
-	# x <- "04:31.056"
-	if(!is.character(x)) x <- deparse(substitute(x))
+	# time2hr("04:31.056")
+	# time2hr(01:29:36)
+	# if(!is.character(x)) x <- deparse(substitute(x))
+	x <- deparse(substitute(x))
+	x <- gsub('\"','',x) # get red of \"
 	hours <- 0
 	ncolon <- sapply(regmatches(x, gregexpr(":", x)), length)
 	x1 <- unlist(strsplit(x, split="-"))
@@ -13,10 +16,10 @@ time2hr <- function(x){
 		}
 	if(ncolon == 1) x1 <- paste("00:", x1, sep = "")
 	x2 <- as.numeric( unlist(strsplit(x1, split = ":")) )
-	hours <- hours + as.integer(x2[1]) + x2[2]/60 + x2[3]/3600
+	hours <- hours + x2[1] + x2[2]/60 + x2[3]/3600
 	return(hours)
 	}
-	
+		
 is_number <- function(A){ !grepl("[^0-9]+", A) & nchar(A) > 0}
 
 curl <- function(Rfile){

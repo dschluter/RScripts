@@ -1,23 +1,26 @@
 time2hr <- function(x){
-	# x <- "3-03:03:26"
-	# x <- "07:10:51"
-	# x <- "00:43:48"
+	# x must be a character
+	library(chron)
+	# time2hr("3-03:03:26")
+	# time2hr("07:10:51")
+	# time2hr("00:43:48")
 	# time2hr("04:31.056")
-	# time2hr(01:29:36)
+	# time2hr("01:29:36")
 	# if(!is.character(x)) x <- deparse(substitute(x))
-	x <- deparse(substitute(x))
-	x <- gsub('\"','',x) # get red of \"
-	hours <- 0
-	ncolon <- sapply(regmatches(x, gregexpr(":", x)), length)
+	hrs <- 0
+	ncolon <- sapply(regmatches(x, gregexpr(":", x)), length) # No. of ":" in character
 	x1 <- unlist(strsplit(x, split="-"))
 	if(length(x1) == 2){
-		hours <- hours + 24 * as.integer(x1[1])
+		hrs <- hrs + 24 * as.integer(x1[1])
 		x1 <- x1[-1]
 		}
-	if(ncolon == 1) x1 <- paste("00:", x1, sep = "")
-	x2 <- as.numeric( unlist(strsplit(x1, split = ":")) )
-	hours <- hours + x2[1] + x2[2]/60 + x2[3]/3600
-	return(hours)
+	x2 <- unlist(strsplit(x1, split="[.]"))	
+	if(length(x2) == 2) x2 <- x2[1] # drop the fractions of seconds
+	
+	if(ncolon == 1) x2 <- paste("00:", x2, sep = "")
+	x3 <- times(x2)
+	hrs <- hrs + hours(x3) + minutes(x3)/60 + seconds(x3)/3600
+	return(hrs)
 	}
 		
 is_number <- function(A){ !grepl("[^0-9]+", A) & nchar(A) > 0}

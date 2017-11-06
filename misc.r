@@ -1,6 +1,6 @@
 time2hr <- function(x){
 	# x must be a character
-	library(chron)
+	# library(chron) - doesn't accept hours > 24, eg "28:26:12"
 	# time2hr("3-03:03:26")
 	# time2hr("07:10:51")
 	# time2hr("00:43:48")
@@ -18,8 +18,8 @@ time2hr <- function(x){
 	if(length(x2) == 2) x2 <- x2[1] # drop the fractions of seconds
 	
 	if(ncolon == 1) x2 <- paste("00:", x2, sep = "")
-	x3 <- times(x2)
-	hrs <- hrs + hours(x3) + minutes(x3)/60 + seconds(x3)/3600
+	x3 <- as.integer(unlist(strsplit(x2, split = ":")))
+	hrs <- hrs + x3[1] + x3[2]/60 + x3[3]/3600
 	return(hrs)
 	}
 		

@@ -2792,9 +2792,8 @@ g$slurm <- function(myCommand = "", prefix = "slurm",  account = "schluter",
 	hour <- gsub("[ :]", "-", Sys.time())
 	shFile <- paste(prefix, "-", hour, ".sh", sep = "")
 	outfile <- file(shFile, "w")
-	if(nCpu == 1) stop("Use g$slurm for single-cpu jobs")
 	if(nCpu > 32){
-		warning("Each node has only 32 cores")
+		warning("Each node has only 32 cores; nCpu set to 32.")
 		nCpu <- 32
 		}
 

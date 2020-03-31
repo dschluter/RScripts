@@ -2827,7 +2827,8 @@ g$slurm <- function(myCommand = "", prefix = "slurm",  account = "schluter",
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), outfile)
 	
 	if(gnuJ > 1){
-		writeLines(paste("parallel --no-run-if-empty -j", gnuJ, "--halt soon,fail=50% <<gnu"), outfile)
+		writeLines(paste("parallel --no-run-if-empty --tmpdir $SLURM_TMPDIR -j", 
+			gnuJ, "--halt soon,fail=50% <<gnu"), outfile)
 		writeLines(paste(jobCommands, collapse = "\n"), outfile)
 		writeLines("gnu", outfile)
 		} else{

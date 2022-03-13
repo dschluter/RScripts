@@ -2858,7 +2858,7 @@ g$pbs <- function(myCommand = "", prefix = "pbs",  account = "st-dolph-1",
 
 	writeLines("\n", shFile)
 	writeLines("module load CVMFS_test", shFile)
-	writeLines("module avail\n", shFile)
+	# writeLines("module avail\n", shFile)
 
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), shFile)
 	

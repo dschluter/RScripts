@@ -2856,8 +2856,8 @@ g$pbs <- function(myCommand = "", prefix = "pbs",  account = "st-dolph-1",
 	if(!implicitThreading)	writeLines("export OMP_NUM_THREADS=1", shFile)
 	writeLines("START=$(date +%s.%N)", shFile)
 
-	writeLines("\n", shFile)
-	writeLines("module load CVMFS_test", shFile)
+	# writeLines("\n", shFile)
+	# writeLines("module load CVMFS_test", shFile)
 	# writeLines("module avail\n", shFile)
 
 	if(length(modLoads) >= 1) writeLines(paste(modLoads, collapse = "\n"), shFile)

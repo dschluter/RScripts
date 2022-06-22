@@ -5,9 +5,7 @@ git <- function(githubfile){
 				.opts = list(ssl.verifypeer = FALSE) )
 	eval(parse(text = script), envir = .GlobalEnv)
 	}
-.First <- function(){
-	git("genome.r")
-	
-	git("misc.r")
-	
-	}
+# .First <- function(){
+# 	git("genome.r")
+# 	git("misc.r")	
+# 	}

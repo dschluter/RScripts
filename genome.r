@@ -1673,8 +1673,8 @@ g$pbs <- function(myCommand = "", prefix = "pbs",  account = "st-dolph-1",
 	fileHeader <- sub("SHFILE", shFileName, fileHeader)
 	fileHeader <- sub("USER", account, fileHeader)
 	fileHeader <- sub("EMAIL", eMail, fileHeader)
-	fileHeader <- sub("output.txt", paste0(shFileName, ".$PBS_JOBID.out"), fileHeader)
-	fileHeader <- sub("error.txt", paste0(shFileName, ".$PBS_JOBID.err"), fileHeader)
+	fileHeader <- sub("output.txt", paste0(shFileName, ".out"), fileHeader)
+	fileHeader <- sub("error.txt", paste0(shFileName, ".err"), fileHeader)
 	writeLines(fileHeader, shFile)
 
 	# File body

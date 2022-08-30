@@ -1617,7 +1617,7 @@ g$slurm <- function(myCommand = "", prefix = "slurm",  account = "schluter",
 
 g$pbs <- function(myCommand = "", prefix = "pbs",  account = "st-dolph-1",
 	implicitThreading = TRUE, time = 1, nCpu = 32, gnuJ = 1, memPerCpu = 8, 
-	totMem - nCpu * memPerCpu, eMail = "dolph.schluter@ubc.ca", run = FALSE){
+	totMem = nCpu * memPerCpu, eMail = "dolph.schluter@ubc.ca", run = FALSE){
 	# R code to create a jobname.sh file to submit a job to the scheduler
 	# Change "prefix" to serve as prefix for .sh file name
 	# If myCommand is a chain of serial jobs, use gnu parallel to run in parallel

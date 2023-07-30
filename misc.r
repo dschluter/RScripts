@@ -1,3 +1,88 @@
+sizeadjust.lm <- function(trait, size, group){
+	# My size-correction function using linear model
+    # Size corrections assume a common slope among levels of group variable.
+    # Traits are adjusted to a fish of size msize = mean(size)
+    if(!is.factor(group)) group <- factor(group)
+    
+    msize <- mean(size, na.rm = TRUE)
+    z <- lm(trait ~ size + group, na.action = na.exclude)
+    
+    # Trait value predicted at the mean size
+    y1 <- predict(z, newdata = 
+                data.frame(size = rep(msize, length(group)), group) )
+                
+    # residuals
+    y2 <- trait - predict(z, newdata = data.frame(size, group))
+    
+    # adjusted values
+    y3 <- y1 + y2
+    return(y3)
+    }
+
+sizeadjust.cpc <- function(trait, size, group){
+	# My size-correction function using common principal components
+	# Size corrections assume a common slope among levels of group variable.
+	# Trait is adjusted to have the same mean after adjustment as before
+	# trait <- x$grl1.mm; size = x$stdl_new
+	library(cpcbp)
+	f <- factor(group)
+	mtrait <- mean(trait, na.rm = TRUE)
+	dat <- data.frame(trait, size)
+	    
+	nomissing <- which(apply(dat, 1, function(x){all(!is.na(x))}))
+	x1 <- dat[nomissing, ]
+	f1 <- f[nomissing]
+	xlist <- split(x1, f1)
+	n <- sapply(xlist, nrow)
+	covlist <- lapply(xlist, cov)
+	z <- new_cpc(matList = covlist, n = n)
+	xadj <- bpfun(dat, f, z[,1], center = FALSE)
+	colnames(xadj) <- names(dat)
+	trait.adj <- xadj[,1] - mean(xadj[,1], na.rm = TRUE) + mtrait
+		return(trait.adj)
+	}
+
+sizeadjust.rma <- function(trait, size, group){
+    library(dplyr)
+	# My size-correction function for reduced major axis regression RMA
+	# (equivalent to CPC if traits are standardized so using correlation matrix)
+    # Size corrections assume a common slope among levels of group variable.
+    # Traits are adjusted to a fish of size msize = mean(size)
+    # trait <- x$grl1.mm; size = x$stdl_new; group = x$sexpoplake
+    f <- factor(group)
+
+    # Mean size
+    msize <- mean(size, na.rm = TRUE)
+    
+    # Assemble traits and groups
+    dat <- data.frame(trait, size)
+    nomissing <- which(apply(dat, 1, function(x){all(!is.na(x))}))
+    x1 <- dat[nomissing, ]
+    f1 <- f[nomissing]
+    xlist <- split(x1, f1)
+    n <- sapply(xlist, nrow)
+    covlist <- lapply(xlist, cov)
+    
+    # Calculate variances and pool them across groups
+    vars <- do.call("rbind", lapply(covlist, diag))
+    var_trait <- weighted.mean(vars[, "trait"], w = n - 1)
+    var_size <- weighted.mean(vars[, "size"], w = n - 1)
+    b <- sqrt(var_trait/var_size)
+
+    # Calculate predicted values and residuals
+    # meansize and meantrait are calculated separately for each group
+    dat <- data.frame(dat, f)
+    dat <- mutate(group_by(dat, f), 
+        meansize = mean(size, na.rm = TRUE), 
+        meantrait = mean(trait, na.rm = TRUE))
+    dat$pred.rma <- b * (dat$size - dat$meansize) + dat$meantrait
+    dat$resid.rma <- dat$trait - dat$pred.rma
+    
+    # calculate size-adjusted values
+    trait.adj <- b * (msize - dat$meansize) + dat$meantrait + dat$resid.rma
+    return(trait.adj)
+    }
+    
 time2hr <- function(x){
 	# x must be a character
 	# library(chron) - doesn't accept hours > 24, eg "28:26:12"
